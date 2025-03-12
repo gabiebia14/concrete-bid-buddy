@@ -10,6 +10,7 @@ import NotFound from './pages/NotFound';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
+import { ChatInterface } from './components/ui/chat-interface';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ function App() {
               <Route path="/criar-orcamento" element={<CreateQuote />} />
               <Route path="/historico" element={<QuoteHistory />} />
               <Route path="/catalogo" element={<Catalog />} />
+              <Route path="/chat-assistant" element={<ChatInterface />} />
               
               {/* Páginas para Gerentes */}
               <Route path="/manager/dashboard" element={<ManagerDashboard />} />

@@ -1,10 +1,9 @@
-
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, ArrowUp, ArrowDown, MoreHorizontal, DollarSign, Package, Clock, CircleCheck } from 'lucide-react';
+import { Search, Plus, ArrowUp, ArrowDown, MoreHorizontal, DollarSign, Package, Clock, CircleCheck, MessageSquare } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Link } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
@@ -13,7 +12,6 @@ import { TransactionItem } from '@/lib/types';
 export default function Dashboard() {
   const [period, setPeriod] = useState('month');
   
-  // Dados simulados para o dashboard do cliente
   const statsData = [
     {
       title: 'Orçamentos Ativos',
@@ -121,6 +119,61 @@ export default function Dashboard() {
             </Button>
           </div>
         </div>
+        
+        <Card className="mb-8 border-l-4 border-l-primary overflow-hidden">
+          <div className="flex flex-col md:flex-row">
+            <div className="md:w-1/2 p-6">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="text-xl md:text-2xl flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-primary" />
+                  Assistente de Vendas IPT Teixeira
+                </CardTitle>
+                <CardDescription>
+                  Tire suas dúvidas e solicite orçamentos de forma rápida
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0 pb-4">
+                <p className="text-sm text-muted-foreground">
+                  Nosso assistente virtual especializado em artefatos de concreto está pronto para:
+                </p>
+                <ul className="mt-3 space-y-2">
+                  <li className="flex items-center gap-2 text-sm">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                    <span>Esclarecer dúvidas sobre nossa linha de produtos</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                    <span>Recomendar produtos específicos para sua necessidade</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                    <span>Criar orçamentos personalizados rapidamente</span>
+                  </li>
+                </ul>
+              </CardContent>
+              <CardFooter className="p-0">
+                <Button asChild className="w-full md:w-auto">
+                  <Link to="/chat-assistant" className="flex items-center justify-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Conversar com o Assistente
+                  </Link>
+                </Button>
+              </CardFooter>
+            </div>
+            <div className="md:w-1/2 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-6">
+              <div className="max-w-xs">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md mb-3 ml-auto max-w-[80%]">
+                  <p className="text-xs text-gray-500 mb-1">Você</p>
+                  <p className="text-sm">Preciso de um orçamento para 20 blocos de concreto.</p>
+                </div>
+                <div className="bg-primary/10 rounded-lg p-3 shadow-md mr-auto max-w-[80%]">
+                  <p className="text-xs text-gray-500 mb-1">Assistente IPT</p>
+                  <p className="text-sm">Qual tipo de bloco você procura? Temos blocos estruturais e de vedação em diversas dimensões.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {statsData.map((stat, index) => (
