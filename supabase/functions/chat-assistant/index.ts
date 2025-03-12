@@ -5,6 +5,7 @@ import { ChatOpenAI } from "npm:@langchain/openai";
 import { ChatPromptTemplate, MessagesPlaceholder } from "npm:@langchain/core/prompts";
 import { StringOutputParser } from "npm:@langchain/core/output_parsers";
 import { RunnablePassthrough, RunnableSequence } from "npm:@langchain/core/runnables";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,57 @@ const chatModel = new ChatOpenAI({
   temperature: 0.5
 });
 
+// Criando o cliente Supabase
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://ehrerbpblmensiodhgka.supabase.co';
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocmVyYnBibG1lbnNpb2RoZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTM2NzgsImV4cCI6MjA1NzMyOTY3OH0.Ppae9xwONU2Uy8__0v28OlyFGI6JXBFkMib8AJDwAn8';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Função para buscar todos os produtos
+async function fetchAllProducts() {
+  try {
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error);
+    return [];
+  }
+}
+
+// Função para buscar produtos por categoria
+async function fetchProductsByCategory(category: string) {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .ilike('category', `%${category}%`);
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Erro ao buscar produtos da categoria ${category}:`, error);
+    return [];
+  }
+}
+
+// Função para obter todas as categorias de produtos
+async function fetchAllCategories() {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('category');
+    
+    if (error) throw error;
+    
+    // Extrair categorias únicas
+    const categories = [...new Set(data.map(item => item.category))];
+    return categories;
+  } catch (error) {
+    console.error('Erro ao buscar categorias:', error);
+    return [];
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -26,9 +78,36 @@ serve(async (req) => {
 
   try {
     const { messages, sessionId } = await req.json();
-    console.log(`Processing chat request for session ${sessionId}`);
+    console.log(`Processando requisição de chat para sessão ${sessionId}`);
     
-    // Template do sistema com as instruções detalhadas
+    // Buscar produtos e categorias para fornecer ao modelo
+    const allProducts = await fetchAllProducts();
+    const allCategories = await fetchAllCategories();
+    
+    // Organizar produtos por categoria para referência rápida
+    const productsByCategory: Record<string, any[]> = {};
+    allCategories.forEach(category => {
+      productsByCategory[category] = allProducts.filter(product => 
+        product.category === category
+      );
+    });
+    
+    // Criar o contexto de produtos para o assistente
+    const productsContext = `
+CATÁLOGO DE PRODUTOS IPT TEIXEIRA:
+${allCategories.map(category => {
+  return `
+CATEGORIA: ${category}
+${productsByCategory[category].map(product => 
+  `- ${product.name}: ${product.description} (Dimensões: ${product.dimensions.join(', ')})`
+).join('\n')}
+`;
+}).join('\n')}
+`;
+
+    console.log('Contexto de produtos carregado com sucesso');
+    
+    // Template do sistema com as instruções detalhadas + catálogo de produtos
     const systemTemplate = ChatPromptTemplate.fromMessages([
       ["system", `Você é um ASSISTENTE DE Vendas com especialização e 20 anos de experiência em conduzir negociações para a IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos.
 
@@ -49,20 +128,11 @@ REGRAS DE ATENDIMENTO:
 - Para postes: primeiro pergunte se é circular ou duplo T
 - Só apresente lista completa se o cliente perguntar explicitamente
 
-4. PRODUTOS DISPONÍVEIS:
-BLOCOS:
-- Estrutural ou vedação
-- Dimensões: 14x19x39cm, 19x19x39cm, 9x19x39cm, 14x19x09cm
-
-POSTES:
-- Circular: modelos 08/0800 até 16/1500
-- Duplo T: modelos 07,5/0200DAN até 24/1000DAN
-- Padrões: CPFL, Elektro, Telefônica
-
-[... outros produtos conforme documentação]
+4. CATÁLOGO DE PRODUTOS ATUAL:
+${productsContext}
 
 5. RESTRIÇÕES:
-- Nunca invente produtos fora da tabela
+- Nunca invente produtos fora da tabela acima
 - Não especule sobre valores
 - Não faça suposições sobre finalidades
 - Não force fechamento de negócio
@@ -86,7 +156,7 @@ POSTES:
       }))
     });
 
-    console.log('Chat response:', prompt);
+    console.log('Resposta do chat gerada');
 
     return new Response(
       JSON.stringify({ 
@@ -97,7 +167,7 @@ POSTES:
     );
 
   } catch (error) {
-    console.error("Error processing request:", error);
+    console.error("Erro ao processar requisição:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

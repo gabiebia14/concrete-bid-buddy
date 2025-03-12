@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteItem } from './database.types';
 
@@ -17,6 +18,28 @@ export async function fetchProducts() {
   
   if (error) throw error;
   return data;
+}
+
+export async function fetchProductsByCategory(category: string) {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('category', category);
+  
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchProductCategories() {
+  const { data, error } = await supabase
+    .from('products')
+    .select('category');
+  
+  if (error) throw error;
+  
+  // Extrair categorias únicas
+  const categories = [...new Set(data.map(item => item.category))];
+  return categories;
 }
 
 export async function fetchProductById(id: string) {
