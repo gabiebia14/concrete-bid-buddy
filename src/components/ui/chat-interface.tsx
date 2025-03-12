@@ -1,0 +1,248 @@
+
+import { useState, useRef, useEffect } from 'react';
+import { Send, Loader2, Bot, User, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
+import { Avatar } from '@/components/ui/avatar';
+import { saveChatMessage, createChatSession } from '@/lib/supabase';
+import { ChatMessage, ChatSession } from '@/lib/types';
+import { toast } from 'sonner';
+
+interface ChatInterfaceProps {
+  clientId?: string;
+  onQuoteRequest?: (quoteData: any) => void;
+}
+
+export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) {
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionId, setSessionId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Create or retrieve chat session on component mount
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        // In a real app, we would check for existing active sessions first
+        const session: ChatSession = await createChatSession({
+          client_id: clientId,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        
+        setSessionId(session.id);
+        
+        // Add welcome message
+        const welcomeMessage: ChatMessage = {
+          id: 'welcome',
+          session_id: session.id,
+          client_id: clientId,
+          content: 'Olá, sou o assistente de vendas da IPT Teixeira, especialista em produtos de concreto. Como posso te ajudar hoje?',
+          role: 'assistant',
+          timestamp: new Date().toISOString(),
+        };
+        
+        setMessages([welcomeMessage]);
+        await saveChatMessage(welcomeMessage);
+        
+      } catch (error) {
+        console.error('Error initializing chat session:', error);
+        toast.error('Erro ao iniciar o chat. Por favor, tente novamente.');
+      }
+    };
+    
+    initSession();
+  }, [clientId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || !sessionId) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Save user message
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        session_id: sessionId,
+        client_id: clientId,
+        content: message,
+        role: 'user',
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Add to UI immediately
+      setMessages(prev => [...prev, userMessage]);
+      setMessage('');
+      
+      // Save to database
+      await saveChatMessage(userMessage);
+      
+      // Simulate AI processing
+      setTimeout(async () => {
+        // In a real app, this would be a call to your AI agent
+        // Mock AI response
+        const aiResponse = await mockAIResponse(message);
+        
+        const assistantMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          session_id: sessionId,
+          client_id: clientId,
+          content: aiResponse.text,
+          role: 'assistant',
+          timestamp: new Date().toISOString(),
+        };
+        
+        // Add to UI
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        // Save to database
+        await saveChatMessage(assistantMessage);
+        
+        // If the AI detected a quote request, notify parent component
+        if (aiResponse.quoteData) {
+          onQuoteRequest?.(aiResponse.quoteData);
+        }
+        
+        setIsLoading(false);
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Erro ao enviar mensagem. Por favor, tente novamente.');
+      setIsLoading(false);
+    }
+  };
+
+  // Mock AI response function - in a real app, this would call your AI agent
+  const mockAIResponse = async (userMessage: string) => {
+    // Very simple logic to detect if the user is asking for a quote
+    const containsProductKeywords = /produto|concret[oa]|bloco|piso|laje|viga|coluna/i.test(userMessage);
+    const containsQuoteKeywords = /orçamento|preço|custo|valor|comprar|adquirir/i.test(userMessage);
+    
+    if (containsProductKeywords && containsQuoteKeywords) {
+      // Mock quote data detection
+      return {
+        text: 'Entendi que você está interessado em um orçamento. Poderia me dizer mais detalhes sobre quais produtos específicos você precisa, as dimensões necessárias e a quantidade?',
+        quoteData: null // No data yet, but would eventually be populated
+      };
+    }
+    
+    // Generic responses based on message content
+    if (userMessage.toLowerCase().includes('olá') || userMessage.toLowerCase().includes('oi')) {
+      return {
+        text: 'Olá! Como posso ajudar você com produtos de concreto da IPT Teixeira hoje?',
+        quoteData: null
+      };
+    }
+    
+    if (userMessage.toLowerCase().includes('produto')) {
+      return {
+        text: 'A IPT Teixeira oferece uma ampla gama de produtos de concreto, incluindo blocos, pisos, lajes, vigas e colunas. Você está procurando algum produto específico?',
+        quoteData: null
+      };
+    }
+    
+    // Default response
+    return {
+      text: 'Obrigado pelo seu contato. Como especialista em produtos de concreto, estou aqui para ajudar. Você gostaria de informações sobre nossos produtos ou está interessado em solicitar um orçamento?',
+      quoteData: null
+    };
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <Card className="flex flex-col h-[600px] overflow-hidden border">
+      <div className="bg-muted/50 p-3 border-b flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Avatar className="h-8 w-8 bg-primary">
+            <Bot className="h-4 w-4 text-primary-foreground" />
+          </Avatar>
+          <div>
+            <h3 className="text-sm font-medium">Assistente IPT Teixeira</h3>
+            <p className="text-xs text-muted-foreground">Especialista em produtos de concreto</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Chat
+        </Button>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-start gap-2 animate-slide-in`}
+          >
+            {msg.role === 'assistant' && (
+              <Avatar className="h-8 w-8 mt-0.5 bg-primary/10 text-primary">
+                <Bot className="h-4 w-4" />
+              </Avatar>
+            )}
+            
+            <div
+              className={`max-w-[80%] px-4 py-2 rounded-lg ${
+                msg.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+            </div>
+            
+            {msg.role === 'user' && (
+              <Avatar className="h-8 w-8 mt-0.5 bg-secondary text-secondary-foreground">
+                <User className="h-4 w-4" />
+              </Avatar>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      <div className="p-3 border-t bg-background">
+        <div className="flex items-center space-x-2">
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Digite sua mensagem..."
+            className="min-h-[40px] resize-none"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSendMessage}
+            disabled={!message.trim() || isLoading}
+            className="shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Nosso assistente virtual irá ajudá-lo a encontrar os produtos ideais e criar um orçamento personalizado.
+        </p>
+      </div>
+    </Card>
+  );
+}
