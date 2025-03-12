@@ -1,8 +1,7 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import Index from './pages/Index';
 import Dashboard from './pages/Dashboard';
 import CreateQuote from './pages/CreateQuote';
 import QuoteHistory from './pages/QuoteHistory';
@@ -22,8 +21,10 @@ function App() {
         <div className="flex flex-col min-h-screen">
           <main className="flex-grow">
             <Routes>
+              {/* Redirecionar a página inicial para o dashboard do cliente */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              
               {/* Páginas para Clientes */}
-              <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/criar-orcamento" element={<CreateQuote />} />
               <Route path="/historico" element={<QuoteHistory />} />
