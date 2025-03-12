@@ -1,18 +1,19 @@
+
 import { useState } from 'react';
+import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatInterface } from '@/components/ui/chat-interface';
 import { ProductSelector } from '@/components/ui/product-selector';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 import { QuoteItem } from '@/lib/types';
 import { toast } from 'sonner';
 import { createQuote, addClient } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
 
 export default function CreateQuote() {
   const [activeTab, setActiveTab] = useState('manual');
@@ -79,186 +80,213 @@ export default function CreateQuote() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-1 pt-16">
-        <div className="page-container max-w-6xl">
-          <h1 className="page-title">Criar Orçamento</h1>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="manual">Seleção Manual</TabsTrigger>
-              <TabsTrigger value="assistant">Assistente Virtual</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="manual" className="animate-fade-in">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Selecione os Produtos</CardTitle>
-                      <CardDescription>
-                        Escolha os produtos que você deseja incluir no seu orçamento
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ProductSelector onProductsSelected={handleProductsSelected} />
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                <div>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Informações de Contato</CardTitle>
-                      <CardDescription>
-                        Preencha seus dados para receber o orçamento
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <form onSubmit={handleManualSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Nome Completo *</Label>
-                          <Input
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email *</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="phone">Telefone</Label>
-                          <Input
-                            id="phone"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="location">Local de Entrega *</Label>
-                          <Input
-                            id="location"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="deadline">Prazo Desejado</Label>
-                          <Input
-                            id="deadline"
-                            type="date"
-                            value={deadline}
-                            onChange={(e) => setDeadline(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="payment">Forma de Pagamento</Label>
-                          <Input
-                            id="payment"
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="notes">Observações</Label>
-                          <Textarea
-                            id="notes"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="min-h-[100px]"
-                          />
-                        </div>
-                        
-                        <Button 
-                          type="submit" 
-                          className="w-full"
-                          disabled={isSubmitting || selectedProducts.length === 0}
-                        >
-                          {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
-                        </Button>
-                      </form>
-                    </CardContent>
-                    <CardFooter className="flex flex-col items-start text-xs text-muted-foreground">
-                      <p>* Campos obrigatórios</p>
-                      <p className="mt-2">
-                        Ao enviar este formulário, você concorda com nossa política de privacidade
-                        e termos de uso.
-                      </p>
-                    </CardFooter>
-                  </Card>
-                </div>
+    <Layout>
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
+          <Button 
+            variant="ghost" 
+            className="mb-4"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">Criar Orçamento</h1>
+          <p className="text-muted-foreground">
+            Preencha as informações abaixo para solicitar seu orçamento
+          </p>
+        </div>
+
+        <Tabs defaultValue="manual" className="space-y-6">
+          <TabsList className="bg-muted/20 p-1 inline-flex w-full sm:w-auto">
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Seleção Manual
+            </TabsTrigger>
+            <TabsTrigger value="assistant" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Assistente Virtual
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="manual">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card className="bg-white border-gray-200">
+                  <CardHeader>
+                    <CardTitle>Selecione os Produtos</CardTitle>
+                    <CardDescription>
+                      Escolha os produtos que você deseja incluir no seu orçamento
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ProductSelector onProductsSelected={handleProductsSelected} />
+                  </CardContent>
+                </Card>
               </div>
-            </TabsContent>
-            
-            <TabsContent value="assistant" className="animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assistente Virtual</CardTitle>
-                  <CardDescription>
-                    Converse com nosso assistente para criar um orçamento personalizado
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row gap-8">
-                    <div className="flex-1">
-                      <ChatInterface onQuoteRequest={handleQuoteRequest} />
-                    </div>
-                    <div className="md:w-1/3">
-                      <div className="bg-muted/50 rounded-lg p-4 border">
-                        <h3 className="font-medium mb-3">Como funciona:</h3>
-                        <ol className="list-decimal list-inside space-y-2 text-sm">
-                          <li>Converse com nosso assistente sobre suas necessidades</li>
-                          <li>Informe os produtos, dimensões e quantidades desejadas</li>
-                          <li>Forneça detalhes de entrega e contato</li>
-                          <li>Receberá um orçamento personalizado em seu email</li>
-                        </ol>
-                        
-                        <div className="mt-6 pt-6 border-t">
-                          <h4 className="font-medium mb-2 text-sm">Pergunte sobre:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm" className="text-xs">
-                              Tipos de blocos
-                            </Button>
-                            <Button variant="outline" size="sm" className="text-xs">
-                              Dimensões disponíveis
-                            </Button>
-                            <Button variant="outline" size="sm" className="text-xs">
-                              Prazos de entrega
-                            </Button>
-                            <Button variant="outline" size="sm" className="text-xs">
-                              Formas de pagamento
-                            </Button>
-                          </div>
+
+              <div>
+                <Card className="bg-white border-gray-200">
+                  <CardHeader>
+                    <CardTitle>Informações de Contato</CardTitle>
+                    <CardDescription>
+                      Preencha seus dados para receber o orçamento
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleManualSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome Completo *</Label>
+                        <Input
+                          id="name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Telefone</Label>
+                        <Input
+                          id="phone"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Local de Entrega *</Label>
+                        <Input
+                          id="location"
+                          value={location}
+                          onChange={(e) => setLocation(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="deadline">Prazo Desejado</Label>
+                        <Input
+                          id="deadline"
+                          type="date"
+                          value={deadline}
+                          onChange={(e) => setDeadline(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="payment">Forma de Pagamento</Label>
+                        <Input
+                          id="payment"
+                          value={paymentMethod}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="notes">Observações</Label>
+                        <Textarea
+                          id="notes"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          className="min-h-[100px] bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit"
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        disabled={isSubmitting || selectedProducts.length === 0}
+                      >
+                        {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
+                      </Button>
+
+                      <p className="text-xs text-gray-500 mt-4">
+                        * Campos obrigatórios
+                      </p>
+                    </form>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="assistant">
+            <Card className="bg-white border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Assistente Virtual
+                </CardTitle>
+                <CardDescription>
+                  Converse com nosso assistente para criar um orçamento personalizado
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <ChatInterface onQuoteRequest={handleQuoteRequest} />
+                  </div>
+                  <div>
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                      <h3 className="font-medium text-gray-900 mb-4">Como funciona:</h3>
+                      <ol className="space-y-3 text-sm text-gray-600">
+                        <li className="flex gap-2">
+                          <span className="font-medium">1.</span>
+                          Descreva os produtos que você precisa
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">2.</span>
+                          Forneça as quantidades e dimensões
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">3.</span>
+                          Informe o local de entrega
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">4.</span>
+                          Receba seu orçamento personalizado
+                        </li>
+                      </ol>
+
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <p className="font-medium text-gray-900 mb-3">Sugestões:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map((tag) => (
+                            <span 
+                              key={tag}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700"
+                            >
+                              {tag}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </Layout>
   );
 }
