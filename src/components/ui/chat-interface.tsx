@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { saveChatMessage, createChatSession } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -97,16 +98,26 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         created_at: userMessage.created_at
       });
       
-      // Simulate AI processing
-      setTimeout(async () => {
-        // In a real app, this would be a call to your AI agent
-        // Mock AI response
-        const aiResponse = await mockAIResponse(message);
+      // Call the LangChain Edge Function
+      try {
+        const { data, error } = await supabase.functions.invoke("chat-assistant", {
+          body: {
+            messages: [...messages, userMessage].map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            sessionId: sessionId
+          }
+        });
+        
+        if (error) {
+          throw new Error(`Erro na função de borda: ${error.message}`);
+        }
         
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
-          content: aiResponse.text,
+          content: data?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.",
           role: 'assistant',
           created_at: new Date().toISOString(),
           timestamp: new Date().toISOString(),
@@ -123,55 +134,43 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
           created_at: assistantMessage.created_at
         });
         
-        // If the AI detected a quote request, notify parent component
-        if (aiResponse.quoteData) {
-          onQuoteRequest?.(aiResponse.quoteData);
+        // Check if quote request was detected
+        if (data?.quoteData) {
+          console.log("Quote data detected:", data.quoteData);
+          onQuoteRequest?.(data.quoteData);
         }
+      } catch (error) {
+        console.error("Error calling edge function:", error);
         
-        setIsLoading(false);
-      }, 1500);
+        // Fallback message if edge function fails
+        const fallbackMessage: ChatMessage = {
+          id: `assistant-fallback-${Date.now()}`,
+          session_id: sessionId,
+          content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
+          role: 'assistant',
+          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        };
+        
+        setMessages(prev => [...prev, fallbackMessage]);
+        
+        await saveChatMessage({
+          session_id: fallbackMessage.session_id,
+          content: fallbackMessage.content,
+          role: fallbackMessage.role,
+          created_at: fallbackMessage.created_at
+        });
+        
+        toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
+      }
+      
+      setIsLoading(false);
       
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Erro ao enviar mensagem. Por favor, tente novamente.');
       setIsLoading(false);
     }
-  };
-
-  // Mock AI response function - in a real app, this would call your AI agent
-  const mockAIResponse = async (userMessage: string) => {
-    // Very simple logic to detect if the user is asking for a quote
-    const containsProductKeywords = /produto|concret[oa]|bloco|piso|laje|viga|coluna/i.test(userMessage);
-    const containsQuoteKeywords = /orçamento|preço|custo|valor|comprar|adquirir/i.test(userMessage);
-    
-    if (containsProductKeywords && containsQuoteKeywords) {
-      // Mock quote data detection
-      return {
-        text: 'Entendi que você está interessado em um orçamento. Poderia me dizer mais detalhes sobre quais produtos específicos você precisa, as dimensões necessárias e a quantidade?',
-        quoteData: null // No data yet, but would eventually be populated
-      };
-    }
-    
-    // Generic responses based on message content
-    if (userMessage.toLowerCase().includes('olá') || userMessage.toLowerCase().includes('oi')) {
-      return {
-        text: 'Olá! Como posso ajudar você com produtos de concreto da IPT Teixeira hoje?',
-        quoteData: null
-      };
-    }
-    
-    if (userMessage.toLowerCase().includes('produto')) {
-      return {
-        text: 'A IPT Teixeira oferece uma ampla gama de produtos de concreto, incluindo blocos, pisos, lajes, vigas e colunas. Você está procurando algum produto específico?',
-        quoteData: null
-      };
-    }
-    
-    // Default response
-    return {
-      text: 'Obrigado pelo seu contato. Como especialista em produtos de concreto, estou aqui para ajudar. Você gostaria de informações sobre nossos produtos ou está interessado em solicitar um orçamento?',
-      quoteData: null
-    };
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
