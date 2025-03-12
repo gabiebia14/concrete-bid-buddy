@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { QuoteItem } from '@/lib/types';
 import { toast } from 'sonner';
-import { createQuote } from '@/lib/supabase';
+import { createQuote, addClient } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 export default function CreateQuote() {
@@ -34,9 +33,7 @@ export default function CreateQuote() {
   };
 
   const handleQuoteRequest = (quoteData: any) => {
-    // This would handle data coming from the AI assistant
     console.log('Quote data from AI:', quoteData);
-    // In a real app, you might auto-fill the form or directly create a quote
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -50,25 +47,28 @@ export default function CreateQuote() {
     try {
       setIsSubmitting(true);
       
-      const quoteData = {
-        client_name: name,
-        client_email: email,
-        client_phone: phone,
-        delivery_location: location,
-        delivery_deadline: deadline,
-        payment_method: paymentMethod,
-        notes,
-        items: selectedProducts,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      const clientData = {
+        name,
+        email,
+        phone,
+        address: location
       };
       
-      // In a real app, this would save to Supabase
+      const client = await addClient(clientData);
+      
+      const quoteData = {
+        client_id: client.id,
+        status: 'pending' as const,
+        items: selectedProducts,
+        total_value: selectedProducts.reduce((sum, item) => sum + (item.total_price || 0), 0),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
       await createQuote(quoteData);
       
       toast.success('Orçamento enviado com sucesso! Em breve entraremos em contato.');
-      navigate('/historico');
+      navigate('/quote-history');
       
     } catch (error) {
       console.error('Error submitting quote:', error);

@@ -2,8 +2,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
-import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
+import { Header } from './components/layout/Header';
+import { Footer } from './components/layout/Footer';
 import Index from './pages/Index';
 import CreateQuote from './pages/CreateQuote';
 import QuoteHistory from './pages/QuoteHistory';

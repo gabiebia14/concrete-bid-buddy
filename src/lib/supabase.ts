@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteItem } from './database.types';
 
@@ -6,7 +5,7 @@ import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteI
 const supabaseUrl = 'https://ehrerbpblmensiodhgka.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocmVyYnBibG1lbnNpb2RoZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTM2NzgsImV4cCI6MjA1NzMyOTY3OH0.Ppae9xwONU2Uy8__0v28OlyFGI6JXBFkMib8AJDwAn8';
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Funções auxiliares para trabalhar com o Supabase
 
@@ -98,7 +97,8 @@ export async function fetchClientById(id: string) {
   return data;
 }
 
-export async function createClient(client: Database['public']['Tables']['clients']['Insert']) {
+// Renomeado de createClient para addClient para evitar conflito com o import
+export async function addClient(client: Database['public']['Tables']['clients']['Insert']) {
   const { data, error } = await supabase
     .from('clients')
     .insert(client)

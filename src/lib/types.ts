@@ -5,13 +5,15 @@ import { Database } from './database.types';
 export type ChatMessage = {
   id: string;
   session_id: string;
-  client_id?: string;
   content: string;
   role: 'user' | 'assistant';
-  timestamp: string;
+  created_at: string;
+  timestamp?: string; // Adicionado para compatibilidade
 };
 
-export type ChatSession = Database['public']['Tables']['chat_sessions']['Row'];
+export type ChatSession = Database['public']['Tables']['chat_sessions']['Row'] & {
+  chat_messages?: ChatMessage[];
+};
 
 export type QuoteItem = {
   product_id: string;
@@ -39,3 +41,16 @@ export type QuoteData = {
   created_at?: string;
   updated_at?: string;
 };
+
+export type Quote = QuoteData & {
+  client_name?: string;
+  client_email?: string;
+  client_phone?: string;
+  delivery_location?: string;
+  delivery_deadline?: string;
+  payment_method?: string;
+  notes?: string;
+  total_amount?: number;
+};
+
+export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'sent' | 'completed';
