@@ -1,83 +1,122 @@
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { ArrowRight, FileText, Package, History, Users, BarChart } from "lucide-react";
 
 const Index = () => {
   return (
-    <div className="container mx-auto py-12 px-4">
-      <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">IPT Teixeira - Produtos de Concreto</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Sistema de orçamentos e gerenciamento de vendas para produtos de concreto.
-          </p>
-        </div>
+    <Layout>
+      <div className="container mx-auto py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold tracking-tight mb-4">IPT Teixeira</h1>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Sistema inteligente de orçamentos e gerenciamento para produtos de concreto
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          <Card>
-            <CardHeader>
-              <CardTitle>Criar Orçamento</CardTitle>
-              <CardDescription>
-                Crie orçamentos personalizados para seus clientes com nossos produtos de concreto.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>
-                Com nossa ferramenta de orçamentos, você pode:
-              </p>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Selecionar produtos do catálogo</li>
-                <li>Especificar dimensões e quantidades</li>
-                <li>Calcular preços automaticamente</li>
-                <li>Incluir informações de entrega</li>
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button asChild>
-                <Link to="/create-quote">Criar Orçamento</Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col h-full">
+                  <div className="mb-4">
+                    <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
+                      <FileText size={24} />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Criar Orçamento</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Solicite um orçamento personalizado para seus projetos de construção.
+                    </p>
+                  </div>
+                  <div className="mt-auto">
+                    <Button asChild className="w-full justify-between">
+                      <Link to="/criar-orcamento">
+                        Iniciar <ArrowRight size={16} className="ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col h-full">
+                  <div className="mb-4">
+                    <div className="h-12 w-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-500 mb-4">
+                      <History size={24} />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Histórico</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Acesse seus orçamentos anteriores e acompanhe seus status.
+                    </p>
+                  </div>
+                  <div className="mt-auto">
+                    <Button asChild variant="outline" className="w-full justify-between">
+                      <Link to="/historico">
+                        Visualizar <ArrowRight size={16} className="ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-green-500 shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col h-full">
+                  <div className="mb-4">
+                    <div className="h-12 w-12 bg-green-500/10 rounded-lg flex items-center justify-center text-green-500 mb-4">
+                      <Package size={24} />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Catálogo</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Explore nossa linha completa de produtos de concreto.
+                    </p>
+                  </div>
+                  <div className="mt-auto">
+                    <Button asChild variant="outline" className="w-full justify-between">
+                      <Link to="/catalogo">
+                        Explorar <ArrowRight size={16} className="ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="border rounded-lg p-8 text-center bg-muted/40">
+            <h2 className="text-2xl font-bold mb-4">Área do Gerente</h2>
+            <p className="mb-6 max-w-2xl mx-auto">
+              Acesse o painel administrativo para gerenciar orçamentos, clientes e acompanhar métricas de vendas.
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button asChild variant="default">
+                <Link to="/manager/dashboard" className="flex items-center">
+                  <BarChart size={18} className="mr-2" />
+                  Dashboard
+                </Link>
               </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Orçamentos</CardTitle>
-              <CardDescription>
-                Visualize e gerencie todos os orçamentos criados anteriormente.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>
-                No histórico de orçamentos, você pode:
-              </p>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Verificar o status de cada orçamento</li>
-                <li>Buscar orçamentos por cliente</li>
-                <li>Revisar detalhes de orçamentos anteriores</li>
-                <li>Atualizar o status dos orçamentos</li>
-              </ul>
-            </CardContent>
-            <CardFooter>
               <Button asChild variant="outline">
-                <Link to="/quote-history">Ver Histórico</Link>
+                <Link to="/manager/quotes" className="flex items-center">
+                  <FileText size={18} className="mr-2" />
+                  Orçamentos
+                </Link>
               </Button>
-            </CardFooter>
-          </Card>
-        </div>
-
-        <div className="bg-muted rounded-lg p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Precisando de ajuda?</h2>
-          <p className="mb-6">
-            Nosso assistente virtual está pronto para ajudar com dúvidas sobre produtos, 
-            orçamentos e prazos de entrega.
-          </p>
-          <Button size="lg">
-            Iniciar Chat com Assistente
-          </Button>
+              <Button asChild variant="outline">
+                <Link to="/manager/clients" className="flex items-center">
+                  <Users size={18} className="mr-2" />
+                  Clientes
+                </Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
