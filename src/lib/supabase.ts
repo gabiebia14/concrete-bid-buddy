@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteItem } from './database.types';
 
 // Estas variáveis viriam de variáveis de ambiente em um app real
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = 'https://ehrerbpblmensiodhgka.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocmVyYnBibG1lbnNpb2RoZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTM2NzgsImV4cCI6MjA1NzMyOTY3OH0.Ppae9xwONU2Uy8__0v28OlyFGI6JXBFkMib8AJDwAn8';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
@@ -53,7 +53,7 @@ export async function fetchQuoteById(id: string) {
   return data;
 }
 
-export async function createQuote(quote: Omit<Quote, 'id'>) {
+export async function createQuote(quote: Database['public']['Tables']['quotes']['Insert']) {
   const { data, error } = await supabase
     .from('quotes')
     .insert(quote)
@@ -64,7 +64,7 @@ export async function createQuote(quote: Omit<Quote, 'id'>) {
   return data;
 }
 
-export async function updateQuote(id: string, updates: Partial<Quote>) {
+export async function updateQuote(id: string, updates: Database['public']['Tables']['quotes']['Update']) {
   const { data, error } = await supabase
     .from('quotes')
     .update(updates)
@@ -98,8 +98,19 @@ export async function fetchClientById(id: string) {
   return data;
 }
 
+export async function createClient(client: Database['public']['Tables']['clients']['Insert']) {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert(client)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
 // Sessões de Chat
-export async function createChatSession(session: Omit<ChatSession, 'id'>) {
+export async function createChatSession(session: Database['public']['Tables']['chat_sessions']['Insert']) {
   const { data, error } = await supabase
     .from('chat_sessions')
     .insert(session)
@@ -110,7 +121,7 @@ export async function createChatSession(session: Omit<ChatSession, 'id'>) {
   return data;
 }
 
-export async function saveChatMessage(message: Omit<ChatMessage, 'id'>) {
+export async function saveChatMessage(message: Database['public']['Tables']['chat_messages']['Insert']) {
   const { data, error } = await supabase
     .from('chat_messages')
     .insert(message)
