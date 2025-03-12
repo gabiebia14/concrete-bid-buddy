@@ -1,7 +1,7 @@
 
+import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { QuoteStatus } from '@/lib/types';
-import * as React from 'react';
 
 export const getStatusBadge = (status: QuoteStatus) => {
   const statusConfig = {
