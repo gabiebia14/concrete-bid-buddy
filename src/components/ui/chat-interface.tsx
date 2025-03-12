@@ -23,7 +23,7 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
   return (
     <Card className="flex flex-col h-[600px] overflow-hidden border">
       <ChatHeader />
-      <ChatMessages messages={messages} />
+      <ChatMessages messages={messages} isTyping={isLoading} />
       <ChatInput 
         message={message}
         setMessage={setMessage}
