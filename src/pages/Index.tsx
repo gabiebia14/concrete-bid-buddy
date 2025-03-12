@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -7,7 +6,7 @@ import { ArrowRight, FileText, Package, History, Users, BarChart } from "lucide-
 
 const Index = () => {
   return (
-    <Layout showSidebar={false}>
+    <Layout>
       <div className="container mx-auto py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
