@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,7 +13,6 @@ import { toast } from 'sonner';
 import { createQuote, addClient } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
-
 export default function CreateQuote() {
   const [activeTab, setActiveTab] = useState('manual');
   const [name, setName] = useState('');
@@ -26,37 +24,28 @@ export default function CreateQuote() {
   const [notes, setNotes] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const navigate = useNavigate();
-
   const handleProductsSelected = (products: QuoteItem[]) => {
     setSelectedProducts(products);
   };
-
   const handleQuoteRequest = (quoteData: any) => {
     console.log('Quote data from AI:', quoteData);
   };
-
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!name || !email || !location || selectedProducts.length === 0) {
       toast.error('Por favor, preencha todos os campos obrigatórios e selecione pelo menos um produto.');
       return;
     }
-    
     try {
       setIsSubmitting(true);
-      
       const clientData = {
         name,
         email,
         phone,
         address: location
       };
-      
       const client = await addClient(clientData);
-      
       const quoteData = {
         client_id: client.id,
         status: 'pending' as const,
@@ -65,12 +54,9 @@ export default function CreateQuote() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
       await createQuote(quoteData);
-      
       toast.success('Orçamento enviado com sucesso! Em breve entraremos em contato.');
       navigate('/quote-history');
-      
     } catch (error) {
       console.error('Error submitting quote:', error);
       toast.error('Erro ao enviar orçamento. Por favor, tente novamente.');
@@ -78,16 +64,10 @@ export default function CreateQuote() {
       setIsSubmitting(false);
     }
   };
-
-  return (
-    <Layout>
+  return <Layout>
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            className="mb-4"
-            onClick={() => navigate(-1)}
-          >
+          <Button variant="ghost" className="mb-4" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
           </Button>
@@ -125,106 +105,7 @@ export default function CreateQuote() {
                 </Card>
               </div>
 
-              <div>
-                <Card className="bg-white border-gray-200">
-                  <CardHeader>
-                    <CardTitle>Informações de Contato</CardTitle>
-                    <CardDescription>
-                      Preencha seus dados para receber o orçamento
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleManualSubmit} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Nome Completo *</Label>
-                        <Input
-                          id="name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Telefone</Label>
-                        <Input
-                          id="phone"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Local de Entrega *</Label>
-                        <Input
-                          id="location"
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="deadline">Prazo Desejado</Label>
-                        <Input
-                          id="deadline"
-                          type="date"
-                          value={deadline}
-                          onChange={(e) => setDeadline(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="payment">Forma de Pagamento</Label>
-                        <Input
-                          id="payment"
-                          value={paymentMethod}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
-                          className="bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="notes">Observações</Label>
-                        <Textarea
-                          id="notes"
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          className="min-h-[100px] bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                        />
-                      </div>
-
-                      <Button 
-                        type="submit"
-                        className="w-full bg-green-600 hover:bg-green-700"
-                        disabled={isSubmitting || selectedProducts.length === 0}
-                      >
-                        {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
-                      </Button>
-
-                      <p className="text-xs text-gray-500 mt-4">
-                        * Campos obrigatórios
-                      </p>
-                    </form>
-                  </CardContent>
-                </Card>
-              </div>
+              
             </div>
           </TabsContent>
 
@@ -269,14 +150,9 @@ export default function CreateQuote() {
                       <div className="mt-6 pt-6 border-t border-gray-200">
                         <p className="font-medium text-gray-900 mb-3">Sugestões:</p>
                         <div className="flex flex-wrap gap-2">
-                          {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map((tag) => (
-                            <span 
-                              key={tag}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700"
-                            >
+                          {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map(tag => <span key={tag} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
                               {tag}
-                            </span>
-                          ))}
+                            </span>)}
                         </div>
                       </div>
                     </div>
@@ -287,6 +163,5 @@ export default function CreateQuote() {
           </TabsContent>
         </Tabs>
       </div>
-    </Layout>
-  );
+    </Layout>;
 }
