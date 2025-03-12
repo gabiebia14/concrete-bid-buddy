@@ -32,6 +32,8 @@ export type ClientData = {
   address?: string;
 };
 
+export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'sent' | 'completed';
+
 export type QuoteData = {
   id?: string;
   client_id: string;
@@ -53,4 +55,26 @@ export type Quote = QuoteData & {
   total_amount?: number;
 };
 
-export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'sent' | 'completed';
+// Tipos adicionais para dashboards
+export type DashboardStats = {
+  activeQuotes: number;
+  approvedQuotes: number;
+  totalSavings: number;
+  activeChange: string;
+  approvedChange: string;
+  savingsChange: string;
+};
+
+export type TransactionItem = {
+  id: string;
+  product: string;
+  date: string;
+  value: number;
+  status: QuoteStatus;
+};
+
+export type CategoryData = {
+  category: string;
+  value: number;
+  change: string;
+};

@@ -1,21 +1,19 @@
 
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   FileText, 
-  Users, 
   Package, 
-  Settings, 
-  ChevronLeft, 
-  ChevronRight,
-  LogOut,
+  History,
   HelpCircle,
-  Home
+  ChevronLeft,
+  ChevronRight,
+  User
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export function ManagerSidebar() {
+export function ClientSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
@@ -23,7 +21,7 @@ export function ManagerSidebar() {
     {
       label: 'Visão Geral',
       icon: <LayoutDashboard size={20} />,
-      href: '/manager/dashboard'
+      href: '/dashboard'
     },
     {
       label: 'Criar Orçamento',
@@ -32,7 +30,7 @@ export function ManagerSidebar() {
     },
     {
       label: 'Histórico',
-      icon: <Home size={20} />,
+      icon: <History size={20} />,
       href: '/historico'
     },
     {
@@ -41,24 +39,9 @@ export function ManagerSidebar() {
       href: '/catalogo'
     },
     {
-      label: 'Clientes',
-      icon: <Users size={20} />,
-      href: '/manager/clients'
-    },
-    {
-      label: 'Orçamentos',
-      icon: <FileText size={20} />,
-      href: '/manager/quotes'
-    },
-    {
       label: 'Ajuda',
       icon: <HelpCircle size={20} />,
       href: '/ajuda'
-    },
-    {
-      label: 'Configurações',
-      icon: <Settings size={20} />,
-      href: '/manager/settings'
     }
   ];
 
@@ -126,16 +109,16 @@ export function ManagerSidebar() {
           {!collapsed && (
             <div className="flex items-center">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
-                <span className="font-medium text-sm">A</span>
+                <User size={16} />
               </div>
               <div className="ml-2">
-                <p className="text-sm font-medium text-white">Admin</p>
-                <p className="text-xs text-white/70">admin@ipteixeira.com</p>
+                <p className="text-sm font-medium text-white">Cliente</p>
+                <p className="text-xs text-white/70">cliente@exemplo.com</p>
               </div>
             </div>
           )}
           <Button variant="ghost" size="icon" className={`text-white hover:bg-green-700/20 ${collapsed ? '' : 'ml-auto'}`}>
-            <LogOut size={18} />
+            <User size={18} />
           </Button>
         </div>
       </div>

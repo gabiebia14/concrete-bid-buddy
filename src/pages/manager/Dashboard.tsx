@@ -4,8 +4,11 @@ import { ManagerLayout } from '@/components/layout/ManagerLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ArrowUp, ArrowDown, DollarSign, Users, FileText, Clock, BarChart2, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { ArrowUp, ArrowDown, DollarSign, Users, FileText, Clock, BarChart2, PieChart as PieChartIcon, TrendingUp, Search, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Link } from 'react-router-dom';
 
 export default function ManagerDashboard() {
   const [period, setPeriod] = useState('month');
@@ -82,6 +85,14 @@ export default function ManagerDashboard() {
           </div>
           
           <div className="flex gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                className="pl-8 h-9 w-[200px] rounded-md border border-input bg-background px-3 py-1 text-sm"
+              />
+            </div>
             <Select value={period} onValueChange={setPeriod}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Período" />
@@ -93,6 +104,11 @@ export default function ManagerDashboard() {
                 <SelectItem value="year">Este Ano</SelectItem>
               </SelectContent>
             </Select>
+            <Button asChild>
+              <Link to="/criar-orcamento" className="flex items-center">
+                <Plus className="mr-2 h-4 w-4" /> Novo Orçamento
+              </Link>
+            </Button>
           </div>
         </div>
         

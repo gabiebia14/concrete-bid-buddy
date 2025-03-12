@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
 import Index from './pages/Index';
+import Dashboard from './pages/Dashboard';
 import CreateQuote from './pages/CreateQuote';
 import QuoteHistory from './pages/QuoteHistory';
 import Catalog from './pages/Catalog';
@@ -23,6 +24,7 @@ function App() {
             <Routes>
               {/* Páginas para Clientes */}
               <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/criar-orcamento" element={<CreateQuote />} />
               <Route path="/historico" element={<QuoteHistory />} />
               <Route path="/catalogo" element={<Catalog />} />

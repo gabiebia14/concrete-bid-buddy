@@ -7,7 +7,7 @@ import { ArrowRight, FileText, Package, History, Users, BarChart } from "lucide-
 
 const Index = () => {
   return (
-    <Layout>
+    <Layout showSidebar={false}>
       <div className="container mx-auto py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
@@ -48,14 +48,14 @@ const Index = () => {
                     <div className="h-12 w-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-500 mb-4">
                       <History size={24} />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Histórico</h3>
+                    <h3 className="text-lg font-semibold mb-2">Dashboard</h3>
                     <p className="text-muted-foreground mb-4">
-                      Acesse seus orçamentos anteriores e acompanhe seus status.
+                      Acesse o painel de controle com todas as suas métricas e dados.
                     </p>
                   </div>
                   <div className="mt-auto">
                     <Button asChild variant="outline" className="w-full justify-between">
-                      <Link to="/historico">
+                      <Link to="/dashboard">
                         Visualizar <ArrowRight size={16} className="ml-2" />
                       </Link>
                     </Button>
