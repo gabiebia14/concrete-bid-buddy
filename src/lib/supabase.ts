@@ -1,20 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
+import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteItem } from './database.types';
 
-// These would come from environment variables in a real app
+// Estas variáveis viriam de variáveis de ambiente em um app real
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-// Placeholder for Database type
-// This would be generated from your Supabase schema
-export type Database = any; 
+// Funções auxiliares para trabalhar com o Supabase
 
-// Helper functions for working with Supabase
-
-// Products
+// Produtos
 export async function fetchProducts() {
   const { data, error } = await supabase
     .from('products')
@@ -35,7 +31,7 @@ export async function fetchProductById(id: string) {
   return data;
 }
 
-// Quotes
+// Orçamentos
 export async function fetchQuotes() {
   const { data, error } = await supabase
     .from('quotes')
@@ -57,7 +53,7 @@ export async function fetchQuoteById(id: string) {
   return data;
 }
 
-export async function createQuote(quote: Omit<any, 'id'>) {
+export async function createQuote(quote: Omit<Quote, 'id'>) {
   const { data, error } = await supabase
     .from('quotes')
     .insert(quote)
@@ -68,7 +64,7 @@ export async function createQuote(quote: Omit<any, 'id'>) {
   return data;
 }
 
-export async function updateQuote(id: string, updates: Partial<any>) {
+export async function updateQuote(id: string, updates: Partial<Quote>) {
   const { data, error } = await supabase
     .from('quotes')
     .update(updates)
@@ -80,7 +76,7 @@ export async function updateQuote(id: string, updates: Partial<any>) {
   return data;
 }
 
-// Clients
+// Clientes
 export async function fetchClients() {
   const { data, error } = await supabase
     .from('clients')
@@ -102,8 +98,8 @@ export async function fetchClientById(id: string) {
   return data;
 }
 
-// Chat Sessions
-export async function createChatSession(session: Omit<any, 'id'>) {
+// Sessões de Chat
+export async function createChatSession(session: Omit<ChatSession, 'id'>) {
   const { data, error } = await supabase
     .from('chat_sessions')
     .insert(session)
@@ -114,7 +110,7 @@ export async function createChatSession(session: Omit<any, 'id'>) {
   return data;
 }
 
-export async function saveChatMessage(message: Omit<any, 'id'>) {
+export async function saveChatMessage(message: Omit<ChatMessage, 'id'>) {
   const { data, error } = await supabase
     .from('chat_messages')
     .insert(message)

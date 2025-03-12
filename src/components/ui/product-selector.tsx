@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchProducts } from '@/lib/supabase';
-import { Product, QuoteItem } from '@/lib/types';
+import { Product, QuoteItem } from '@/lib/database.types';
 import { toast } from 'sonner';
 
 interface ProductSelectorProps {
@@ -29,10 +29,10 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
         
         setProducts(productsData);
         
-        // Extract unique categories
+        // Extrair categorias únicas
         const uniqueCategories = Array.from(
           new Set(productsData.map((product: Product) => product.category))
-        );
+        ) as string[];
         
         setCategories(uniqueCategories);
         
@@ -56,29 +56,29 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
     : products;
 
   const handleAddProduct = (product: Product) => {
-    // Check if product is already in the list
+    // Verificar se o produto já está na lista
     const existingIndex = selectedItems.findIndex(item => 
       item.product_id === product.id
     );
     
     if (existingIndex >= 0) {
-      // Update quantity
+      // Atualizar quantidade
       const updatedItems = [...selectedItems];
       updatedItems[existingIndex].quantity += 1;
       setSelectedItems(updatedItems);
     } else {
-      // Add new item
+      // Adicionar novo item
       const newItem: QuoteItem = {
         product_id: product.id,
         product_name: product.name,
-        dimensions: product.dimensions[0], // Default to first dimension
+        dimensions: product.dimensions[0], // Default para a primeira dimensão
         quantity: 1,
       };
       
       setSelectedItems([...selectedItems, newItem]);
     }
     
-    // Notify parent component
+    // Notificar componente pai
     onProductsSelected([...selectedItems]);
     
     toast.success(`${product.name} adicionado ao orçamento`);
@@ -88,7 +88,7 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
     const updatedItems = selectedItems.filter((_, i) => i !== index);
     setSelectedItems(updatedItems);
     
-    // Notify parent component
+    // Notificar componente pai
     onProductsSelected(updatedItems);
   };
 
@@ -101,7 +101,7 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
     updatedItems[index].quantity = newQuantity;
     setSelectedItems(updatedItems);
     
-    // Notify parent component
+    // Notificar componente pai
     onProductsSelected(updatedItems);
   };
 
@@ -110,11 +110,11 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
     updatedItems[index].dimensions = dimension;
     setSelectedItems(updatedItems);
     
-    // Notify parent component
+    // Notificar componente pai
     onProductsSelected(updatedItems);
   };
 
-  // For mock - in a real application, this would come from the database
+  // Para mock - em uma aplicação real, isso viria do banco de dados
   const getProductDimensions = (productId: string): string[] => {
     const product = products.find(p => p.id === productId);
     return product?.dimensions || [];
