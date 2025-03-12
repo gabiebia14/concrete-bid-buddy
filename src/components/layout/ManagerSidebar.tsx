@@ -26,19 +26,9 @@ export function ManagerSidebar() {
       href: '/manager/dashboard'
     },
     {
-      label: 'Criar Orçamento',
+      label: 'Orçamentos',
       icon: <FileText size={20} />,
-      href: '/criar-orcamento'
-    },
-    {
-      label: 'Histórico',
-      icon: <Home size={20} />,
-      href: '/historico'
-    },
-    {
-      label: 'Catálogo',
-      icon: <Package size={20} />,
-      href: '/catalogo'
+      href: '/manager/quotes'
     },
     {
       label: 'Clientes',
@@ -46,9 +36,9 @@ export function ManagerSidebar() {
       href: '/manager/clients'
     },
     {
-      label: 'Orçamentos',
-      icon: <FileText size={20} />,
-      href: '/manager/quotes'
+      label: 'Catálogo',
+      icon: <Package size={20} />,
+      href: '/catalogo'
     },
     {
       label: 'Ajuda',
@@ -67,38 +57,38 @@ export function ManagerSidebar() {
   };
 
   return (
-    <div className={`bg-gradient-to-b from-green-300 to-green-800 h-screen flex flex-col transition-all duration-300 ${
-      collapsed ? 'w-20' : 'w-64'
-    }`}>
-      <div className="p-4 flex flex-col items-center justify-center border-b border-green-400/40">
+    <div className={`h-screen flex flex-col transition-all duration-300 shadow-lg ${
+      collapsed ? 'w-16' : 'w-64'
+    } bg-sidebar`}>
+      <div className="p-4 flex flex-col items-center justify-center border-b border-sidebar-border">
         {!collapsed ? (
           <div className="flex flex-col items-center">
-            <img src="/placeholder.svg" alt="IPT Teixeira" className="h-16 w-16 mb-2" />
+            <img src="/placeholder.svg" alt="IPT Teixeira" className="h-12 w-12 mb-2" />
             <div className="text-center">
-              <div className="font-bold text-lg text-white">IPT TEIXEIRA</div>
-              <div className="text-xs text-white/70">150 ANOS</div>
+              <div className="font-bold text-base text-white">IPT TEIXEIRA</div>
+              <div className="text-xs text-white/70">ADMINISTRAÇÃO</div>
             </div>
           </div>
         ) : (
-          <img src="/placeholder.svg" alt="IPT Teixeira" className="h-10 w-10" />
+          <img src="/placeholder.svg" alt="IPT Teixeira" className="h-8 w-8" />
         )}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className="mt-2 text-white hover:bg-green-700/20"
+          className="mt-2 text-white hover:bg-sidebar-accent"
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
       </div>
       
       {!collapsed && (
         <div className="px-4 py-2">
-          <p className="text-xs uppercase font-semibold text-white/70 mx-2 my-4">MENU</p>
+          <p className="text-xs uppercase font-semibold text-white/70 mx-2 mt-2 mb-1">MENU</p>
         </div>
       )}
       
-      <div className="flex-1 py-4 overflow-y-auto px-2">
+      <div className="flex-1 py-2 overflow-y-auto px-2">
         <nav className="space-y-1">
           {navItems.map((item, index) => (
             <Link
@@ -121,7 +111,7 @@ export function ManagerSidebar() {
         </nav>
       </div>
       
-      <div className="p-3 border-t border-green-400/40">
+      <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
@@ -134,7 +124,7 @@ export function ManagerSidebar() {
               </div>
             </div>
           )}
-          <Button variant="ghost" size="icon" className={`text-white hover:bg-green-700/20 ${collapsed ? '' : 'ml-auto'}`}>
+          <Button variant="ghost" size="icon" className={`text-white hover:bg-sidebar-accent ${collapsed ? '' : 'ml-auto'}`}>
             <LogOut size={18} />
           </Button>
         </div>

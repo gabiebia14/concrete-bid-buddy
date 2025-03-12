@@ -16,12 +16,14 @@ export function Layout({
   hideFooter = true
 }: LayoutProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-background">
       <ClientSidebar />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {!hideHeader && <Header />}
-        <main className="flex-grow">
-          {children}
+        <main className="flex-grow overflow-y-auto py-2 px-2 md:px-4">
+          <div className="container mx-auto">
+            {children}
+          </div>
         </main>
         {!hideFooter && <Footer />}
       </div>
