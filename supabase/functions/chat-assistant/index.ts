@@ -29,6 +29,7 @@ async function fetchAllProducts() {
   try {
     const { data, error } = await supabase.from('products').select('*');
     if (error) throw error;
+    console.log(`Buscados ${data.length} produtos`);
     return data;
   } catch (error) {
     console.error('Erro ao buscar produtos:', error);
@@ -45,6 +46,7 @@ async function fetchProductsByCategory(category: string) {
       .ilike('category', `%${category}%`);
     
     if (error) throw error;
+    console.log(`Buscados ${data.length} produtos na categoria ${category}`);
     return data;
   } catch (error) {
     console.error(`Erro ao buscar produtos da categoria ${category}:`, error);
@@ -63,6 +65,7 @@ async function fetchAllCategories() {
     
     // Extrair categorias únicas
     const categories = [...new Set(data.map(item => item.category))];
+    console.log(`Categorias encontradas: ${categories.join(', ')}`);
     return categories;
   } catch (error) {
     console.error('Erro ao buscar categorias:', error);
@@ -78,7 +81,7 @@ serve(async (req) => {
 
   try {
     const { messages, sessionId } = await req.json();
-    console.log(`Processando requisição de chat para sessão ${sessionId}`);
+    console.log(`Processando requisição de chat para sessão ${sessionId} com ${messages.length} mensagens`);
     
     // Buscar produtos e categorias para fornecer ao modelo
     const allProducts = await fetchAllProducts();
@@ -167,7 +170,7 @@ ${productsContext}
     );
 
   } catch (error) {
-    console.error("Erro ao processar requisição:", error);
+    console.error("Erro ao processar requisição:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

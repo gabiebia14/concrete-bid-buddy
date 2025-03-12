@@ -20,6 +20,8 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
   useEffect(() => {
     const initSession = async () => {
       try {
+        console.log('Iniciando sessão de chat...');
+        
         // In a real app, we would check for existing active sessions first
         const session: ChatSession = await createChatSession({
           client_id: clientId,
@@ -27,6 +29,7 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
           created_at: new Date().toISOString()
         });
         
+        console.log('Sessão criada com ID:', session.id);
         setSessionId(session.id);
         
         // Add welcome message
@@ -40,15 +43,21 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
         };
         
         setMessages([welcomeMessage]);
-        await saveChatMessage({
-          session_id: welcomeMessage.session_id,
-          content: welcomeMessage.content,
-          role: welcomeMessage.role,
-          created_at: welcomeMessage.created_at
-        });
+        
+        try {
+          await saveChatMessage({
+            session_id: session.id,
+            content: welcomeMessage.content,
+            role: welcomeMessage.role,
+            created_at: welcomeMessage.created_at
+          });
+          console.log('Mensagem de boas-vindas salva com sucesso');
+        } catch (error) {
+          console.error('Erro ao salvar mensagem de boas-vindas:', error);
+        }
         
       } catch (error) {
-        console.error('Error initializing chat session:', error);
+        console.error('Erro ao iniciar sessão de chat:', error);
         toast.error('Erro ao iniciar o chat. Por favor, tente novamente.');
       }
     };
@@ -60,6 +69,7 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
     if (!message.trim() || !sessionId) return;
     
     try {
+      console.log('Enviando mensagem:', message);
       setIsLoading(true);
       
       // Save user message
@@ -77,15 +87,21 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
       setMessage('');
       
       // Save to database
-      await saveChatMessage({
-        session_id: userMessage.session_id,
-        content: userMessage.content,
-        role: userMessage.role,
-        created_at: userMessage.created_at
-      });
+      try {
+        await saveChatMessage({
+          session_id: userMessage.session_id,
+          content: userMessage.content,
+          role: userMessage.role,
+          created_at: userMessage.created_at
+        });
+        console.log('Mensagem do usuário salva com sucesso');
+      } catch (error) {
+        console.error('Erro ao salvar mensagem do usuário:', error);
+      }
       
       // Call the LangChain Edge Function
       try {
+        console.log('Chamando função de borda para o chat...');
         const { data, error } = await supabase.functions.invoke("chat-assistant", {
           body: {
             messages: [...messages, userMessage].map(msg => ({
@@ -100,6 +116,8 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
           throw new Error(`Erro na função de borda: ${error.message}`);
         }
         
+        console.log('Resposta recebida da função de borda');
+        
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -113,12 +131,17 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
         setMessages(prev => [...prev, assistantMessage]);
         
         // Save to database
-        await saveChatMessage({
-          session_id: assistantMessage.session_id,
-          content: assistantMessage.content,
-          role: assistantMessage.role,
-          created_at: assistantMessage.created_at
-        });
+        try {
+          await saveChatMessage({
+            session_id: assistantMessage.session_id,
+            content: assistantMessage.content,
+            role: assistantMessage.role,
+            created_at: assistantMessage.created_at
+          });
+          console.log('Resposta do assistente salva com sucesso');
+        } catch (error) {
+          console.error('Erro ao salvar resposta do assistente:', error);
+        }
         
         // Check if quote request was detected
         if (data?.quoteData) {
@@ -140,12 +163,16 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
         
         setMessages(prev => [...prev, fallbackMessage]);
         
-        await saveChatMessage({
-          session_id: fallbackMessage.session_id,
-          content: fallbackMessage.content,
-          role: fallbackMessage.role,
-          created_at: fallbackMessage.created_at
-        });
+        try {
+          await saveChatMessage({
+            session_id: fallbackMessage.session_id,
+            content: fallbackMessage.content,
+            role: fallbackMessage.role,
+            created_at: fallbackMessage.created_at
+          });
+        } catch (saveError) {
+          console.error('Erro ao salvar mensagem de fallback:', saveError);
+        }
         
         toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
       }
