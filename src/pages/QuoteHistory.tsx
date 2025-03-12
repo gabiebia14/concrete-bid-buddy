@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -21,13 +20,11 @@ export default function QuoteHistory() {
     const loadQuotes = async () => {
       try {
         setIsLoading(true);
-        // In a real app, this would fetch from Supabase
         const quotesData = await fetchQuotes();
         setQuotes(quotesData || getMockQuotes());
       } catch (error) {
         console.error('Error loading quotes:', error);
         toast.error('Erro ao carregar orçamentos. Por favor, tente novamente.');
-        // Use mock data for demo
         setQuotes(getMockQuotes());
       } finally {
         setIsLoading(false);
@@ -64,7 +61,6 @@ export default function QuoteHistory() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  // Mock data for the demo
   const getMockQuotes = (): Quote[] => {
     return [
       {
@@ -141,7 +137,7 @@ export default function QuoteHistory() {
             total_price: 825,
           },
         ],
-        status: 'completed',
+        status: 'completed' as QuoteStatus,
         delivery_location: 'Rua Exemplo, 123 - São Paulo/SP',
         delivery_deadline: '2023-11-10',
         payment_method: 'Boleto Bancário',

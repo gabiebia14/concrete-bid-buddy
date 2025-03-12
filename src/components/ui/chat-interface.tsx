@@ -29,8 +29,7 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         const session: ChatSession = await createChatSession({
           client_id: clientId,
           status: 'active',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString()
         });
         
         setSessionId(session.id);
@@ -39,14 +38,19 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         const welcomeMessage: ChatMessage = {
           id: 'welcome',
           session_id: session.id,
-          client_id: clientId,
           content: 'Olá, sou o assistente de vendas da IPT Teixeira, especialista em produtos de concreto. Como posso te ajudar hoje?',
           role: 'assistant',
+          created_at: new Date().toISOString(),
           timestamp: new Date().toISOString(),
         };
         
         setMessages([welcomeMessage]);
-        await saveChatMessage(welcomeMessage);
+        await saveChatMessage({
+          session_id: welcomeMessage.session_id,
+          content: welcomeMessage.content,
+          role: welcomeMessage.role,
+          created_at: welcomeMessage.created_at
+        });
         
       } catch (error) {
         console.error('Error initializing chat session:', error);
@@ -75,9 +79,9 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         session_id: sessionId,
-        client_id: clientId,
         content: message,
         role: 'user',
+        created_at: new Date().toISOString(),
         timestamp: new Date().toISOString(),
       };
       
@@ -86,7 +90,12 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
       setMessage('');
       
       // Save to database
-      await saveChatMessage(userMessage);
+      await saveChatMessage({
+        session_id: userMessage.session_id,
+        content: userMessage.content,
+        role: userMessage.role,
+        created_at: userMessage.created_at
+      });
       
       // Simulate AI processing
       setTimeout(async () => {
@@ -97,9 +106,9 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
-          client_id: clientId,
           content: aiResponse.text,
           role: 'assistant',
+          created_at: new Date().toISOString(),
           timestamp: new Date().toISOString(),
         };
         
@@ -107,7 +116,12 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         setMessages(prev => [...prev, assistantMessage]);
         
         // Save to database
-        await saveChatMessage(assistantMessage);
+        await saveChatMessage({
+          session_id: assistantMessage.session_id,
+          content: assistantMessage.content,
+          role: assistantMessage.role,
+          created_at: assistantMessage.created_at
+        });
         
         // If the AI detected a quote request, notify parent component
         if (aiResponse.quoteData) {

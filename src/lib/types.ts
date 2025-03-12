@@ -35,7 +35,7 @@ export type ClientData = {
 export type QuoteData = {
   id?: string;
   client_id: string;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'completed';
   items: QuoteItem[];
   total_value?: number;
   created_at?: string;
