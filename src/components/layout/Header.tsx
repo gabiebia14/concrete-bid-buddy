@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from '@/lib/supabase';
 
+// Definir o tipo para os links de navegação com icon opcional
+type NavLink = {
+  title: string;
+  path: string;
+  icon?: React.ReactNode;
+};
+
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -53,13 +60,13 @@ export function Header() {
     await supabase.auth.signOut();
   };
 
-  const clientLinks = [
+  const clientLinks: NavLink[] = [
     { title: 'Criar Orçamento', path: '/criar-orcamento' },
     { title: 'Histórico', path: '/historico' },
     { title: 'Catálogo', path: '/catalogo' },
   ];
 
-  const managerLinks = [
+  const managerLinks: NavLink[] = [
     { title: 'Dashboard', path: '/manager/dashboard' },
     { title: 'Orçamentos', path: '/manager/quotes' },
     { title: 'Clientes', path: '/manager/clients' },
