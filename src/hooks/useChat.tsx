@@ -9,9 +9,10 @@ import { useNavigate } from 'react-router-dom';
 interface UseChatProps {
   clientId?: string;
   onQuoteRequest?: (quoteData: any) => void;
+  source?: 'web' | 'whatsapp';
 }
 
-export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
+export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
@@ -46,6 +47,31 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
     
     initSession();
   }, [clientId]);
+
+  // Carregar mensagens existentes para a sessão se estiver vindo do WhatsApp
+  useEffect(() => {
+    if (sessionId && source === 'whatsapp') {
+      const carregarMensagens = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: true });
+            
+          if (error) throw error;
+          
+          if (data) {
+            setMessages(data as ChatMessage[]);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar mensagens:', error);
+        }
+      };
+      
+      carregarMensagens();
+    }
+  }, [sessionId, source]);
 
   // Efeito para processar o orçamento quando disponível
   useEffect(() => {

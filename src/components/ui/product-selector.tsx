@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Minus, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,13 +11,14 @@ import { toast } from 'sonner';
 
 interface ProductSelectorProps {
   onProductsSelected: (products: QuoteItem[]) => void;
+  initialProducts?: QuoteItem[];
 }
 
-export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
+export function ProductSelector({ onProductsSelected, initialProducts = [] }: ProductSelectorProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedItems, setSelectedItems] = useState<QuoteItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<QuoteItem[]>(initialProducts);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -50,6 +50,14 @@ export function ProductSelector({ onProductsSelected }: ProductSelectorProps) {
     
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (initialProducts && initialProducts.length > 0) {
+      setSelectedItems(initialProducts);
+      // Notificar o componente pai
+      onProductsSelected(initialProducts);
+    }
+  }, [initialProducts, onProductsSelected]);
 
   const filteredProducts = selectedCategory 
     ? products.filter(product => product.category === selectedCategory)

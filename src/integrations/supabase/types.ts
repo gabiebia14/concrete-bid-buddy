@@ -46,21 +46,32 @@ export type Database = {
           client_id: string | null
           created_at: string | null
           id: string
+          quote_id: string | null
           status: string
         }
         Insert: {
           client_id?: string | null
           created_at?: string | null
           id?: string
+          quote_id?: string | null
           status: string
         }
         Update: {
           client_id?: string | null
           created_at?: string | null
           id?: string
+          quote_id?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
