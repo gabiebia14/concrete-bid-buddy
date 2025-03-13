@@ -32,29 +32,7 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
         console.log('Sessão criada com ID:', session.id);
         setSessionId(session.id);
         
-        // Add welcome message
-        const welcomeMessage: ChatMessage = {
-          id: 'welcome',
-          session_id: session.id,
-          content: 'Olá, sou o assistente de vendas da IPT Teixeira, especialista em produtos de concreto. Como posso te ajudar hoje?',
-          role: 'assistant',
-          created_at: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
-        };
-        
-        setMessages([welcomeMessage]);
-        
-        try {
-          await saveChatMessage({
-            session_id: session.id,
-            content: welcomeMessage.content,
-            role: welcomeMessage.role,
-            created_at: welcomeMessage.created_at
-          });
-          console.log('Mensagem de boas-vindas salva com sucesso');
-        } catch (error) {
-          console.error('Erro ao salvar mensagem de boas-vindas:', error);
-        }
+        // Removida a mensagem de boas-vindas inicial
         
       } catch (error) {
         console.error('Erro ao iniciar sessão de chat:', error);

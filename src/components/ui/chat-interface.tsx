@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChat } from '@/hooks/useChat';
-import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Layout } from '@/components/layout/Layout';
@@ -43,7 +42,20 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-col h-[600px] overflow-hidden">
-                <ChatMessages messages={messages} isTyping={isLoading} />
+                {messages.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center p-6 text-center">
+                    <div className="max-w-md">
+                      <Bot className="h-12 w-12 text-primary/20 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Como posso ajudar?</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Envie uma mensagem para começar uma conversa com nosso assistente. 
+                        Ele pode responder perguntas sobre produtos, medidas, e ajudar com orçamentos.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <ChatMessages messages={messages} isTyping={isLoading} />
+                )}
                 <ChatInput 
                   message={message}
                   setMessage={setMessage}
