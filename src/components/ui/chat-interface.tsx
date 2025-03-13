@@ -1,11 +1,13 @@
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useChat } from '@/hooks/useChat';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Layout } from '@/components/layout/Layout';
-import { Bot, MessageSquare } from 'lucide-react';
+import { Bot, MessageSquare, CheckCircle2, ClipboardList } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -13,13 +15,31 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) {
+  const navigate = useNavigate();
   const { 
     message, 
     setMessage, 
     messages, 
     isLoading, 
-    handleSendMessage 
+    handleSendMessage,
+    quoteData,
+    quoteId
   } = useChat({ clientId, onQuoteRequest });
+
+  const [showQuoteSummary, setShowQuoteSummary] = useState(false);
+
+  // Exibir resumo do orçamento quando disponível
+  useEffect(() => {
+    if (quoteData && quoteId) {
+      setShowQuoteSummary(true);
+    }
+  }, [quoteData, quoteId]);
+
+  const handleViewQuote = () => {
+    if (quoteId) {
+      navigate(`/quotes/${quoteId}`);
+    }
+  };
 
   return (
     <Layout>
@@ -64,6 +84,46 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
                 />
               </div>
             </CardContent>
+            
+            {showQuoteSummary && quoteData && (
+              <CardFooter className="border-t p-4 bg-green-50">
+                <div className="w-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <h3 className="font-medium text-green-800">Orçamento Registrado com Sucesso!</h3>
+                  </div>
+                  
+                  <div className="bg-white rounded-md p-3 border border-green-200 mb-3">
+                    <h4 className="font-medium text-sm mb-2">Resumo do Pedido:</h4>
+                    <ul className="text-sm space-y-1">
+                      {quoteData.produtos?.map((produto, idx) => (
+                        <li key={idx} className="flex justify-between">
+                          <span>{produto.quantidade}x {produto.nome}</span>
+                          <span className="text-gray-500">{produto.especificacoes}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    {quoteData.entrega?.local && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 text-sm">
+                        <p><strong>Local de entrega:</strong> {quoteData.entrega.local}</p>
+                        {quoteData.entrega.prazo && (
+                          <p><strong>Prazo:</strong> {quoteData.entrega.prazo}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    onClick={handleViewQuote}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    Ver Detalhes do Orçamento
+                  </Button>
+                </div>
+              </CardFooter>
+            )}
           </Card>
 
           <Card>

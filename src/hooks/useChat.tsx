@@ -4,6 +4,7 @@ import { saveChatMessage, createChatSession } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface UseChatProps {
   clientId?: string;
@@ -15,6 +16,9 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [quoteData, setQuoteData] = useState<any>(null);
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Create or retrieve chat session on hook initialization
   useEffect(() => {
@@ -42,6 +46,21 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
     
     initSession();
   }, [clientId]);
+
+  // Efeito para processar o orçamento quando disponível
+  useEffect(() => {
+    if (quoteData && onQuoteRequest) {
+      console.log('Processando dados do orçamento:', quoteData);
+      onQuoteRequest(quoteData);
+      
+      if (quoteId) {
+        toast.success(`Orçamento #${quoteId} criado com sucesso!`);
+        
+        // Opcionalmente, redirecionar para a página do orçamento
+        // navigate(`/quotes/${quoteId}`);
+      }
+    }
+  }, [quoteData, quoteId, onQuoteRequest, navigate]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !sessionId) return;
@@ -121,10 +140,18 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
           console.error('Erro ao salvar resposta do assistente:', error);
         }
         
-        // Check if quote request was detected
-        if (data?.quoteData) {
-          console.log("Quote data detected:", data.quoteData);
-          onQuoteRequest?.(data.quoteData);
+        // Verificar se há dados de orçamento
+        if (data?.quote_data) {
+          console.log("Dados do orçamento detectados:", data.quote_data);
+          setQuoteData(data.quote_data);
+          
+          if (data.quote_id) {
+            console.log("Orçamento criado com ID:", data.quote_id);
+            setQuoteId(data.quote_id);
+          }
+          
+          // Notificar componentes externos
+          onQuoteRequest?.(data.quote_data);
         }
       } catch (error) {
         console.error("Error calling edge function:", error);
@@ -169,6 +196,8 @@ export function useChat({ clientId, onQuoteRequest }: UseChatProps) {
     setMessage,
     messages,
     isLoading,
-    handleSendMessage
+    handleSendMessage,
+    quoteData,
+    quoteId
   };
 }

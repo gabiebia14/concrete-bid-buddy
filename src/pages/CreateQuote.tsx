@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { createQuote, addClient } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
+
 export default function CreateQuote() {
   const [activeTab, setActiveTab] = useState('manual');
   const [name, setName] = useState('');
@@ -25,18 +27,56 @@ export default function CreateQuote() {
   const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
   const handleProductsSelected = (products: QuoteItem[]) => {
     setSelectedProducts(products);
   };
+
+  // Função para processar dados de orçamento do assistente
   const handleQuoteRequest = (quoteData: any) => {
     console.log('Quote data from AI:', quoteData);
+    
+    if (quoteData) {
+      // Preencher os campos do formulário manual com os dados do assistente
+      if (quoteData.cliente) {
+        setName(quoteData.cliente.nome || '');
+        setEmail(quoteData.cliente.email || '');
+        setPhone(quoteData.cliente.telefone || '');
+      }
+      
+      if (quoteData.entrega) {
+        setLocation(quoteData.entrega.local || '');
+        setDeadline(quoteData.entrega.prazo || '');
+      }
+      
+      if (quoteData.pagamento) {
+        setPaymentMethod(quoteData.pagamento.forma || '');
+      }
+      
+      // Converter produtos para o formato esperado pelo ProductSelector
+      if (quoteData.produtos && Array.isArray(quoteData.produtos)) {
+        const formattedProducts = quoteData.produtos.map(produto => ({
+          product_id: '', // Será preenchido posteriormente
+          product_name: produto.nome,
+          dimensions: produto.especificacoes || '',
+          quantity: produto.quantidade || 0
+        }));
+        
+        setSelectedProducts(formattedProducts);
+      }
+      
+      // Mudar para a aba manual para revisão
+      setActiveTab('manual');
+    }
   };
+
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !location || selectedProducts.length === 0) {
       toast.error('Por favor, preencha todos os campos obrigatórios e selecione pelo menos um produto.');
       return;
     }
+    
     try {
       setIsSubmitting(true);
       const clientData = {
@@ -45,7 +85,9 @@ export default function CreateQuote() {
         phone,
         address: location
       };
+      
       const client = await addClient(clientData);
+      
       const quoteData = {
         client_id: client.id,
         status: 'pending' as const,
@@ -54,6 +96,7 @@ export default function CreateQuote() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+      
       await createQuote(quoteData);
       toast.success('Orçamento enviado com sucesso! Em breve entraremos em contato.');
       navigate('/quote-history');
@@ -64,6 +107,7 @@ export default function CreateQuote() {
       setIsSubmitting(false);
     }
   };
+
   return <Layout>
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
@@ -77,7 +121,7 @@ export default function CreateQuote() {
           </p>
         </div>
 
-        <Tabs defaultValue="manual" className="space-y-6">
+        <Tabs defaultValue="manual" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted/20 p-1 inline-flex w-full sm:w-auto">
             <TabsTrigger value="manual" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
@@ -100,12 +144,107 @@ export default function CreateQuote() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ProductSelector onProductsSelected={handleProductsSelected} />
+                    <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
                   </CardContent>
                 </Card>
               </div>
 
-              
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Dados para Contato</CardTitle>
+                    <CardDescription>
+                      Preencha suas informações para receber o orçamento
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleManualSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome</Label>
+                        <Input 
+                          id="name" 
+                          value={name} 
+                          onChange={(e) => setName(e.target.value)} 
+                          placeholder="Seu nome completo" 
+                          required 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">E-mail</Label>
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          value={email} 
+                          onChange={(e) => setEmail(e.target.value)} 
+                          placeholder="seu@email.com" 
+                          required 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Telefone</Label>
+                        <Input 
+                          id="phone" 
+                          value={phone} 
+                          onChange={(e) => setPhone(e.target.value)} 
+                          placeholder="(00) 00000-0000" 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Local de Entrega</Label>
+                        <Input 
+                          id="location" 
+                          value={location} 
+                          onChange={(e) => setLocation(e.target.value)} 
+                          placeholder="Endereço de entrega" 
+                          required 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="deadline">Prazo Desejado</Label>
+                        <Input 
+                          id="deadline" 
+                          value={deadline} 
+                          onChange={(e) => setDeadline(e.target.value)} 
+                          placeholder="Ex: 15 dias" 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="payment">Forma de Pagamento</Label>
+                        <Input 
+                          id="payment" 
+                          value={paymentMethod} 
+                          onChange={(e) => setPaymentMethod(e.target.value)} 
+                          placeholder="Ex: À vista, 30/60/90 dias" 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="notes">Observações</Label>
+                        <Textarea 
+                          id="notes" 
+                          value={notes} 
+                          onChange={(e) => setNotes(e.target.value)} 
+                          placeholder="Informações adicionais..." 
+                          rows={3} 
+                        />
+                      </div>
+                      
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isSubmitting || selectedProducts.length === 0}
+                      >
+                        {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
