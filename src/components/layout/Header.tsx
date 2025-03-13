@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, LineChart, LogOut, Settings } from 'lucide-react';
+import { Menu, X, User, LineChart, LogOut, Settings, Smartphone, Globe } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -63,6 +63,8 @@ export function Header() {
     { title: 'Dashboard', path: '/manager/dashboard' },
     { title: 'Orçamentos', path: '/manager/quotes' },
     { title: 'Clientes', path: '/manager/clients' },
+    { title: 'Chat WhatsApp', path: '/manager/whatsapp-chats', icon: <Smartphone className="w-4 h-4 mr-1" /> },
+    { title: 'Chat Web', path: '/manager/web-chats', icon: <Globe className="w-4 h-4 mr-1" /> },
   ];
 
   const navLinks = isManager ? managerLinks : clientLinks;
@@ -91,12 +93,13 @@ export function Header() {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                className={`px-3 py-2 text-sm rounded-md transition-colors flex items-center ${
                   location.pathname === link.path
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-foreground/80 hover:text-foreground hover:bg-accent'
                 }`}
               >
+                {link.icon && link.icon}
                 {link.title}
               </Link>
             ))}
@@ -181,13 +184,14 @@ export function Header() {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-3 py-2 text-sm rounded-md ${
+                  className={`px-3 py-2 text-sm rounded-md flex items-center ${
                     location.pathname === link.path
                       ? 'bg-primary/10 text-primary font-medium'
                       : 'text-foreground/80 hover:text-foreground hover:bg-accent'
                   }`}
                   onClick={closeMenu}
                 >
+                  {link.icon && link.icon}
                   {link.title}
                 </Link>
               ))}

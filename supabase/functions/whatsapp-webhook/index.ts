@@ -63,7 +63,7 @@ serve(async (req) => {
           // Verificar se é uma mensagem recebida
           if (change.value && change.value.messages && change.value.messages.length > 0) {
             const message = change.value.messages[0];
-            const from = message.from; // Número de telefone do remetente
+            const phoneNumber = message.from; // Número de telefone do remetente
             const messageId = message.id;
             
             // Verificar tipo de mensagem
@@ -78,7 +78,50 @@ serve(async (req) => {
                 messageContent = message.interactive.list_reply.title;
               }
             }
-            // Outros tipos: image, document, audio, etc.
+            
+            // Identificar cliente pelo número de telefone
+            const { data: clientData, error: clientError } = await supabase
+              .from('clients')
+              .select('*')
+              .eq('phone', phoneNumber)
+              .maybeSingle();
+              
+            let clientId = null;
+              
+            if (clientError) {
+              console.error('Erro ao buscar cliente:', clientError);
+            } else if (clientData) {
+              // Cliente encontrado
+              clientId = clientData.id;
+              console.log(`Cliente identificado: ${clientData.name} (ID: ${clientId})`);
+            } else {
+              // Cliente não encontrado, registrar como cliente potencial
+              console.log(`Cliente não encontrado para o número ${phoneNumber}, registrando como potencial.`);
+              
+              try {
+                // Criar cliente potencial com o número de telefone
+                const { data: newClient, error: createError } = await supabase
+                  .from('clients')
+                  .insert({
+                    name: `Cliente WhatsApp (${phoneNumber})`,
+                    email: `whatsapp_${phoneNumber.replace(/\D/g, '')}@potencial.com`,
+                    phone: phoneNumber,
+                    address: null,
+                    created_at: new Date().toISOString()
+                  })
+                  .select()
+                  .single();
+                  
+                if (createError) {
+                  throw new Error(`Erro ao criar cliente potencial: ${createError.message}`);
+                }
+                
+                clientId = newClient.id;
+                console.log(`Cliente potencial criado com ID: ${clientId}`);
+              } catch (e) {
+                console.error('Erro ao criar cliente potencial:', e);
+              }
+            }
             
             // Buscar ou criar sessão para este usuário
             let chatSession;
@@ -86,7 +129,7 @@ serve(async (req) => {
               .from('chat_sessions')
               .select('*')
               .eq('status', 'active')
-              .eq('client_id', from) // Usando o número de telefone como client_id
+              .eq('client_id', clientId || phoneNumber) // Usar ID do cliente se disponível
               .order('created_at', { ascending: false })
               .limit(1);
               
@@ -101,7 +144,7 @@ serve(async (req) => {
               const { data: newSession, error: createError } = await supabase
                 .from('chat_sessions')
                 .insert({
-                  client_id: from,
+                  client_id: clientId || phoneNumber,
                   status: 'active',
                   created_at: new Date().toISOString()
                 })
@@ -156,7 +199,7 @@ serve(async (req) => {
             }
             
             // Enviar resposta para o WhatsApp
-            await enviarMensagemWhatsApp(from, aiResponse.message);
+            await enviarMensagemWhatsApp(phoneNumber, aiResponse.message);
             
             // Se temos dados de orçamento, processar
             if (aiResponse.quote_data) {

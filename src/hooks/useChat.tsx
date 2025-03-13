@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { saveChatMessage, createChatSession } from '@/lib/supabase';
+import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -19,7 +19,25 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
   const [isLoading, setIsLoading] = useState(false);
   const [quoteData, setQuoteData] = useState<any>(null);
   const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
+
+  // Buscar informações do cliente quando o clientId mudar
+  useEffect(() => {
+    const loadClientInfo = async () => {
+      if (clientId) {
+        try {
+          const clientData = await fetchClientById(clientId);
+          setClientInfo(clientData);
+          console.log('Informações do cliente carregadas:', clientData);
+        } catch (error) {
+          console.error('Erro ao carregar informações do cliente:', error);
+        }
+      }
+    };
+    
+    loadClientInfo();
+  }, [clientId]);
 
   // Create or retrieve chat session on hook initialization
   useEffect(() => {
@@ -224,6 +242,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
     isLoading,
     handleSendMessage,
     quoteData,
-    quoteId
+    quoteId,
+    clientInfo
   };
 }

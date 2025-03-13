@@ -120,6 +120,17 @@ export async function fetchClientById(id: string) {
   return data;
 }
 
+export async function fetchClientByPhone(phone: string) {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('phone', phone)
+    .maybeSingle();
+  
+  if (error) throw error;
+  return data;
+}
+
 // Renomeado de createClient para addClient para evitar conflito com o import
 export async function addClient(client: Database['public']['Tables']['clients']['Insert']) {
   const { data, error } = await supabase
