@@ -25,8 +25,8 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
     <Layout>
       <div className="container mx-auto py-8 px-4">
         <div className="flex flex-col mb-6">
-          <h1 className="text-2xl font-bold">Assistente de Vendas</h1>
-          <p className="text-muted-foreground">Tire suas dúvidas sobre produtos e solicite orçamentos</p>
+          <h1 className="text-2xl font-bold">Vendas Online</h1>
+          <p className="text-muted-foreground">Tire suas dúvidas e solicite orçamentos a qualquer hora do dia</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -34,10 +34,10 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5 text-primary" />
-                Assistente IPT Teixeira
+                Vendedor Online IPT Teixeira
               </CardTitle>
               <CardDescription>
-                Especialista em artefatos de concreto há mais de 30 anos
+                Atendimento 24h para orçamentos rápidos
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -48,8 +48,8 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
                       <Bot className="h-12 w-12 text-primary/20 mx-auto mb-4" />
                       <h3 className="text-lg font-medium mb-2">Como posso ajudar?</h3>
                       <p className="text-muted-foreground text-sm">
-                        Envie uma mensagem para começar uma conversa com nosso assistente. 
-                        Ele pode responder perguntas sobre produtos, medidas, e ajudar com orçamentos.
+                        Envie uma mensagem para iniciar seu atendimento. Informe os produtos desejados 
+                        e solicite um orçamento sem precisar aguardar o horário comercial.
                       </p>
                     </div>
                   </div>
@@ -70,10 +70,10 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
-                Como posso ajudar?
+                Solicite seu orçamento
               </CardTitle>
               <CardDescription>
-                Exemplos de perguntas
+                Perguntas frequentes
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -96,9 +96,9 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
               </div>
               
               <div className="bg-primary/10 p-4 rounded-md mt-6">
-                <h4 className="text-sm font-medium mb-2">Sobre o assistente</h4>
+                <h4 className="text-sm font-medium mb-2">Sobre o atendimento</h4>
                 <p className="text-xs text-muted-foreground">
-                  O assistente virtual da IPT Teixeira utiliza inteligência artificial para fornecer informações precisas sobre nossa linha completa de produtos. Ele pode ajudar com especificações técnicas, recomendações de uso e criação de orçamentos personalizados.
+                  Nosso vendedor online está disponível 24 horas por dia para agilizar o processo de orçamento. Informe os produtos, quantidades e local de entrega para receber um orçamento personalizado da nossa equipe comercial o mais rápido possível.
                 </p>
               </div>
             </CardContent>
