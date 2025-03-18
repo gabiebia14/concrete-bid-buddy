@@ -5,9 +5,11 @@ import { useChat } from '@/hooks/useChat';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Layout } from '@/components/layout/Layout';
-import { Bot, MessageSquare, CheckCircle2, ClipboardList } from 'lucide-react';
+import { Bot, MessageSquare, CheckCircle2, ClipboardList, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -16,6 +18,8 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) {
   const navigate = useNavigate();
+  const [enableBailey, setEnableBailey] = useState(false);
+  
   const { 
     message, 
     setMessage, 
@@ -24,7 +28,7 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
     handleSendMessage,
     quoteData,
     quoteId
-  } = useChat({ clientId, onQuoteRequest });
+  } = useChat({ clientId, onQuoteRequest, source: 'web' });
 
   const [showQuoteSummary, setShowQuoteSummary] = useState(false);
 
@@ -52,17 +56,33 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 border-l-4 border-l-primary">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-primary" />
-                Vendedor Online IPT Teixeira
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-primary" />
+                  Vendedor Online IPT Teixeira
+                </CardTitle>
+                
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="bailey-mode" className="text-sm cursor-pointer">
+                    Modo WhatsApp
+                  </Label>
+                  <Switch
+                    id="bailey-mode"
+                    checked={enableBailey}
+                    onCheckedChange={setEnableBailey}
+                  />
+                </div>
+              </div>
               <CardDescription>
-                Atendimento 24h para orçamentos rápidos
+                {enableBailey 
+                  ? "Conecte seu WhatsApp para receber mensagens diretamente no aplicativo"
+                  : "Atendimento 24h para orçamentos rápidos"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-col h-[600px] overflow-hidden">
-                {messages.length === 0 ? (
+                {messages.length === 0 && !enableBailey ? (
                   <div className="flex-1 flex items-center justify-center p-6 text-center">
                     <div className="max-w-md">
                       <Bot className="h-12 w-12 text-primary/20 mx-auto mb-4" />
@@ -74,7 +94,11 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
                     </div>
                   </div>
                 ) : (
-                  <ChatMessages messages={messages} isTyping={isLoading} />
+                  <ChatMessages 
+                    messages={messages} 
+                    isTyping={isLoading} 
+                    showBailey={enableBailey}
+                  />
                 )}
                 <ChatInput 
                   message={message}
@@ -155,12 +179,26 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
                 </div>
               </div>
               
-              <div className="bg-primary/10 p-4 rounded-md mt-6">
-                <h4 className="text-sm font-medium mb-2">Sobre o atendimento</h4>
-                <p className="text-xs text-muted-foreground">
-                  Nosso vendedor online está disponível 24 horas por dia para agilizar o processo de orçamento. Informe os produtos, quantidades e local de entrega para receber um orçamento personalizado da nossa equipe comercial o mais rápido possível.
-                </p>
-              </div>
+              {enableBailey && (
+                <div className="bg-primary/10 p-4 rounded-md mt-6 flex items-center gap-3">
+                  <MessageCircle className="h-5 w-5 text-primary" />
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Modo WhatsApp</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Conecte sua conta do WhatsApp para receber e responder mensagens diretamente pelo aplicativo sem precisar de integração com Facebook.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {!enableBailey && (
+                <div className="bg-primary/10 p-4 rounded-md mt-6">
+                  <h4 className="text-sm font-medium mb-2">Sobre o atendimento</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Nosso vendedor online está disponível 24 horas por dia para agilizar o processo de orçamento. Informe os produtos, quantidades e local de entrega para receber um orçamento personalizado da nossa equipe comercial o mais rápido possível.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
