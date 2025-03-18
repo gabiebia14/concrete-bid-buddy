@@ -1,10 +1,17 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { ArrowRight, FileText, Package, History, Users, BarChart } from "lucide-react";
+import { ArrowRight, FileText, Package, History, Users, BarChart, MessageSquare } from "lucide-react";
+import { ChatInterface } from "@/components/ui/chat-interface";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useState } from "react";
 
 const Index = () => {
+  const [openDrawer, setOpenDrawer] = useState(false);
+
   return (
     <Layout>
       <div className="container mx-auto py-12 px-4">
@@ -14,6 +21,40 @@ const Index = () => {
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Sistema inteligente de orçamentos e gerenciamento para produtos de concreto
             </p>
+            
+            {/* Botão para abrir o assistente em dispositivos móveis */}
+            <div className="mt-6 md:hidden">
+              <Drawer open={openDrawer} onOpenChange={setOpenDrawer}>
+                <DrawerTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Falar com Assistente
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent className="h-[85vh]">
+                  <div className="px-4 py-6 h-full">
+                    <ChatInterface />
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            </div>
+            
+            {/* Botão para abrir o assistente em desktop */}
+            <div className="mt-6 hidden md:block">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Falar com Assistente
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="end" sideOffset={10}>
+                  <div className="h-[500px]">
+                    <ChatInterface />
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
