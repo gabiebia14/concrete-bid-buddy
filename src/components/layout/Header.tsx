@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, LineChart, LogOut, Settings, Smartphone, Globe } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, User, LineChart, LogOut, Settings, Smartphone, Globe, LogIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from '@/lib/supabase';
+import { useAuth } from "@/contexts/AuthContext";
 
 // Definir o tipo para os links de navegação com icon opcional
 type NavLink = {
@@ -22,8 +22,9 @@ type NavLink = {
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const { user, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,30 +35,14 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-    };
-    
-    checkUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  const isManager = location.pathname.startsWith('/manager');
+  const isManager = user?.isManager || location.pathname.startsWith('/manager');
   
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
+    navigate('/');
   };
 
   const clientLinks: NavLink[] = [
@@ -96,7 +81,7 @@ export function Header() {
 
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => (
+            {user && navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
@@ -134,7 +119,7 @@ export function Header() {
                   <DropdownMenuSeparator />
                   {!isManager && (
                     <DropdownMenuItem asChild>
-                      <Link to="/manager/dashboard" className="flex items-center cursor-pointer">
+                      <Link to="/manager/login" className="flex items-center cursor-pointer">
                         <LineChart className="mr-2 h-4 w-4" />
                         <span>Área do Gerente</span>
                       </Link>
@@ -142,7 +127,7 @@ export function Header() {
                   )}
                   {isManager && (
                     <DropdownMenuItem asChild>
-                      <Link to="/criar-orcamento" className="flex items-center cursor-pointer">
+                      <Link to="/dashboard" className="flex items-center cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         <span>Área do Cliente</span>
                       </Link>
@@ -162,9 +147,17 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button asChild variant="default" size="sm">
-                <Link to="/login">Entrar</Link>
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/login" className="flex items-center gap-1">
+                    <LogIn size={16} />
+                    <span className="hidden sm:inline">Entrar</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="default" size="sm" className="hidden sm:flex">
+                  <Link to="/login">Cadastrar</Link>
+                </Button>
+              </div>
             )}
 
             {/* Mobile menu button */}
@@ -187,7 +180,7 @@ export function Header() {
         <div className="md:hidden bg-background border-t animate-fade-in">
           <div className="container mx-auto px-4 py-3">
             <nav className="flex flex-col space-y-1">
-              {navLinks.map((link) => (
+              {user && navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
@@ -203,9 +196,28 @@ export function Header() {
                 </Link>
               ))}
               
+              {!user && (
+                <>
+                  <Link
+                    to="/login"
+                    className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
+                    onClick={closeMenu}
+                  >
+                    Entrar como Cliente
+                  </Link>
+                  <Link
+                    to="/manager/login"
+                    className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
+                    onClick={closeMenu}
+                  >
+                    Entrar como Gerente
+                  </Link>
+                </>
+              )}
+              
               {user && !isManager && (
                 <Link
-                  to="/manager/dashboard"
+                  to="/manager/login"
                   className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
                   onClick={closeMenu}
                 >
@@ -215,12 +227,24 @@ export function Header() {
               
               {user && isManager && (
                 <Link
-                  to="/criar-orcamento"
+                  to="/login"
                   className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
                   onClick={closeMenu}
                 >
                   Área do Cliente
                 </Link>
+              )}
+              
+              {user && (
+                <button
+                  className="px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 text-left flex items-center"
+                  onClick={() => {
+                    handleSignOut();
+                    closeMenu();
+                  }}
+                >
+                  <LogOut className="w-4 h-4 mr-2" /> Sair
+                </button>
               )}
             </nav>
           </div>

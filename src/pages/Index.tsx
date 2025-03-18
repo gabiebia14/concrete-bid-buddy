@@ -1,10 +1,14 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { ArrowRight, FileText, Package, History, Users, BarChart } from "lucide-react";
+import { ArrowRight, FileText, Package, History, Users, BarChart, UserCircle, Briefcase } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { user } = useAuth();
+
   return (
     <Layout>
       <div className="container mx-auto py-12 px-4">
@@ -14,6 +18,34 @@ const Index = () => {
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Sistema inteligente de orçamentos e gerenciamento para produtos de concreto
             </p>
+            
+            {!user && (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+                <Button asChild size="lg" className="gap-2">
+                  <Link to="/login">
+                    <UserCircle size={20} />
+                    Área do Cliente
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="gap-2">
+                  <Link to="/manager/login">
+                    <Briefcase size={20} />
+                    Área do Gerente
+                  </Link>
+                </Button>
+              </div>
+            )}
+            
+            {user && (
+              <div className="flex justify-center mt-8">
+                <Button asChild size="lg">
+                  <Link to={user.isManager ? "/manager/dashboard" : "/dashboard"}>
+                    Ir para o Dashboard
+                    <ArrowRight className="ml-2" size={20} />
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -31,7 +63,7 @@ const Index = () => {
                   </div>
                   <div className="mt-auto">
                     <Button asChild className="w-full justify-between">
-                      <Link to="/criar-orcamento">
+                      <Link to={user ? "/criar-orcamento" : "/login"}>
                         Iniciar <ArrowRight size={16} className="ml-2" />
                       </Link>
                     </Button>
@@ -54,7 +86,7 @@ const Index = () => {
                   </div>
                   <div className="mt-auto">
                     <Button asChild variant="outline" className="w-full justify-between">
-                      <Link to="/dashboard">
+                      <Link to={user ? "/dashboard" : "/login"}>
                         Visualizar <ArrowRight size={16} className="ml-2" />
                       </Link>
                     </Button>
@@ -77,7 +109,7 @@ const Index = () => {
                   </div>
                   <div className="mt-auto">
                     <Button asChild variant="outline" className="w-full justify-between">
-                      <Link to="/catalogo">
+                      <Link to={user ? "/catalogo" : "/login"}>
                         Explorar <ArrowRight size={16} className="ml-2" />
                       </Link>
                     </Button>
@@ -94,19 +126,19 @@ const Index = () => {
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <Button asChild variant="default">
-                <Link to="/manager/dashboard" className="flex items-center">
+                <Link to={user?.isManager ? "/manager/dashboard" : "/manager/login"} className="flex items-center">
                   <BarChart size={18} className="mr-2" />
                   Dashboard
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link to="/manager/quotes" className="flex items-center">
+                <Link to={user?.isManager ? "/manager/quotes" : "/manager/login"} className="flex items-center">
                   <FileText size={18} className="mr-2" />
                   Orçamentos
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link to="/manager/clients" className="flex items-center">
+                <Link to={user?.isManager ? "/manager/clients" : "/manager/login"} className="flex items-center">
                   <Users size={18} className="mr-2" />
                   Clientes
                 </Link>
