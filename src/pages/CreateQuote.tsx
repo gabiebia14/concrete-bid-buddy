@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -248,43 +249,56 @@ export default function CreateQuote() {
           </TabsContent>
 
           <TabsContent value="assistant">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2">
-                <ChatInterface onQuoteRequest={handleQuoteRequest} />
-              </div>
-              <div>
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-4">Como funciona:</h3>
-                  <ol className="space-y-3 text-sm text-gray-600">
-                    <li className="flex gap-2">
-                      <span className="font-medium">1.</span>
-                      Descreva os produtos que você precisa
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-medium">2.</span>
-                      Forneça as quantidades e dimensões
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-medium">3.</span>
-                      Informe o local de entrega
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-medium">4.</span>
-                      Receba seu orçamento personalizado
-                    </li>
-                  </ol>
+            <Card className="bg-white border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Assistente Virtual
+                </CardTitle>
+                <CardDescription>
+                  Converse com nosso assistente para criar um orçamento personalizado
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <ChatInterface onQuoteRequest={handleQuoteRequest} />
+                  </div>
+                  <div>
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                      <h3 className="font-medium text-gray-900 mb-4">Como funciona:</h3>
+                      <ol className="space-y-3 text-sm text-gray-600">
+                        <li className="flex gap-2">
+                          <span className="font-medium">1.</span>
+                          Descreva os produtos que você precisa
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">2.</span>
+                          Forneça as quantidades e dimensões
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">3.</span>
+                          Informe o local de entrega
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">4.</span>
+                          Receba seu orçamento personalizado
+                        </li>
+                      </ol>
 
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <p className="font-medium text-gray-900 mb-3">Sugestões:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map(tag => <span key={tag} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                          {tag}
-                        </span>)}
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <p className="font-medium text-gray-900 mb-3">Sugestões:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map(tag => <span key={tag} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                              {tag}
+                            </span>)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
