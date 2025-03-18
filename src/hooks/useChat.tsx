@@ -45,7 +45,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
       try {
         console.log('Iniciando sessão de chat...');
         
-        // In a real app, we would check for existing active sessions first
+        // Criar nova sessão ou recuperar existente
         const session: ChatSession = await createChatSession({
           client_id: clientId,
           status: 'active',
@@ -55,8 +55,20 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.log('Sessão criada com ID:', session.id);
         setSessionId(session.id);
         
-        // Removida a mensagem de boas-vindas inicial
-        
+        // Carregar mensagens anteriores da sessão
+        if (session.id) {
+          const { data, error } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('created_at', { ascending: true });
+            
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            setMessages(data as ChatMessage[]);
+          }
+        }
       } catch (error) {
         console.error('Erro ao iniciar sessão de chat:', error);
         toast.error('Erro ao iniciar o chat. Por favor, tente novamente.');
@@ -65,46 +77,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
     
     initSession();
   }, [clientId]);
-
-  // Carregar mensagens existentes para a sessão se estiver vindo do WhatsApp
-  useEffect(() => {
-    if (sessionId && source === 'whatsapp') {
-      const carregarMensagens = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('chat_messages')
-            .select('*')
-            .eq('session_id', sessionId)
-            .order('created_at', { ascending: true });
-            
-          if (error) throw error;
-          
-          if (data) {
-            setMessages(data as ChatMessage[]);
-          }
-        } catch (error) {
-          console.error('Erro ao carregar mensagens:', error);
-        }
-      };
-      
-      carregarMensagens();
-    }
-  }, [sessionId, source]);
-
-  // Efeito para processar o orçamento quando disponível
-  useEffect(() => {
-    if (quoteData && onQuoteRequest) {
-      console.log('Processando dados do orçamento:', quoteData);
-      onQuoteRequest(quoteData);
-      
-      if (quoteId) {
-        toast.success(`Orçamento #${quoteId} criado com sucesso!`);
-        
-        // Opcionalmente, redirecionar para a página do orçamento
-        // navigate(`/quotes/${quoteId}`);
-      }
-    }
-  }, [quoteData, quoteId, onQuoteRequest, navigate]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !sessionId) return;
@@ -140,7 +112,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.error('Erro ao salvar mensagem do usuário:', error);
       }
       
-      // Call the LangChain Edge Function
+      // Call the OpenAI Assistants Edge Function
       try {
         console.log('Chamando função de borda para o chat...');
         const { data, error } = await supabase.functions.invoke("chat-assistant", {
@@ -159,6 +131,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         
         console.log('Resposta recebida da função de borda');
         
+        // Adicionando a resposta à interface
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -170,19 +143,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         
         // Add to UI
         setMessages(prev => [...prev, assistantMessage]);
-        
-        // Save to database
-        try {
-          await saveChatMessage({
-            session_id: assistantMessage.session_id,
-            content: assistantMessage.content,
-            role: assistantMessage.role,
-            created_at: assistantMessage.created_at
-          });
-          console.log('Resposta do assistente salva com sucesso');
-        } catch (error) {
-          console.error('Erro ao salvar resposta do assistente:', error);
-        }
         
         // Verificar se há dados de orçamento
         if (data?.quote_data) {

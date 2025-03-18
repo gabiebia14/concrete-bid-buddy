@@ -1,51 +1,173 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { ChatOpenAI } from "npm:@langchain/openai";
-import { ChatPromptTemplate, MessagesPlaceholder } from "npm:@langchain/core/prompts";
-import { StringOutputParser } from "npm:@langchain/core/output_parsers";
-import { RunnablePassthrough, RunnableSequence } from "npm:@langchain/core/runnables";
+import OpenAI from "https://esm.sh/openai@4.28.4";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
+// Headers CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Configuração do modelo com temperatura reduzida para respostas mais consistentes e detalhadas
-const chatModel = new ChatOpenAI({
-  openAIApiKey: Deno.env.get('OPENAI_API_KEY'),
-  modelName: "gpt-4o-mini",
-  temperature: 0.3 // Reduzida para maior consistência
+// Configurar cliente OpenAI
+const openai = new OpenAI({
+  apiKey: Deno.env.get('OPENAI_API_KEY')
 });
 
-// Modelo específico para extração de dados estruturados
-const structuredDataModel = new ChatOpenAI({
-  openAIApiKey: Deno.env.get('OPENAI_API_KEY'),
-  modelName: "gpt-4o-mini",
-  temperature: 0.1 // Temperatura muito baixa para extração precisa de dados
-});
-
-// Criando o cliente Supabase
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://ehrerbpblmensiodhgka.supabase.co';
-const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocmVyYnBibG1lbnNpb2RoZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTM2NzgsImV4cCI6MjA1NzMyOTY3OH0.Ppae9xwONU2Uy8__0v28OlyFGI6JXBFkMib8AJDwAn8';
+// Configurar cliente Supabase
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Função para buscar todos os produtos
-async function fetchAllProducts() {
+// ID do assistente pré-configurado na OpenAI
+// Criar um assistente especializado em vendas de produtos de concreto
+// Este ID será obtido após a criação inicial
+let ASSISTANT_ID = "asst_1234567890"; // Placeholder - será configurado dinamicamente
+
+// Função para criar o assistente caso não exista
+async function getOrCreateAssistant() {
   try {
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) throw error;
-    console.log(`Buscados ${data.length} produtos`);
-    return data;
+    // Verificar se o ID do assistente está armazenado no Supabase
+    const { data: assistantConfig } = await supabase
+      .from('config')
+      .select('value')
+      .eq('key', 'openai_assistant_id')
+      .single();
+    
+    if (assistantConfig?.value) {
+      console.log(`Assistente encontrado com ID: ${assistantConfig.value}`);
+      return assistantConfig.value;
+    }
+    
+    // Se não existir, criar um novo assistente
+    console.log("Criando novo assistente...");
+    const assistant = await openai.beta.assistants.create({
+      name: "Assistente de Vendas IPT Teixeira",
+      description: "Assistente especializado em vendas de produtos de concreto da IPT Teixeira",
+      instructions: `Você é um ASSISTENTE DE Vendas com especialização e 20 anos de experiência em conduzir negociações para a IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos.
+
+REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
+1. Após a primeira mensagem do cliente, cumprimente com: "Olá, sou o assistente de vendas da IPT Teixeira, uma empresa líder na fabricação de artefatos de concreto há mais de 35 anos. Como posso ajudá-lo hoje?"
+
+2. TIPOS DE PRODUTOS QUE REQUEREM PERGUNTAS ESPECÍFICAS:
+- Para TUBOS: SEMPRE pergunte qual classe (PA1, PA2, PA3, etc.) quando o cliente mencionar tubos
+- Para POSTES: SEMPRE pergunte primeiro se é circular ou duplo T
+- NUNCA prossiga com um orçamento sem confirmar estas especificações!
+
+3. IDENTIFICAÇÃO DE NECESSIDADES (SEMPRE COLETE ESTAS INFORMAÇÕES):
+- Produto exato necessário
+- Especificações técnicas (classe, tipo, formato)
+- Quantidades de cada item
+- Localização de entrega
+- Prazo necessário
+- Forma de pagamento desejada
+
+4. RESTRIÇÕES:
+- Não especule sobre valores
+- Não faça suposições sobre finalidades
+- Não force fechamento de negócio
+
+5. APÓS COLETAR INFORMAÇÕES:
+- Ofereça produtos complementares relacionados
+- Confirme satisfação do cliente
+- Prepare informações para equipe de vendas
+
+6. FINALIZAÇÃO DO ORÇAMENTO:
+- Sempre que perceber que o cliente finalizou seu pedido, resuma todas as informações coletadas
+- Confirme os dados e avise que o orçamento será encaminhado para análise
+- Agradeça o cliente pelo contato`,
+      model: "gpt-4o-mini",
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "extract_quote_data",
+            description: "Extrair dados estruturados de orçamento da conversa atual",
+            parameters: {
+              type: "object",
+              properties: {
+                produtos: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      nome: { type: "string", description: "Nome do produto" },
+                      quantidade: { type: "number", description: "Quantidade solicitada" },
+                      especificacoes: { type: "string", description: "Especificações (classe, dimensões, tipo)" }
+                    },
+                    required: ["nome", "quantidade"]
+                  }
+                },
+                cliente: {
+                  type: "object",
+                  properties: {
+                    nome: { type: "string", description: "Nome do cliente" },
+                    email: { type: "string", description: "Email do cliente" },
+                    telefone: { type: "string", description: "Telefone do cliente" }
+                  }
+                },
+                entrega: {
+                  type: "object",
+                  properties: {
+                    local: { type: "string", description: "Local de entrega" },
+                    prazo: { type: "string", description: "Prazo de entrega solicitado" }
+                  }
+                },
+                pagamento: {
+                  type: "object",
+                  properties: {
+                    forma: { type: "string", description: "Forma de pagamento mencionada" }
+                  }
+                },
+                status: {
+                  type: "object",
+                  properties: {
+                    completo: { type: "boolean", description: "O orçamento contém todas as informações necessárias?" },
+                    faltando: { type: "array", items: { type: "string" }, description: "Informações que ainda precisam ser coletadas" }
+                  }
+                }
+              },
+              required: ["produtos"]
+            }
+          }
+        },
+        {
+          type: "function",
+          function: {
+            name: "fetch_products_by_category",
+            description: "Buscar produtos por categoria",
+            parameters: {
+              type: "object",
+              properties: {
+                category: { type: "string", description: "Categoria de produtos (ex: tubos, blocos, postes)" }
+              },
+              required: ["category"]
+            }
+          }
+        }
+      ]
+    });
+    
+    // Armazenar ID do assistente no Supabase
+    await supabase
+      .from('config')
+      .upsert({ 
+        key: 'openai_assistant_id', 
+        value: assistant.id, 
+        updated_at: new Date().toISOString() 
+      });
+    
+    console.log(`Novo assistente criado com ID: ${assistant.id}`);
+    return assistant.id;
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
-    return [];
+    console.error("Erro ao criar/obter assistente:", error);
+    throw error;
   }
 }
 
 // Função para buscar produtos por categoria
-async function fetchProductsByCategory(category: string) {
+async function fetchProductsByCategory(category) {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -61,112 +183,10 @@ async function fetchProductsByCategory(category: string) {
   }
 }
 
-// Função para obter todas as categorias de produtos
-async function fetchAllCategories() {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('category');
-    
-    if (error) throw error;
-    
-    // Extrair categorias únicas
-    const categories = [...new Set(data.map(item => item.category))];
-    console.log(`Categorias encontradas: ${categories.join(', ')}`);
-    return categories;
-  } catch (error) {
-    console.error('Erro ao buscar categorias:', error);
-    return [];
-  }
-}
-
-// Função para extrair informações estruturadas de orçamento da conversa
-async function extractQuoteData(messages) {
-  try {
-    // Concatenar todas as mensagens para análise
-    const conversationText = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    
-    // Template para extração de informações de orçamento
-    const extractionTemplate = ChatPromptTemplate.fromMessages([
-      ["system", `Você é um assistente especializado em extrair informações estruturadas de conversas sobre orçamentos de produtos de concreto.
-      
-Analise a conversa fornecida e extraia as seguintes informações em formato JSON:
-
-1. Produtos: Liste cada produto mencionado com:
-   - nome: nome do produto
-   - quantidade: quantidade solicitada
-   - especificacoes: quaisquer especificações mencionadas (classe, dimensões, tipo)
-
-2. Cliente:
-   - nome: nome do cliente (se mencionado)
-   - email: email do cliente (se mencionado)
-   - telefone: telefone do cliente (se mencionado)
-
-3. Entrega:
-   - local: local de entrega
-   - prazo: prazo de entrega solicitado
-
-4. Pagamento:
-   - forma: forma de pagamento mencionada
-
-5. Status:
-   - completo: true/false (o orçamento contém todas as informações necessárias?)
-   - faltando: liste quaisquer informações que ainda precisam ser coletadas
-
-Retorne APENAS o JSON, sem nenhum texto antes ou depois. Se alguma informação não estiver disponível, use null para o valor. Todos os campos são obrigatórios no JSON, mesmo com valores null.
-
-Exemplo de formato:
-{
-  "produtos": [
-    {
-      "nome": "Tubo de Concreto",
-      "quantidade": 10,
-      "especificacoes": "PA1, 1m x 1.5m"
-    }
-  ],
-  "cliente": {
-    "nome": "João Silva",
-    "email": "joao@exemplo.com",
-    "telefone": "(11) 98765-4321"
-  },
-  "entrega": {
-    "local": "São Paulo, SP",
-    "prazo": "15 dias"
-  },
-  "pagamento": {
-    "forma": "30/60/90 dias"
-  },
-  "status": {
-    "completo": true,
-    "faltando": []
-  }
-}`],
-      ["user", conversationText]
-    ]);
-
-    // Extrair informações estruturadas
-    const response = await extractionTemplate.pipe(structuredDataModel).invoke({});
-    console.log("Dados extraídos da conversa:", response.content);
-    
-    // Tentar fazer parse do JSON
-    try {
-      // Limpar a resposta para garantir que é um JSON válido
-      const jsonString = response.content.replace(/```json|```/g, '').trim();
-      return JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error("Erro ao fazer parse do JSON:", parseError);
-      return null;
-    }
-  } catch (error) {
-    console.error("Erro ao extrair dados estruturados:", error);
-    return null;
-  }
-}
-
 // Função para salvar os dados de orçamento extraídos no Supabase
 async function saveQuoteData(quoteData, sessionId) {
   try {
-    if (!quoteData) return null;
+    if (!quoteData || !quoteData.produtos || quoteData.produtos.length === 0) return null;
     
     // Primeiro, verificar se já existe um cliente com o email fornecido
     let clientId = null;
@@ -250,33 +270,7 @@ async function saveQuoteData(quoteData, sessionId) {
   }
 }
 
-// Função para verificar se a conversa terminou e deve gerar um orçamento
-function shouldGenerateQuote(messages) {
-  if (messages.length < 3) return false;
-  
-  // Verificar as últimas mensagens para indicações de que o orçamento foi finalizado
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content.toLowerCase() || '';
-  const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop()?.content.toLowerCase() || '';
-  
-  const finalPhrases = [
-    'só isso', 'é isso', 'finalizar', 'concluir', 'terminar', 
-    'gerar orçamento', 'fazer orçamento', 'criar orçamento',
-    'obrigado', 'obrigada', 'valeu', 'ok', 'bom'
-  ];
-  
-  // Verificar se o usuário usou frases de finalização
-  const userFinalized = finalPhrases.some(phrase => lastUserMessage.includes(phrase));
-  
-  // Verificar se o assistente já solicitou informações suficientes
-  const assistantAskedForConfirmation = 
-    lastAssistantMessage.includes('mais alguma coisa') || 
-    lastAssistantMessage.includes('posso ajudar com mais algo') ||
-    lastAssistantMessage.includes('deseja adicionar mais produtos') ||
-    lastAssistantMessage.includes('agradecemos seu contato');
-  
-  return userFinalized && assistantAskedForConfirmation;
-}
-
+// Função principal que processa as requisições
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -287,119 +281,154 @@ serve(async (req) => {
     const { messages, sessionId } = await req.json();
     console.log(`Processando requisição de chat para sessão ${sessionId} com ${messages.length} mensagens`);
     
-    // Buscar produtos e categorias para fornecer ao modelo
-    const allProducts = await fetchAllProducts();
-    const allCategories = await fetchAllCategories();
+    // Obter ou criar o assistente
+    if (!ASSISTANT_ID || ASSISTANT_ID === "asst_1234567890") {
+      ASSISTANT_ID = await getOrCreateAssistant();
+    }
     
-    // Organizar produtos por categoria para referência rápida
-    const productsByCategory: Record<string, any[]> = {};
-    allCategories.forEach(category => {
-      productsByCategory[category] = allProducts.filter(product => 
-        product.category === category
-      );
+    // Verificar se já existe um thread para esta sessão
+    let threadId;
+    const { data: sessionData } = await supabase
+      .from('chat_sessions')
+      .select('thread_id')
+      .eq('id', sessionId)
+      .single();
+    
+    if (sessionData?.thread_id) {
+      threadId = sessionData.thread_id;
+      console.log(`Thread existente encontrado: ${threadId}`);
+    } else {
+      // Criar um novo thread
+      const thread = await openai.beta.threads.create();
+      threadId = thread.id;
+      
+      // Salvar o thread_id na sessão
+      await supabase
+        .from('chat_sessions')
+        .update({ thread_id: threadId })
+        .eq('id', sessionId);
+      
+      console.log(`Novo thread criado: ${threadId}`);
+    }
+    
+    // Adicionar a mensagem mais recente ao thread
+    const latestMessage = messages[messages.length - 1];
+    if (latestMessage.role === 'user') {
+      await openai.beta.threads.messages.create(threadId, {
+        role: "user",
+        content: latestMessage.content
+      });
+    }
+    
+    // Executar o assistente
+    console.log(`Executando assistente ${ASSISTANT_ID} no thread ${threadId}`);
+    const run = await openai.beta.threads.runs.create(threadId, {
+      assistant_id: ASSISTANT_ID
     });
     
-    // Criar o contexto de produtos para o assistente
-    const productsContext = `
-CATÁLOGO DE PRODUTOS IPT TEIXEIRA:
-${allCategories.map(category => {
-  return `
-CATEGORIA: ${category}
-${productsByCategory[category].map(product => 
-  `- ${product.name}: ${product.description} (Dimensões: ${product.dimensions.join(', ')})`
-).join('\n')}
-`;
-}).join('\n')}
-`;
-
-    console.log('Contexto de produtos carregado com sucesso');
+    // Aguardar a conclusão do run
+    let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
     
-    // Verificar se devemos gerar um orçamento baseado na conversa
-    const shouldCreateQuote = shouldGenerateQuote(messages);
-    let quoteData = null;
-    let quote = null;
-    
-    if (shouldCreateQuote) {
-      console.log("Detectada solicitação de orçamento. Extraindo dados...");
-      quoteData = await extractQuoteData(messages);
+    while (runStatus.status !== 'completed' && 
+           runStatus.status !== 'failed' && 
+           runStatus.status !== 'cancelled' && 
+           runStatus.status !== 'expired') {
       
-      if (quoteData) {
-        console.log("Dados extraídos com sucesso. Salvando orçamento...");
-        quote = await saveQuoteData(quoteData, sessionId);
+      // Se precisar de ação
+      if (runStatus.status === 'requires_action') {
+        // Processar ferramentas solicitadas
+        const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
+        const toolOutputs = [];
+        
+        for (const toolCall of toolCalls) {
+          if (toolCall.function.name === 'extract_quote_data') {
+            // Extrair dados da conversa
+            const args = JSON.parse(toolCall.function.arguments);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify(args)
+            });
+          } else if (toolCall.function.name === 'fetch_products_by_category') {
+            // Buscar produtos
+            const args = JSON.parse(toolCall.function.arguments);
+            const products = await fetchProductsByCategory(args.category);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify(products)
+            });
+          }
+        }
+        
+        // Submeter as respostas das ferramentas
+        await openai.beta.threads.runs.submitToolOutputs(threadId, run.id, {
+          tool_outputs: toolOutputs
+        });
+      }
+      
+      // Aguardar um pouco antes de verificar novamente
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+    }
+    
+    if (runStatus.status !== 'completed') {
+      throw new Error(`Execução falhou com status: ${runStatus.status}`);
+    }
+    
+    // Buscar as mensagens geradas pelo assistente
+    const messagesResponse = await openai.beta.threads.messages.list(threadId);
+    const assistantMessages = messagesResponse.data.filter(msg => 
+      msg.role === 'assistant' && 
+      msg.run_id === run.id
+    );
+    
+    if (assistantMessages.length === 0) {
+      throw new Error("Nenhuma resposta gerada pelo assistente");
+    }
+    
+    // Formatar a resposta
+    const latestAssistantMessage = assistantMessages[0];
+    let responseText = "";
+    
+    for (const content of latestAssistantMessage.content) {
+      if (content.type === 'text') {
+        responseText += content.text.value;
       }
     }
     
-    // Template do sistema com as instruções detalhadas + catálogo de produtos
-    const systemTemplate = ChatPromptTemplate.fromMessages([
-      ["system", `Você é um ASSISTENTE DE Vendas com especialização e 20 anos de experiência em conduzir negociações para a IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos.
-
-REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
-1. Após a primeira mensagem do cliente, cumprimente com: "Olá, sou o assistente de vendas da IPT Teixeira, uma empresa líder na fabricação de artefatos de concreto há mais de 35 anos. Como posso ajudá-lo hoje?"
-
-2. TIPOS DE PRODUTOS QUE REQUEREM PERGUNTAS ESPECÍFICAS:
-- Para TUBOS: SEMPRE pergunte qual classe (PA1, PA2, PA3, etc.) quando o cliente mencionar tubos
-- Para POSTES: SEMPRE pergunte primeiro se é circular ou duplo T
-- NUNCA prossiga com um orçamento sem confirmar estas especificações!
-
-3. IDENTIFICAÇÃO DE NECESSIDADES (SEMPRE COLETE ESTAS INFORMAÇÕES):
-- Produto exato necessário (apenas da tabela oficial)
-- Especificações técnicas (classe, tipo, formato)
-- Quantidades de cada item
-- Localização de entrega
-- Prazo necessário
-- Forma de pagamento desejada
-
-4. DIRETRIZES DE COMUNICAÇÃO:
-- Não antecipe informações sobre medidas ou tipos
-- Aguarde o cliente perguntar especificamente
-- Se o cliente não for claro, faça perguntas detalhadas sobre especificações
-- Só apresente lista completa se o cliente perguntar explicitamente
-
-5. CATÁLOGO DE PRODUTOS ATUAL:
-${productsContext}
-
-6. RESTRIÇÕES:
-- Nunca invente produtos fora da tabela acima
-- Não especule sobre valores
-- Não faça suposições sobre finalidades
-- Não force fechamento de negócio
-
-7. RECURSOS PERMITIDOS:
-- Catálogo: https://www.iptteixeira.com.br/catalogo/2015/files/assets/basic-html/index.html#1
-- Vídeo: https://www.youtube.com/watch?v=MOsHYJ1yq5E
-
-8. APÓS COLETAR INFORMAÇÕES:
-- Ofereça produtos complementares relacionados
-- Confirme satisfação do cliente
-- Prepare informações para equipe de vendas
-
-9. FINALIZAÇÃO DO ORÇAMENTO:
-- Sempre que perceber que o cliente finalizou seu pedido, resuma todas as informações coletadas
-- Confirme os dados e avise que o orçamento será encaminhado para análise
-- Agradeça o cliente pelo contato`],
-      new MessagesPlaceholder("history")
-    ]);
-
-    // Processamento da mensagem
-    const prompt = await systemTemplate.pipe(chatModel).invoke({
-      history: messages.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content
-      }))
-    });
-
-    console.log('Resposta do chat gerada');
-
-    // Se criamos um orçamento, informar ao usuário
-    let finalResponse = prompt.content;
+    // Salvar a mensagem no banco de dados
+    await supabase
+      .from('chat_messages')
+      .insert({
+        session_id: sessionId,
+        content: responseText,
+        role: 'assistant',
+        created_at: new Date().toISOString()
+      });
     
-    if (quote) {
-      finalResponse += `\n\nSeu orçamento foi registrado com sucesso sob o código #${quote.id}. Nossa equipe comercial entrará em contato em breve para discutir os próximos passos.`;
+    // Verificar se foram extraídos dados de orçamento
+    let quoteData = null;
+    let quote = null;
+    
+    if (runStatus.tool_calls) {
+      for (const toolCall of runStatus.tool_calls) {
+        if (toolCall.function.name === 'extract_quote_data') {
+          try {
+            quoteData = JSON.parse(toolCall.function.arguments);
+            
+            if (quoteData.produtos && quoteData.produtos.length > 0) {
+              console.log("Dados do orçamento detectados:", quoteData);
+              quote = await saveQuoteData(quoteData, sessionId);
+            }
+          } catch (error) {
+            console.error("Erro ao processar dados do orçamento:", error);
+          }
+        }
+      }
     }
-
+    
     return new Response(
       JSON.stringify({ 
-        message: finalResponse,
+        message: responseText,
         session_id: sessionId,
         quote_data: quoteData,
         quote_id: quote?.id
