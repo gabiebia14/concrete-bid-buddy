@@ -48,6 +48,7 @@ export type Database = {
           id: string
           quote_id: string | null
           status: string
+          thread_id: string | null
         }
         Insert: {
           client_id?: string | null
@@ -55,6 +56,7 @@ export type Database = {
           id?: string
           quote_id?: string | null
           status: string
+          thread_id?: string | null
         }
         Update: {
           client_id?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           id?: string
           quote_id?: string | null
           status?: string
+          thread_id?: string | null
         }
         Relationships: [
           {
@@ -97,6 +100,27 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+        }
+        Relationships: []
+      }
+      config: {
+        Row: {
+          created_at: string | null
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: string
         }
         Relationships: []
       }

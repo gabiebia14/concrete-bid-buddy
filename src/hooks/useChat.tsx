@@ -112,15 +112,12 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.error('Erro ao salvar mensagem do usuário:', error);
       }
       
-      // Call the OpenAI Assistants Edge Function
+      // Call the OpenAI Assistants Edge Function with the updated API
       try {
-        console.log('Chamando função de borda para o chat...');
+        console.log('Chamando função de borda para o chat com a API Assistants...');
         const { data, error } = await supabase.functions.invoke("chat-assistant", {
           body: {
-            messages: [...messages, userMessage].map(msg => ({
-              role: msg.role,
-              content: msg.content,
-            })),
+            message: message,
             sessionId: sessionId
           }
         });
@@ -129,7 +126,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           throw new Error(`Erro na função de borda: ${error.message}`);
         }
         
-        console.log('Resposta recebida da função de borda');
+        console.log('Resposta recebida da função de borda (Assistants API)');
         
         // Adicionando a resposta à interface
         const assistantMessage: ChatMessage = {

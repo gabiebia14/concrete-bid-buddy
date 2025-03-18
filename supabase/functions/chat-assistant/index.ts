@@ -20,11 +20,6 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ID do assistente pré-configurado na OpenAI
-// Criar um assistente especializado em vendas de produtos de concreto
-// Este ID será obtido após a criação inicial
-let ASSISTANT_ID = "asst_1234567890"; // Placeholder - será configurado dinamicamente
-
 // Função para criar o assistente caso não exista
 async function getOrCreateAssistant() {
   try {
@@ -278,13 +273,11 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, sessionId } = await req.json();
-    console.log(`Processando requisição de chat para sessão ${sessionId} com ${messages.length} mensagens`);
+    const { message, sessionId } = await req.json();
+    console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
     
     // Obter ou criar o assistente
-    if (!ASSISTANT_ID || ASSISTANT_ID === "asst_1234567890") {
-      ASSISTANT_ID = await getOrCreateAssistant();
-    }
+    const assistantId = await getOrCreateAssistant();
     
     // Verificar se já existe um thread para esta sessão
     let threadId;
@@ -311,19 +304,16 @@ serve(async (req) => {
       console.log(`Novo thread criado: ${threadId}`);
     }
     
-    // Adicionar a mensagem mais recente ao thread
-    const latestMessage = messages[messages.length - 1];
-    if (latestMessage.role === 'user') {
-      await openai.beta.threads.messages.create(threadId, {
-        role: "user",
-        content: latestMessage.content
-      });
-    }
+    // Adicionar a mensagem ao thread
+    await openai.beta.threads.messages.create(threadId, {
+      role: "user",
+      content: message
+    });
     
     // Executar o assistente
-    console.log(`Executando assistente ${ASSISTANT_ID} no thread ${threadId}`);
+    console.log(`Executando assistente ${assistantId} no thread ${threadId}`);
     const run = await openai.beta.threads.runs.create(threadId, {
-      assistant_id: ASSISTANT_ID
+      assistant_id: assistantId
     });
     
     // Aguardar a conclusão do run
