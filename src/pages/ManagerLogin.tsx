@@ -24,7 +24,7 @@ export default function ManagerLogin() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <Layout hideSidebar>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="animate-pulse text-center">
             <p className="text-lg text-muted-foreground">Carregando...</p>
@@ -35,7 +35,7 @@ export default function ManagerLogin() {
   }
 
   return (
-    <Layout>
+    <Layout hideSidebar>
       <div className="container mx-auto py-10">
         <div className="max-w-md mx-auto">
           <AuthForm isManager={true} />
