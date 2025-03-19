@@ -15,7 +15,7 @@ const Index = () => {
       <div className="container mx-auto px-4 min-h-screen flex flex-col lg:flex-row items-center justify-center gap-8 py-12">
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left">
           <div className="mb-8">
-            <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-94 mb-6 object-scale-down" />
+            <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-54 mb-6 object-scale-down" />
             <p className="text-xl text-muted-foreground max-w-lg">
               Orçamentos de produtos de concreto com praticidade e rapidez
             </p>
