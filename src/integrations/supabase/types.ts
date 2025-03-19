@@ -154,6 +154,27 @@ export type Database = {
         }
         Relationships: []
       }
+      produtos_postes: {
+        Row: {
+          Modelo: string | null
+          Padrao: string | null
+          Produto: string | null
+          Tamanho: string | null
+        }
+        Insert: {
+          Modelo?: string | null
+          Padrao?: string | null
+          Produto?: string | null
+          Tamanho?: string | null
+        }
+        Update: {
+          Modelo?: string | null
+          Padrao?: string | null
+          Produto?: string | null
+          Tamanho?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           client_id: string

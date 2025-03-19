@@ -1,23 +1,15 @@
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LineChart, LogOut, Settings, Smartphone, Globe, LogIn } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Menu, X, User, LineChart, Smartphone, Globe } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Definir o tipo para os links de navegação com icon opcional
-type NavLink = {
-  title: string;
-  path: string;
-  icon?: React.ReactNode;
-};
+import { DesktopNav } from './DesktopNav';
+import { MobileNav } from './MobileNav';
+import { UserDropdown } from './UserDropdown';
+import { AuthButtons } from './AuthButtons';
+import { NavLinkProps } from './types';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -45,13 +37,13 @@ export function Header() {
     navigate('/');
   };
 
-  const clientLinks: NavLink[] = [
+  const clientLinks: NavLinkProps[] = [
     { title: 'Criar Orçamento', path: '/criar-orcamento' },
     { title: 'Histórico', path: '/historico' },
     { title: 'Catálogo', path: '/catalogo' },
   ];
 
-  const managerLinks: NavLink[] = [
+  const managerLinks: NavLinkProps[] = [
     { title: 'Dashboard', path: '/manager/dashboard' },
     { title: 'Orçamentos', path: '/manager/quotes' },
     { title: 'Clientes', path: '/manager/clients' },
@@ -80,84 +72,17 @@ export function Header() {
           </div>
 
           {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {user && navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`px-3 py-2 text-sm rounded-md transition-colors flex items-center ${
-                  location.pathname === link.path
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-foreground/80 hover:text-foreground hover:bg-accent'
-                }`}
-              >
-                {link.icon && link.icon}
-                {link.title}
-              </Link>
-            ))}
-          </nav>
+          <DesktopNav navLinks={user ? navLinks : []} />
 
           <div className="flex items-center space-x-4">
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full h-8 w-8 bg-primary/10 text-primary"
-                  >
-                    <User size={18} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex flex-col space-y-1 p-2">
-                    <p className="text-sm font-medium leading-none">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {isManager ? 'Gerente' : 'Cliente'}
-                    </p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  {!isManager && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/manager/login" className="flex items-center cursor-pointer">
-                        <LineChart className="mr-2 h-4 w-4" />
-                        <span>Área do Gerente</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {isManager && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/dashboard" className="flex items-center cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Área do Cliente</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings" className="flex items-center cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Configurações</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="flex items-center cursor-pointer text-destructive focus:text-destructive">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sair</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <UserDropdown 
+                user={user} 
+                isManager={isManager} 
+                handleSignOut={handleSignOut} 
+              />
             ) : (
-              <div className="flex items-center space-x-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/login" className="flex items-center gap-1">
-                    <LogIn size={16} />
-                    <span className="hidden sm:inline">Entrar</span>
-                  </Link>
-                </Button>
-                <Button asChild variant="default" size="sm" className="hidden sm:flex">
-                  <Link to="/login">Cadastrar</Link>
-                </Button>
-              </div>
+              <AuthButtons />
             )}
 
             {/* Mobile menu button */}
@@ -176,80 +101,14 @@ export function Header() {
       </div>
 
       {/* Mobile navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-background border-t animate-fade-in">
-          <div className="container mx-auto px-4 py-3">
-            <nav className="flex flex-col space-y-1">
-              {user && navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`px-3 py-2 text-sm rounded-md flex items-center ${
-                    location.pathname === link.path
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-foreground/80 hover:text-foreground hover:bg-accent'
-                  }`}
-                  onClick={closeMenu}
-                >
-                  {link.icon && link.icon}
-                  {link.title}
-                </Link>
-              ))}
-              
-              {!user && (
-                <>
-                  <Link
-                    to="/login"
-                    className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
-                    onClick={closeMenu}
-                  >
-                    Entrar como Cliente
-                  </Link>
-                  <Link
-                    to="/manager/login"
-                    className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
-                    onClick={closeMenu}
-                  >
-                    Entrar como Gerente
-                  </Link>
-                </>
-              )}
-              
-              {user && !isManager && (
-                <Link
-                  to="/manager/login"
-                  className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
-                  onClick={closeMenu}
-                >
-                  Área do Gerente
-                </Link>
-              )}
-              
-              {user && isManager && (
-                <Link
-                  to="/login"
-                  className="px-3 py-2 text-sm rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
-                  onClick={closeMenu}
-                >
-                  Área do Cliente
-                </Link>
-              )}
-              
-              {user && (
-                <button
-                  className="px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 text-left flex items-center"
-                  onClick={() => {
-                    handleSignOut();
-                    closeMenu();
-                  }}
-                >
-                  <LogOut className="w-4 h-4 mr-2" /> Sair
-                </button>
-              )}
-            </nav>
-          </div>
-        </div>
-      )}
+      <MobileNav 
+        navLinks={navLinks}
+        isMenuOpen={isMenuOpen}
+        closeMenu={closeMenu}
+        isManager={isManager}
+        user={user}
+        handleSignOut={handleSignOut}
+      />
     </header>
   );
 }
