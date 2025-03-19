@@ -126,7 +126,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           throw new Error(`Erro na função de borda: ${error.message}`);
         }
         
-        console.log('Resposta recebida da função de borda (Assistants API)');
+        console.log('Resposta recebida da função de borda (GPT-4o)');
         
         // Adicionando a resposta à interface
         const assistantMessage: ChatMessage = {

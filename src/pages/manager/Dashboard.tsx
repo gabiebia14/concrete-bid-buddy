@@ -1,10 +1,10 @@
 
 import { useState } from 'react';
 import { ManagerLayout } from '@/components/layout/ManagerLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ArrowUp, ArrowDown, DollarSign, Users, FileText, Clock, BarChart2, PieChart as PieChartIcon, TrendingUp, Search, Plus } from 'lucide-react';
+import { ArrowUp, ArrowDown, DollarSign, Users, FileText, Clock, BarChart2, PieChart as PieChartIcon, TrendingUp, Search, Plus, Bot, MessageSquare, BrainCircuit } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -73,6 +73,20 @@ export default function ManagerDashboard() {
     },
   ];
 
+  // Dados do novo agente de IA
+  const assistantMetrics = {
+    conversationCount: 328,
+    conversionRate: 32,
+    responseTime: 8, // segundos
+    satisfactionScore: 4.8,
+    topQuestions: [
+      'Qual o prazo de entrega para blocos?',
+      'Vocês trabalham com personalização?',
+      'Como funciona o frete?',
+      'Preciso de um orçamento urgente'
+    ]
+  };
+
   return (
     <ManagerLayout>
       <div className="container mx-auto py-8 px-4">
@@ -140,6 +154,104 @@ export default function ManagerDashboard() {
             </Card>
           ))}
         </div>
+        
+        {/* Card do Assistente de IA - Nova implementação */}
+        <Card className="mb-8 border-l-4 border-l-primary overflow-hidden bg-gradient-to-br from-white to-primary/5 dark:from-gray-900 dark:to-primary/10">
+          <div className="flex flex-col lg:flex-row">
+            <div className="lg:w-2/3 p-6">
+              <CardHeader className="p-0 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/15 p-2 rounded-full">
+                    <Bot className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Assistente de Vendas com IA</CardTitle>
+                    <CardDescription>
+                      Análise de desempenho e métricas do novo assistente GPT-4o
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
+                  <div className="bg-background rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Conversas</span>
+                    </div>
+                    <p className="text-2xl font-bold">{assistantMetrics.conversationCount}</p>
+                    <p className="text-xs text-muted-foreground">Nos últimos 30 dias</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium">Taxa de conversão</span>
+                    </div>
+                    <p className="text-2xl font-bold">{assistantMetrics.conversionRate}%</p>
+                    <p className="text-xs text-muted-foreground">Conversas → Orçamentos</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium">Tempo de resposta médio</span>
+                      <span className="text-sm font-medium">{assistantMetrics.responseTime}s</span>
+                    </div>
+                    <Progress value={75} className="h-2" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium">Satisfação do cliente</span>
+                      <span className="text-sm font-medium">{assistantMetrics.satisfactionScore}/5</span>
+                    </div>
+                    <Progress value={96} className="h-2" />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Perguntas frequentes</h4>
+                  <ul className="space-y-1">
+                    {assistantMetrics.topQuestions.map((question, i) => (
+                      <li key={i} className="text-xs text-muted-foreground flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{question}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+              <CardFooter className="p-0 pt-4">
+                <div className="flex gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/chat-assistant">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Testar assistente
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link to="/assistant-settings">
+                      <BrainCircuit className="mr-2 h-4 w-4" />
+                      Configurar modelo
+                    </Link>
+                  </Button>
+                </div>
+              </CardFooter>
+            </div>
+            <div className="lg:w-1/3 bg-primary/10 flex items-center justify-center p-6">
+              <div className="max-w-xs">
+                <div className="bg-background dark:bg-gray-800 rounded-lg p-3 shadow-md mb-3 ml-auto max-w-[80%]">
+                  <p className="text-xs text-gray-500 mb-1">Cliente</p>
+                  <p className="text-sm">Preciso de um orçamento para blocos estruturais</p>
+                </div>
+                <div className="bg-primary/15 rounded-lg p-3 shadow-md mr-auto max-w-[80%]">
+                  <p className="text-xs text-gray-500 mb-1">Assistente IPT</p>
+                  <p className="text-sm">Claro! Posso ajudar com isso. Qual a quantidade e as dimensões dos blocos estruturais que você precisa?</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="lg:col-span-2">
@@ -267,8 +379,8 @@ export default function ManagerDashboard() {
           
           <Card>
             <CardHeader>
-              <CardTitle>Atividade do Assistente</CardTitle>
-              <CardDescription>Interações do assistente virtual com clientes</CardDescription>
+              <CardTitle>Métricas do Assistente</CardTitle>
+              <CardDescription>Desempenho do assistente virtual com GPT-4o</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-8">

@@ -36,10 +36,10 @@ async function getOrCreateAssistant() {
     }
     
     // Se não existir, criar um novo assistente
-    console.log("Criando novo assistente...");
+    console.log("Criando novo assistente com GPT-4o...");
     const assistant = await openai.beta.assistants.create({
       name: "Assistente de Vendas IPT Teixeira",
-      description: "Assistente especializado em vendas de produtos de concreto da IPT Teixeira",
+      description: "Assistente especializado em vendas de produtos de concreto da IPT Teixeira usando GPT-4o",
       instructions: `Você é um ASSISTENTE DE Vendas com especialização e 20 anos de experiência em conduzir negociações para a IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos.
 
 REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
@@ -72,7 +72,7 @@ REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
 - Sempre que perceber que o cliente finalizou seu pedido, resuma todas as informações coletadas
 - Confirme os dados e avise que o orçamento será encaminhado para análise
 - Agradeça o cliente pelo contato`,
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       tools: [
         {
           type: "function",
@@ -153,7 +153,7 @@ REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
         updated_at: new Date().toISOString() 
       });
     
-    console.log(`Novo assistente criado com ID: ${assistant.id}`);
+    console.log(`Novo assistente GPT-4o criado com ID: ${assistant.id}`);
     return assistant.id;
   } catch (error) {
     console.error("Erro ao criar/obter assistente:", error);
