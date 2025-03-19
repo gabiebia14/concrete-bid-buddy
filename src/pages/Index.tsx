@@ -1,150 +1,85 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Card } from "@/components/ui/card";
 import { Layout } from "@/components/layout/Layout";
-import { ArrowRight, FileText, Package, History, Users, BarChart, UserCircle, Briefcase } from "lucide-react";
+import { FileText, ArrowRight } from "lucide-react";
+import { AuthForm } from "@/components/auth/AuthForm";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const { user } = useAuth();
+  const [showAuthForm, setShowAuthForm] = useState(false);
 
   return (
-    <Layout>
-      <div className="container mx-auto py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold tracking-tight mb-4">IPT Teixeira</h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Sistema inteligente de orçamentos e gerenciamento para produtos de concreto
+    <Layout hideHeader={false} hideFooter={false} hideSidebar>
+      <div className="container mx-auto px-4 min-h-screen flex flex-col lg:flex-row items-center justify-center gap-8 py-12">
+        <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left">
+          <div className="mb-8">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
+              IPT Teixeira
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-lg">
+              Orçamentos de produtos de concreto com praticidade e rapidez
             </p>
-            
-            {!user && (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-                <Button asChild size="lg" className="gap-2">
-                  <Link to="/login">
-                    <UserCircle size={20} />
-                    Área do Cliente
-                  </Link>
-                </Button>
-                <Button asChild size="lg" variant="outline" className="gap-2">
-                  <Link to="/manager/login">
-                    <Briefcase size={20} />
-                    Área do Gerente
-                  </Link>
-                </Button>
-              </div>
-            )}
-            
-            {user && (
-              <div className="flex justify-center mt-8">
-                <Button asChild size="lg">
-                  <Link to={user.isManager ? "/manager/dashboard" : "/dashboard"}>
-                    Ir para o Dashboard
-                    <ArrowRight className="ml-2" size={20} />
-                  </Link>
-                </Button>
-              </div>
-            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="mb-4">
-                    <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
-                      <FileText size={24} />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">Criar Orçamento</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Solicite um orçamento personalizado para seus projetos de construção.
-                    </p>
-                  </div>
-                  <div className="mt-auto">
-                    <Button asChild className="w-full justify-between">
-                      <Link to={user ? "/criar-orcamento" : "/login"}>
-                        Iniciar <ArrowRight size={16} className="ml-2" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="mb-4">
-                    <div className="h-12 w-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-500 mb-4">
-                      <History size={24} />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">Dashboard</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Acesse o painel de controle com todas as suas métricas e dados.
-                    </p>
-                  </div>
-                  <div className="mt-auto">
-                    <Button asChild variant="outline" className="w-full justify-between">
-                      <Link to={user ? "/dashboard" : "/login"}>
-                        Visualizar <ArrowRight size={16} className="ml-2" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-green-500 shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="mb-4">
-                    <div className="h-12 w-12 bg-green-500/10 rounded-lg flex items-center justify-center text-green-500 mb-4">
-                      <Package size={24} />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">Catálogo</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Explore nossa linha completa de produtos de concreto.
-                    </p>
-                  </div>
-                  <div className="mt-auto">
-                    <Button asChild variant="outline" className="w-full justify-between">
-                      <Link to={user ? "/catalogo" : "/login"}>
-                        Explorar <ArrowRight size={16} className="ml-2" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="space-y-6 max-w-lg">
+            <div className="flex items-start gap-4">
+              <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                <FileText size={20} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium mb-1">Orçamentos simplificados</h3>
+                <p className="text-muted-foreground text-sm">
+                  Crie e gerencie orçamentos em poucos cliques, sem burocracia
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                <ArrowRight size={20} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium mb-1">Atendimento inteligente</h3>
+                <p className="text-muted-foreground text-sm">
+                  Assistente virtual disponível 24h para esclarecer suas dúvidas
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="border rounded-lg p-8 text-center bg-muted/40">
-            <h2 className="text-2xl font-bold mb-4">Área do Gerente</h2>
-            <p className="mb-6 max-w-2xl mx-auto">
-              Acesse o painel administrativo para gerenciar orçamentos, clientes e acompanhar métricas de vendas.
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Button asChild variant="default">
-                <Link to={user?.isManager ? "/manager/dashboard" : "/manager/login"} className="flex items-center">
-                  <BarChart size={18} className="mr-2" />
-                  Dashboard
-                </Link>
+          {!user && !showAuthForm && (
+            <div className="mt-8">
+              <Button onClick={() => setShowAuthForm(true)} size="lg">
+                Fazer Login
               </Button>
-              <Button asChild variant="outline">
-                <Link to={user?.isManager ? "/manager/quotes" : "/manager/login"} className="flex items-center">
-                  <FileText size={18} className="mr-2" />
-                  Orçamentos
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to={user?.isManager ? "/manager/clients" : "/manager/login"} className="flex items-center">
-                  <Users size={18} className="mr-2" />
-                  Clientes
+              <p className="mt-2 text-sm text-muted-foreground">
+                Acesse sua conta para gerenciar seus orçamentos
+              </p>
+            </div>
+          )}
+
+          {user && (
+            <div className="mt-8">
+              <Button asChild size="lg">
+                <Link to="/dashboard">
+                  Ir para o Dashboard
+                  <ArrowRight className="ml-2" size={18} />
                 </Link>
               </Button>
             </div>
-          </div>
+          )}
+        </div>
+
+        <div className="w-full lg:w-1/2 max-w-md">
+          {(showAuthForm || user === null) && !user && (
+            <Card className="border-t-4 border-t-primary shadow-lg">
+              <AuthForm isManager={false} />
+            </Card>
+          )}
         </div>
       </div>
     </Layout>

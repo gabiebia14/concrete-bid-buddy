@@ -33,7 +33,6 @@ function App() {
                 
                 {/* Autenticação */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/manager/login" element={<ManagerLogin />} />
                 
                 {/* Páginas para Clientes */}
                 <Route 
@@ -77,7 +76,8 @@ function App() {
                   } 
                 />
                 
-                {/* Páginas para Gerentes */}
+                {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
+                <Route path="/manager/login" element={<ManagerLogin />} />
                 <Route 
                   path="/manager/dashboard" 
                   element={
