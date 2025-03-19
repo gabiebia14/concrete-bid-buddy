@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
