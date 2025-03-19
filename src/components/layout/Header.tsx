@@ -65,9 +65,11 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
-                IPT Teixeira
-              </span>
+              <img 
+                src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
+                alt="IPT Teixeira Logo" 
+                className="h-8"
+              />
             </Link>
           </div>
 

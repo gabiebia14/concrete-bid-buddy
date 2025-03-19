@@ -57,14 +57,21 @@ export function ClientSidebar() {
       <div className="p-4 flex flex-col items-center justify-center border-b border-sidebar-border">
         {!collapsed ? (
           <div className="flex flex-col items-center">
-            <img src="/placeholder.svg" alt="IPT Teixeira" className="h-12 w-12 mb-2" />
+            <img 
+              src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
+              alt="IPT Teixeira Logo" 
+              className="h-12 w-auto mb-2"
+            />
             <div className="text-center">
-              <div className="font-bold text-base text-white">IPT TEIXEIRA</div>
-              <div className="text-xs text-white/70">150 ANOS</div>
+              <div className="text-xs text-white/70">ISO 9001</div>
             </div>
           </div>
         ) : (
-          <img src="/placeholder.svg" alt="IPT Teixeira" className="h-8 w-8" />
+          <img 
+            src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
+            alt="IPT Teixeira Logo" 
+            className="h-8 w-auto" 
+          />
         )}
         <Button 
           variant="ghost" 
