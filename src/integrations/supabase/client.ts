@@ -9,7 +9,7 @@ const SUPABASE_CLOUD_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 
 // Configurações do Supabase auto-hospedado (preencha após configuração)
 const SUPABASE_SELF_HOSTED_URL = "http://localhost:8000"; // Ajuste conforme sua configuração Docker
-const SUPABASE_SELF_HOSTED_KEY = "seu-anon-key-da-instancia-auto-hospedada"; // Substitua quando tiver a chave
+const SUPABASE_SELF_HOSTED_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTYyMjA0MDIwMCwiZXhwIjoxOTM3NjE2MjAwfQ.rl93-ry-QDR5DNDMJVSLgk84SrDJxjM_eKoOYGSqIpE"; // Usando uma chave padrão do Supabase local
 
 // Defina qual ambiente usar (cloud ou self-hosted)
 const USE_SELF_HOSTED = false; // Mude para true quando estiver pronto para usar a versão auto-hospedada

@@ -20,15 +20,28 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+console.log("Iniciando função chat-assistant com URL: " + supabaseUrl);
+
 // Função para criar o assistente caso não exista
 async function getOrCreateAssistant() {
   try {
     // Verificar se o ID do assistente está armazenado no Supabase
-    const { data: assistantConfig } = await supabase
+    const { data: assistantConfig, error } = await supabase
       .from('config')
       .select('value')
       .eq('key', 'openai_assistant_id')
       .single();
+    
+    if (error) {
+      console.error("Erro ao buscar configuração do assistente:", error);
+      // Se a tabela não existir, vamos criá-la
+      try {
+        await supabase.rpc('create_config_if_not_exists');
+        console.log("Tabela config criada com sucesso");
+      } catch (createError) {
+        console.error("Erro ao criar tabela config:", createError);
+      }
+    }
     
     if (assistantConfig?.value) {
       console.log(`Assistente encontrado com ID: ${assistantConfig.value}`);
@@ -145,13 +158,18 @@ REGRAS DE ATENDIMENTO IMPORTANTES (SIGA ESTRITAMENTE):
     });
     
     // Armazenar ID do assistente no Supabase
-    await supabase
+    const { error: upsertError } = await supabase
       .from('config')
       .upsert({ 
         key: 'openai_assistant_id', 
         value: assistant.id, 
         updated_at: new Date().toISOString() 
       });
+    
+    if (upsertError) {
+      console.error("Erro ao salvar ID do assistente:", upsertError);
+      throw upsertError;
+    }
     
     console.log(`Novo assistente GPT-4o criado com ID: ${assistant.id}`);
     return assistant.id;
@@ -187,11 +205,16 @@ async function saveQuoteData(quoteData, sessionId) {
     let clientId = null;
     
     if (quoteData.cliente && quoteData.cliente.email) {
-      const { data: existingClients } = await supabase
+      const { data: existingClients, error } = await supabase
         .from('clients')
         .select('id')
         .eq('email', quoteData.cliente.email)
         .maybeSingle();
+      
+      if (error) {
+        console.error("Erro ao buscar cliente:", error);
+        throw error;
+      }
       
       if (existingClients) {
         clientId = existingClients.id;
@@ -207,7 +230,7 @@ async function saveQuoteData(quoteData, sessionId) {
           .eq('id', clientId);
       } else if (quoteData.cliente.nome) {
         // Criar novo cliente
-        const { data: newClient, error } = await supabase
+        const { data: newClient, error: clientError } = await supabase
           .from('clients')
           .insert({
             name: quoteData.cliente.nome,
@@ -218,7 +241,11 @@ async function saveQuoteData(quoteData, sessionId) {
           .select()
           .single();
         
-        if (error) throw error;
+        if (clientError) {
+          console.error("Erro ao criar cliente:", clientError);
+          throw clientError;
+        }
+        
         clientId = newClient.id;
       }
     }
@@ -234,10 +261,10 @@ async function saveQuoteData(quoteData, sessionId) {
     }));
 
     // Criar o orçamento
-    const { data: quote, error } = await supabase
+    const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .insert({
-        client_id: clientId,
+        client_id: clientId || '00000000-0000-0000-0000-000000000000', // Valor padrão se não houver cliente
         status: 'pending',
         items: quoteItems,
         created_at: new Date().toISOString(),
@@ -246,16 +273,23 @@ async function saveQuoteData(quoteData, sessionId) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (quoteError) {
+      console.error("Erro ao criar orçamento:", quoteError);
+      throw quoteError;
+    }
     
     // Atualizar a sessão de chat com o ID do orçamento criado
-    await supabase
+    const { error: sessionError } = await supabase
       .from('chat_sessions')
       .update({ 
         status: 'completed',
         quote_id: quote.id 
       })
       .eq('id', sessionId);
+
+    if (sessionError) {
+      console.error("Erro ao atualizar sessão de chat:", sessionError);
+    }
 
     console.log(`Orçamento criado com ID: ${quote.id}`);
     return quote;
@@ -276,16 +310,26 @@ serve(async (req) => {
     const { message, sessionId } = await req.json();
     console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
     
+    // Verificar se temos as variáveis de ambiente necessárias
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY não configurada na função edge");
+    }
+    
     // Obter ou criar o assistente
     const assistantId = await getOrCreateAssistant();
     
     // Verificar se já existe um thread para esta sessão
     let threadId;
-    const { data: sessionData } = await supabase
+    const { data: sessionData, error: sessionError } = await supabase
       .from('chat_sessions')
       .select('thread_id')
       .eq('id', sessionId)
       .single();
+    
+    if (sessionError) {
+      console.error("Erro ao buscar sessão:", sessionError);
+    }
     
     if (sessionData?.thread_id) {
       threadId = sessionData.thread_id;
@@ -296,10 +340,14 @@ serve(async (req) => {
       threadId = thread.id;
       
       // Salvar o thread_id na sessão
-      await supabase
+      const { error: updateError } = await supabase
         .from('chat_sessions')
         .update({ thread_id: threadId })
         .eq('id', sessionId);
+      
+      if (updateError) {
+        console.error("Erro ao atualizar thread_id na sessão:", updateError);
+      }
       
       console.log(`Novo thread criado: ${threadId}`);
     }
@@ -386,7 +434,7 @@ serve(async (req) => {
     }
     
     // Salvar a mensagem no banco de dados
-    await supabase
+    const { error: messageSaveError } = await supabase
       .from('chat_messages')
       .insert({
         session_id: sessionId,
@@ -394,6 +442,10 @@ serve(async (req) => {
         role: 'assistant',
         created_at: new Date().toISOString()
       });
+    
+    if (messageSaveError) {
+      console.error("Erro ao salvar mensagem:", messageSaveError);
+    }
     
     // Verificar se foram extraídos dados de orçamento
     let quoteData = null;
