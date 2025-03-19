@@ -8,11 +8,13 @@ export function Footer() {
     <footer className="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 mt-auto py-4">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-2">
-          <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} IPT Teixeira. Todos os direitos reservados.
-          </p>
+          <div className="text-xs text-muted-foreground">
+            <p>&copy; {currentYear} IPT Teixeira. Todos os direitos reservados.</p>
+            <p className="mt-1">Av. Antonio Donato Sanfelice, 520 - Jardim Industrial / Potirendaba-SP 15105-000</p>
+            <p className="mt-1">(17) 3827-9100</p>
+          </div>
           
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 mt-2 md:mt-0">
             <Link 
               to="/criar-orcamento" 
               className="text-xs text-muted-foreground hover:text-primary transition-colors"
