@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,18 +43,27 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
     try {
       if (activeTab === "entrar") {
         // Login
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Tentando fazer login com:', data.email);
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
 
         if (error) throw error;
 
+        console.log('Login bem-sucedido:', authData);
+        
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo de volta.",
+        });
+
         // Redirecionar para o dashboard apropriado
         navigate(isManager ? '/manager/dashboard' : '/dashboard');
       } else {
         // Cadastro
-        const { error } = await supabase.auth.signUp({
+        console.log('Tentando cadastrar usuário:', data.email);
+        const { data: authData, error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
           options: {
@@ -67,18 +75,40 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
 
         if (error) throw error;
 
+        console.log('Cadastro bem-sucedido:', authData);
+        
+        if (authData.user?.identities?.length === 0) {
+          toast({
+            variant: "destructive",
+            title: "Email já cadastrado",
+            description: "Este email já está em uso, tente fazer login.",
+          });
+          setActiveTab("entrar");
+          return;
+        }
+
         toast({
           title: "Conta criada com sucesso!",
-          description: "Você já pode fazer login.",
+          description: "Verifique seu email para confirmar o cadastro.",
         });
         
         setActiveTab("entrar");
       }
     } catch (error: any) {
+      console.error('Erro de autenticação:', error);
+      
+      let errorMessage = "Ocorreu um erro. Tente novamente.";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Email ou senha incorretos.";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Email não confirmado. Verifique sua caixa de entrada.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error.message || "Ocorreu um erro. Tente novamente.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
