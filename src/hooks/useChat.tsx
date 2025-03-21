@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
@@ -22,7 +21,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
   const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
 
-  // Buscar informações do cliente quando o clientId mudar
   useEffect(() => {
     const loadClientInfo = async () => {
       if (clientId) {
@@ -39,13 +37,11 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
     loadClientInfo();
   }, [clientId]);
 
-  // Create or retrieve chat session on hook initialization
   useEffect(() => {
     const initSession = async () => {
       try {
         console.log('Iniciando sessão de chat...');
         
-        // Criar nova sessão ou recuperar existente
         const session: ChatSession = await createChatSession({
           client_id: clientId,
           status: 'active',
@@ -55,7 +51,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.log('Sessão criada com ID:', session.id);
         setSessionId(session.id);
         
-        // Carregar mensagens anteriores da sessão
         if (session.id) {
           const { data, error } = await supabase
             .from('chat_messages')
@@ -85,7 +80,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
       console.log('Enviando mensagem:', message);
       setIsLoading(true);
       
-      // Save user message
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         session_id: sessionId,
@@ -95,11 +89,9 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         timestamp: new Date().toISOString(),
       };
       
-      // Add to UI immediately
       setMessages(prev => [...prev, userMessage]);
       setMessage('');
       
-      // Save to database
       try {
         await saveChatMessage({
           session_id: userMessage.session_id,
@@ -112,7 +104,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.error('Erro ao salvar mensagem do usuário:', error);
       }
       
-      // Call the OpenAI Assistants Edge Function with the updated API
       try {
         console.log('Chamando função de borda para o chat com a API Assistants...');
         const { data, error } = await supabase.functions.invoke("chat-assistant", {
@@ -128,7 +119,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         
         console.log('Resposta recebida da função de borda (GPT-4o)');
         
-        // Adicionando a resposta à interface
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -138,10 +128,8 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           timestamp: new Date().toISOString(),
         };
         
-        // Add to UI
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Verificar se há dados de orçamento
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
           setQuoteData(data.quote_data);
@@ -151,13 +139,11 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
             setQuoteId(data.quote_id);
           }
           
-          // Notificar componentes externos
           onQuoteRequest?.(data.quote_data);
         }
       } catch (error) {
         console.error("Error calling edge function:", error);
         
-        // Fallback message if edge function fails
         const fallbackMessage: ChatMessage = {
           id: `assistant-fallback-${Date.now()}`,
           session_id: sessionId,
