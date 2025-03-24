@@ -19,8 +19,6 @@ interface ChatInterfaceProps {
 export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) {
   const navigate = useNavigate();
   const [enableBailey, setEnableBailey] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState('http://localhost:5678/webhook-test/chat-assistant');
   
   const { 
     message, 
@@ -47,66 +45,13 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
     }
   };
 
-  // Verificar o status de conexão do serviço
-  const toggleConfig = () => {
-    setShowConfig(!showConfig);
-  };
-
   return (
     <Layout>
       <div className="container mx-auto py-8 px-4">
         <div className="flex flex-col mb-6">
           <h1 className="text-2xl font-bold">Vendas Online</h1>
           <p className="text-muted-foreground">Tire suas dúvidas e solicite orçamentos a qualquer hora do dia</p>
-          <div className="flex justify-end">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={toggleConfig}
-              className="text-xs"
-            >
-              Configurações
-            </Button>
-          </div>
         </div>
-
-        {showConfig && (
-          <Card className="mb-6 border-l-4 border-l-amber-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Configurações de Conexão</CardTitle>
-              <CardDescription>Configure as URLs para conexão com serviços externos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="webhook-url">URL do Webhook N8N</Label>
-                  <div className="flex gap-2">
-                    <input
-                      id="webhook-url"
-                      type="text"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                    />
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => {
-                        localStorage.setItem('n8n_webhook_url', webhookUrl);
-                        toast.success('URL do webhook salva com sucesso!');
-                      }}
-                    >
-                      Salvar
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Usado para conectar ao fluxo do n8n para processamento das mensagens
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 border-l-4 border-l-primary">
