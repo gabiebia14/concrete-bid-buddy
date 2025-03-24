@@ -23,7 +23,8 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
   const navigate = useNavigate();
 
   // URL do webhook do n8n (em produção, use um .env para isso)
-  const n8nWebhookUrl = "http://localhost:5678/webhook-test/chat-assistant";
+  // Aqui estamos usando um URL relativo para evitar problemas de CORS em ambientes diferentes
+  const n8nWebhookUrl = "/api/n8n/chat-assistant";
 
   useEffect(() => {
     const loadClientInfo = async () => {
@@ -109,9 +110,9 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
       }
       
       try {
-        console.log('Chamando webhook do n8n para processamento...');
+        console.log('Processando mensagem...');
         
-        // Montando o payload para o webhook do n8n
+        // Montando o payload para a API
         const payload = {
           message: message,
           sessionId: sessionId,
@@ -122,23 +123,81 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           phone: clientInfo?.phone
         };
         
-        // Chamando o webhook do n8n em vez da função edge
-        const response = await fetch(n8nWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
+        // Tentando primeiro via função do Supabase
+        let data;
+        let responseOk = false;
         
-        if (!response.ok) {
-          throw new Error(`Erro na resposta do webhook: ${response.status}`);
+        try {
+          // Primeiro tentamos via Supabase Function (ambiente de produção)
+          console.log('Tentando via Supabase Function...');
+          const supabaseResponse = await supabase.functions.invoke("chat-assistant", {
+            body: payload
+          });
+          
+          if (!supabaseResponse.error) {
+            console.log('Resposta recebida da função Supabase');
+            data = supabaseResponse.data;
+            responseOk = true;
+          } else {
+            console.log('Erro na função Supabase, tentando via n8n webhook...');
+          }
+        } catch (supabaseError) {
+          console.log('Erro ao chamar função Supabase:', supabaseError);
         }
         
-        const data = await response.json();
-        console.log('Resposta recebida do webhook n8n:', data);
+        // Se a função Supabase falhar, tentamos via webhook do n8n
+        if (!responseOk) {
+          try {
+            // Tentamos via webhook n8n (ambiente de desenvolvimento)
+            console.log('Tentando via webhook n8n:', n8nWebhookUrl);
+            const response = await fetch(n8nWebhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+              data = await response.json();
+              console.log('Resposta recebida do webhook n8n:', data);
+              responseOk = true;
+            } else {
+              throw new Error(`Erro na resposta do webhook: ${response.status}`);
+            }
+          } catch (webhookError) {
+            console.error('Erro ao chamar webhook n8n:', webhookError);
+            // Se falhar o webhook, tentamos uma última vez diretamente no localhost
+            console.log('Tentando diretamente no localhost...');
+            
+            try {
+              const localhostResponse = await fetch("http://localhost:5678/webhook-test/chat-assistant", {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+              });
+              
+              if (localhostResponse.ok) {
+                data = await localhostResponse.json();
+                console.log('Resposta recebida de localhost:', data);
+                responseOk = true;
+              } else {
+                throw new Error(`Erro na resposta de localhost: ${localhostResponse.status}`);
+              }
+            } catch (localhostError) {
+              console.error('Todas as tentativas falharam:', localhostError);
+              throw localhostError;
+            }
+          }
+        }
         
-        // A resposta agora vem do n8n, não da função edge
+        if (!responseOk || !data) {
+          throw new Error('Não foi possível processar a solicitação');
+        }
+        
+        // Processa a resposta independente da origem
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -150,7 +209,18 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Não precisamos mais salvar a mensagem do assistente, pois o n8n já faz isso
+        // Salva a mensagem do assistente no banco de dados
+        try {
+          await saveChatMessage({
+            session_id: assistantMessage.session_id,
+            content: assistantMessage.content,
+            role: assistantMessage.role,
+            created_at: assistantMessage.created_at
+          });
+          console.log('Mensagem do assistente salva com sucesso');
+        } catch (saveError) {
+          console.error('Erro ao salvar mensagem do assistente:', saveError);
+        }
         
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
@@ -164,7 +234,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           onQuoteRequest?.(data.quote_data);
         }
       } catch (error) {
-        console.error("Erro ao chamar webhook n8n:", error);
+        console.error("Erro ao processar mensagem:", error);
         
         const fallbackMessage: ChatMessage = {
           id: `assistant-fallback-${Date.now()}`,
