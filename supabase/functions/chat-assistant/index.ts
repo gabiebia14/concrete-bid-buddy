@@ -196,13 +196,30 @@ async function fetchProductsByCategory(category) {
   }
 }
 
+// Função para buscar cliente por telefone
+async function fetchClientByPhone(phone) {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('phone', phone)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error(`Erro ao buscar cliente pelo telefone ${phone}:`, error);
+    return null;
+  }
+}
+
 // Função para salvar os dados de orçamento extraídos no Supabase
-async function saveQuoteData(quoteData, sessionId) {
+async function saveQuoteData(quoteData, sessionId, clientId = null) {
   try {
     if (!quoteData || !quoteData.produtos || quoteData.produtos.length === 0) return null;
     
     // Primeiro, verificar se já existe um cliente com o email fornecido
-    let clientId = null;
+    let finalClientId = clientId;
     
     if (quoteData.cliente && quoteData.cliente.email) {
       const { data: existingClients, error } = await supabase
@@ -217,7 +234,7 @@ async function saveQuoteData(quoteData, sessionId) {
       }
       
       if (existingClients) {
-        clientId = existingClients.id;
+        finalClientId = existingClients.id;
         
         // Atualizar os dados do cliente se necessário
         await supabase
@@ -227,7 +244,7 @@ async function saveQuoteData(quoteData, sessionId) {
             phone: quoteData.cliente.telefone || existingClients.phone,
             address: quoteData.entrega?.local || existingClients.address
           })
-          .eq('id', clientId);
+          .eq('id', finalClientId);
       } else if (quoteData.cliente.nome) {
         // Criar novo cliente
         const { data: newClient, error: clientError } = await supabase
@@ -246,7 +263,7 @@ async function saveQuoteData(quoteData, sessionId) {
           throw clientError;
         }
         
-        clientId = newClient.id;
+        finalClientId = newClient.id;
       }
     }
 
@@ -264,7 +281,7 @@ async function saveQuoteData(quoteData, sessionId) {
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .insert({
-        client_id: clientId || '00000000-0000-0000-0000-000000000000', // Valor padrão se não houver cliente
+        client_id: finalClientId || '00000000-0000-0000-0000-000000000000', // Valor padrão se não houver cliente
         status: 'pending',
         items: quoteItems,
         created_at: new Date().toISOString(),
@@ -307,8 +324,9 @@ serve(async (req) => {
   }
 
   try {
-    const { message, sessionId } = await req.json();
+    const { message, sessionId, clientId, source = 'web' } = await req.json();
     console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
+    console.log(`Fonte: ${source}, ClientID: ${clientId || 'não fornecido'}`);
     
     // Verificar se temos as variáveis de ambiente necessárias
     const apiKey = Deno.env.get('OPENAI_API_KEY');
@@ -459,7 +477,7 @@ serve(async (req) => {
             
             if (quoteData.produtos && quoteData.produtos.length > 0) {
               console.log("Dados do orçamento detectados:", quoteData);
-              quote = await saveQuoteData(quoteData, sessionId);
+              quote = await saveQuoteData(quoteData, sessionId, clientId);
             }
           } catch (error) {
             console.error("Erro ao processar dados do orçamento:", error);

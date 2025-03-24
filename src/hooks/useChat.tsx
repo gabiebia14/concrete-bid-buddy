@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
@@ -109,7 +110,9 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         const { data, error } = await supabase.functions.invoke("chat-assistant", {
           body: {
             message: message,
-            sessionId: sessionId
+            sessionId: sessionId,
+            clientId: clientId,
+            source: source
           }
         });
         
@@ -129,6 +132,18 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         };
         
         setMessages(prev => [...prev, assistantMessage]);
+        
+        try {
+          await saveChatMessage({
+            session_id: assistantMessage.session_id,
+            content: assistantMessage.content,
+            role: assistantMessage.role,
+            created_at: assistantMessage.created_at
+          });
+          console.log('Mensagem do assistente salva com sucesso');
+        } catch (saveError) {
+          console.error('Erro ao salvar mensagem do assistente:', saveError);
+        }
         
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
