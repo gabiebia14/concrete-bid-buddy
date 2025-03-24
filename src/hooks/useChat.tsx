@@ -22,6 +22,9 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
   const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
 
+  // URL do webhook do n8n (em produção, use um .env para isso)
+  const n8nWebhookUrl = "http://localhost:5678/webhook-test/chat-assistant";
+
   useEffect(() => {
     const loadClientInfo = async () => {
       if (clientId) {
@@ -106,22 +109,36 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
       }
       
       try {
-        console.log('Chamando função de borda para o chat com a API Assistants...');
-        const { data, error } = await supabase.functions.invoke("chat-assistant", {
-          body: {
-            message: message,
-            sessionId: sessionId,
-            clientId: clientId,
-            source: source
-          }
+        console.log('Chamando webhook do n8n para processamento...');
+        
+        // Montando o payload para o webhook do n8n
+        const payload = {
+          message: message,
+          sessionId: sessionId,
+          clientId: clientId,
+          source: source,
+          name: clientInfo?.name,
+          email: clientInfo?.email,
+          phone: clientInfo?.phone
+        };
+        
+        // Chamando o webhook do n8n em vez da função edge
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
         });
         
-        if (error) {
-          throw new Error(`Erro na função de borda: ${error.message}`);
+        if (!response.ok) {
+          throw new Error(`Erro na resposta do webhook: ${response.status}`);
         }
         
-        console.log('Resposta recebida da função de borda (GPT-4o)');
+        const data = await response.json();
+        console.log('Resposta recebida do webhook n8n:', data);
         
+        // A resposta agora vem do n8n, não da função edge
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -133,17 +150,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         
         setMessages(prev => [...prev, assistantMessage]);
         
-        try {
-          await saveChatMessage({
-            session_id: assistantMessage.session_id,
-            content: assistantMessage.content,
-            role: assistantMessage.role,
-            created_at: assistantMessage.created_at
-          });
-          console.log('Mensagem do assistente salva com sucesso');
-        } catch (saveError) {
-          console.error('Erro ao salvar mensagem do assistente:', saveError);
-        }
+        // Não precisamos mais salvar a mensagem do assistente, pois o n8n já faz isso
         
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
@@ -157,7 +164,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           onQuoteRequest?.(data.quote_data);
         }
       } catch (error) {
-        console.error("Error calling edge function:", error);
+        console.error("Erro ao chamar webhook n8n:", error);
         
         const fallbackMessage: ChatMessage = {
           id: `assistant-fallback-${Date.now()}`,
