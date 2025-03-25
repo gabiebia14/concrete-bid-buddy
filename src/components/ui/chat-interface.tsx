@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useChat } from '@/hooks/useChat';
@@ -29,6 +28,11 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
     const savedUrl = localStorage.getItem('chatWebhookUrl');
     if (savedUrl) {
       setWebhookUrl(savedUrl);
+    } else {
+      // Define a URL padrão correta
+      const defaultUrl = '/api/n8n/chat-assistant';
+      setWebhookUrl(defaultUrl);
+      localStorage.setItem('chatWebhookUrl', defaultUrl);
     }
   }, []);
   

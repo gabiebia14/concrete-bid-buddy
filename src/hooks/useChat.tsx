@@ -23,7 +23,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
   const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
 
-  // URL padrão para o webhook do n8n (usando proxy para evitar CORS)
+  // URL correta para o webhook do n8n (usando proxy para evitar CORS)
   const defaultWebhookUrl = "/api/n8n/chat-assistant";
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
 
   const callWebhook = async (userMessage: string) => {
     try {
-      // Usar a URL fornecida ou a URL padrão
+      // Usar a URL fornecida ou a URL padrão (proxy)
       const targetUrl = webhookUrl || defaultWebhookUrl;
       console.log(`Chamando webhook em: ${targetUrl}`);
       
