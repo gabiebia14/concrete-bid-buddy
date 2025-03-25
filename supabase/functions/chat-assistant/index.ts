@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import OpenAI from "https://esm.sh/openai@4.28.4";
@@ -20,7 +19,11 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// URL do webhook do n8n
+const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL') || 'https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant';
+
 console.log("Iniciando função chat-assistant com URL: " + supabaseUrl);
+console.log("URL do webhook n8n: " + n8nWebhookUrl);
 
 // Função para criar o assistente caso não exista
 async function getOrCreateAssistant() {
@@ -316,6 +319,35 @@ async function saveQuoteData(quoteData, sessionId, clientId = null) {
   }
 }
 
+// Função para tentar usar o webhook do n8n
+async function tryN8nWebhook(payload) {
+  try {
+    console.log(`Tentando chamar webhook n8n em: ${n8nWebhookUrl}`);
+    console.log(`Payload: ${JSON.stringify(payload)}`);
+    
+    const response = await fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Erro na resposta do webhook: ${response.status}`, errorText);
+      throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Resposta do webhook: ${JSON.stringify(data)}`);
+    return data;
+  } catch (error) {
+    console.error("Erro ao chamar webhook n8n:", error);
+    throw error;
+  }
+}
+
 // Função principal que processa as requisições
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -324,178 +356,200 @@ serve(async (req) => {
   }
 
   try {
-    const { message, sessionId, clientId, source = 'web' } = await req.json();
+    const { message, sessionId, clientId, source = 'web', name, email, phone } = await req.json();
     console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
     console.log(`Fonte: ${source}, ClientID: ${clientId || 'não fornecido'}`);
     
-    // Verificar se temos as variáveis de ambiente necessárias
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new Error("OPENAI_API_KEY não configurada na função edge");
-    }
-    
-    // Obter ou criar o assistente
-    const assistantId = await getOrCreateAssistant();
-    
-    // Verificar se já existe um thread para esta sessão
-    let threadId;
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('chat_sessions')
-      .select('thread_id')
-      .eq('id', sessionId)
-      .single();
-    
-    if (sessionError) {
-      console.error("Erro ao buscar sessão:", sessionError);
-    }
-    
-    if (sessionData?.thread_id) {
-      threadId = sessionData.thread_id;
-      console.log(`Thread existente encontrado: ${threadId}`);
-    } else {
-      // Criar um novo thread
-      const thread = await openai.beta.threads.create();
-      threadId = thread.id;
-      
-      // Salvar o thread_id na sessão
-      const { error: updateError } = await supabase
-        .from('chat_sessions')
-        .update({ thread_id: threadId })
-        .eq('id', sessionId);
-      
-      if (updateError) {
-        console.error("Erro ao atualizar thread_id na sessão:", updateError);
-      }
-      
-      console.log(`Novo thread criado: ${threadId}`);
-    }
-    
-    // Adicionar a mensagem ao thread
-    await openai.beta.threads.messages.create(threadId, {
-      role: "user",
-      content: message
-    });
-    
-    // Executar o assistente
-    console.log(`Executando assistente ${assistantId} no thread ${threadId}`);
-    const run = await openai.beta.threads.runs.create(threadId, {
-      assistant_id: assistantId
-    });
-    
-    // Aguardar a conclusão do run
-    let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-    
-    while (runStatus.status !== 'completed' && 
-           runStatus.status !== 'failed' && 
-           runStatus.status !== 'cancelled' && 
-           runStatus.status !== 'expired') {
-      
-      // Se precisar de ação
-      if (runStatus.status === 'requires_action') {
-        // Processar ferramentas solicitadas
-        const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
-        const toolOutputs = [];
-        
-        for (const toolCall of toolCalls) {
-          if (toolCall.function.name === 'extract_quote_data') {
-            // Extrair dados da conversa
-            const args = JSON.parse(toolCall.function.arguments);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify(args)
-            });
-          } else if (toolCall.function.name === 'fetch_products_by_category') {
-            // Buscar produtos
-            const args = JSON.parse(toolCall.function.arguments);
-            const products = await fetchProductsByCategory(args.category);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify(products)
-            });
-          }
-        }
-        
-        // Submeter as respostas das ferramentas
-        await openai.beta.threads.runs.submitToolOutputs(threadId, run.id, {
-          tool_outputs: toolOutputs
-        });
-      }
-      
-      // Aguardar um pouco antes de verificar novamente
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-    }
-    
-    if (runStatus.status !== 'completed') {
-      throw new Error(`Execução falhou com status: ${runStatus.status}`);
-    }
-    
-    // Buscar as mensagens geradas pelo assistente
-    const messagesResponse = await openai.beta.threads.messages.list(threadId);
-    const assistantMessages = messagesResponse.data.filter(msg => 
-      msg.role === 'assistant' && 
-      msg.run_id === run.id
-    );
-    
-    if (assistantMessages.length === 0) {
-      throw new Error("Nenhuma resposta gerada pelo assistente");
-    }
-    
-    // Formatar a resposta
-    const latestAssistantMessage = assistantMessages[0];
-    let responseText = "";
-    
-    for (const content of latestAssistantMessage.content) {
-      if (content.type === 'text') {
-        responseText += content.text.value;
-      }
-    }
-    
-    // Salvar a mensagem no banco de dados
-    const { error: messageSaveError } = await supabase
-      .from('chat_messages')
-      .insert({
-        session_id: sessionId,
-        content: responseText,
-        role: 'assistant',
-        created_at: new Date().toISOString()
+    // Primeira tentativa: usar o webhook do n8n
+    try {
+      console.log("Tentando usar o webhook do n8n primeiro...");
+      const n8nResponse = await tryN8nWebhook({
+        message, 
+        sessionId, 
+        clientId, 
+        source,
+        name,
+        email,
+        phone
       });
-    
-    if (messageSaveError) {
-      console.error("Erro ao salvar mensagem:", messageSaveError);
-    }
-    
-    // Verificar se foram extraídos dados de orçamento
-    let quoteData = null;
-    let quote = null;
-    
-    if (runStatus.tool_calls) {
-      for (const toolCall of runStatus.tool_calls) {
-        if (toolCall.function.name === 'extract_quote_data') {
-          try {
-            quoteData = JSON.parse(toolCall.function.arguments);
-            
-            if (quoteData.produtos && quoteData.produtos.length > 0) {
-              console.log("Dados do orçamento detectados:", quoteData);
-              quote = await saveQuoteData(quoteData, sessionId, clientId);
+      
+      console.log("Resposta do n8n obtida com sucesso:", n8nResponse);
+      
+      return new Response(
+        JSON.stringify(n8nResponse),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (n8nError) {
+      console.error("Falha ao usar webhook do n8n, caindo para OpenAI direto:", n8nError);
+      
+      // Verificar se temos as variáveis de ambiente necessárias
+      const apiKey = Deno.env.get('OPENAI_API_KEY');
+      if (!apiKey) {
+        throw new Error("OPENAI_API_KEY não configurada na função edge");
+      }
+      
+      // Obter ou criar o assistente
+      const assistantId = await getOrCreateAssistant();
+      
+      // Verificar se já existe um thread para esta sessão
+      let threadId;
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('chat_sessions')
+        .select('thread_id')
+        .eq('id', sessionId)
+        .single();
+      
+      if (sessionError) {
+        console.error("Erro ao buscar sessão:", sessionError);
+      }
+      
+      if (sessionData?.thread_id) {
+        threadId = sessionData.thread_id;
+        console.log(`Thread existente encontrado: ${threadId}`);
+      } else {
+        // Criar um novo thread
+        const thread = await openai.beta.threads.create();
+        threadId = thread.id;
+        
+        // Salvar o thread_id na sessão
+        const { error: updateError } = await supabase
+          .from('chat_sessions')
+          .update({ thread_id: threadId })
+          .eq('id', sessionId);
+        
+        if (updateError) {
+          console.error("Erro ao atualizar thread_id na sessão:", updateError);
+        }
+        
+        console.log(`Novo thread criado: ${threadId}`);
+      }
+      
+      // Adicionar a mensagem ao thread
+      await openai.beta.threads.messages.create(threadId, {
+        role: "user",
+        content: message
+      });
+      
+      // Executar o assistente
+      console.log(`Executando assistente ${assistantId} no thread ${threadId}`);
+      const run = await openai.beta.threads.runs.create(threadId, {
+        assistant_id: assistantId
+      });
+      
+      // Aguardar a conclusão do run
+      let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      
+      while (runStatus.status !== 'completed' && 
+            runStatus.status !== 'failed' && 
+            runStatus.status !== 'cancelled' && 
+            runStatus.status !== 'expired') {
+        
+        // Se precisar de ação
+        if (runStatus.status === 'requires_action') {
+          // Processar ferramentas solicitadas
+          const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
+          const toolOutputs = [];
+          
+          for (const toolCall of toolCalls) {
+            if (toolCall.function.name === 'extract_quote_data') {
+              // Extrair dados da conversa
+              const args = JSON.parse(toolCall.function.arguments);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify(args)
+              });
+            } else if (toolCall.function.name === 'fetch_products_by_category') {
+              // Buscar produtos
+              const args = JSON.parse(toolCall.function.arguments);
+              const products = await fetchProductsByCategory(args.category);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify(products)
+              });
             }
-          } catch (error) {
-            console.error("Erro ao processar dados do orçamento:", error);
+          }
+          
+          // Submeter as respostas das ferramentas
+          await openai.beta.threads.runs.submitToolOutputs(threadId, run.id, {
+            tool_outputs: toolOutputs
+          });
+        }
+        
+        // Aguardar um pouco antes de verificar novamente
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      }
+      
+      if (runStatus.status !== 'completed') {
+        throw new Error(`Execução falhou com status: ${runStatus.status}`);
+      }
+      
+      // Buscar as mensagens geradas pelo assistente
+      const messagesResponse = await openai.beta.threads.messages.list(threadId);
+      const assistantMessages = messagesResponse.data.filter(msg => 
+        msg.role === 'assistant' && 
+        msg.run_id === run.id
+      );
+      
+      if (assistantMessages.length === 0) {
+        throw new Error("Nenhuma resposta gerada pelo assistente");
+      }
+      
+      // Formatar a resposta
+      const latestAssistantMessage = assistantMessages[0];
+      let responseText = "";
+      
+      for (const content of latestAssistantMessage.content) {
+        if (content.type === 'text') {
+          responseText += content.text.value;
+        }
+      }
+      
+      // Salvar a mensagem no banco de dados
+      const { error: messageSaveError } = await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: sessionId,
+          content: responseText,
+          role: 'assistant',
+          created_at: new Date().toISOString()
+        });
+      
+      if (messageSaveError) {
+        console.error("Erro ao salvar mensagem:", messageSaveError);
+      }
+      
+      // Verificar se foram extraídos dados de orçamento
+      let quoteData = null;
+      let quote = null;
+      
+      if (runStatus.tool_calls) {
+        for (const toolCall of runStatus.tool_calls) {
+          if (toolCall.function.name === 'extract_quote_data') {
+            try {
+              quoteData = JSON.parse(toolCall.function.arguments);
+              
+              if (quoteData.produtos && quoteData.produtos.length > 0) {
+                console.log("Dados do orçamento detectados:", quoteData);
+                quote = await saveQuoteData(quoteData, sessionId, clientId);
+              }
+            } catch (error) {
+              console.error("Erro ao processar dados do orçamento:", error);
+            }
           }
         }
       }
+      
+      return new Response(
+        JSON.stringify({ 
+          message: responseText,
+          session_id: sessionId,
+          quote_data: quoteData,
+          quote_id: quote?.id
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    
-    return new Response(
-      JSON.stringify({ 
-        message: responseText,
-        session_id: sessionId,
-        quote_data: quoteData,
-        quote_id: quote?.id
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
   } catch (error) {
     console.error("Erro ao processar requisição:", error.message);
     return new Response(
