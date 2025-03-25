@@ -1,7 +1,6 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { ChatMessage } from '@/lib/types';
-import { ChatMessageItem } from './ChatMessage';
+import { MessageItem } from './ChatMessage';
 import { Loader2, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +22,6 @@ export function ChatMessages({ messages, isTyping = false, showBailey = false }:
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Verificar status do Baileys e buscar QR Code quando showBailey for true
   useEffect(() => {
     if (showBailey) {
       checkBaileyStatus();
@@ -139,7 +137,7 @@ export function ChatMessages({ messages, isTyping = false, showBailey = false }:
       )}
       
       {messages.map((msg) => (
-        <ChatMessageItem key={msg.id} message={msg} />
+        <MessageItem key={msg.id} message={msg} />
       ))}
       
       {isTyping && (

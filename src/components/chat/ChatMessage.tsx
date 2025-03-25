@@ -4,11 +4,12 @@ import { Bot, User } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { ChatMessage as ChatMessageType } from '@/lib/types';
 
-interface ChatMessageProps {
+// Renomeando para MessageItem para evitar confusão com o tipo ChatMessage
+interface MessageItemProps {
   message: ChatMessageType;
 }
 
-export function ChatMessageItem({ message }: ChatMessageProps) {
+export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user';
   
   return (
