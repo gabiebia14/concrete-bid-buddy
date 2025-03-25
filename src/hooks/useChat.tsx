@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
@@ -23,8 +22,8 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
   const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
 
-  // URL correta para o webhook do n8n (usando proxy para evitar CORS)
-  const defaultWebhookUrl = "/api/n8n/chat-assistant";
+  // URL correta para o webhook do n8n
+  const defaultWebhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
 
   useEffect(() => {
     const loadClientInfo = async () => {
@@ -80,7 +79,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
 
   const callWebhook = async (userMessage: string) => {
     try {
-      // Usar a URL fornecida ou a URL padrão (proxy)
+      // Usar a URL fornecida ou a URL padrão correta
       const targetUrl = webhookUrl || defaultWebhookUrl;
       console.log(`Chamando webhook em: ${targetUrl}`);
       
@@ -155,7 +154,7 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       let data;
       
       try {
-        // Usar webhook do n8n
+        // Chamar webhook do n8n
         data = await callWebhook(message);
         console.log('Resposta recebida do webhook n8n:', data);
       } catch (webhookError) {
@@ -189,7 +188,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
         return;
       }
       
-      // Processar a resposta
       if (data) {
         // Salvar mensagem do assistente no banco de dados
         try {
