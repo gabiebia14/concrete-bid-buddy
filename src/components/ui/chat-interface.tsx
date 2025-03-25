@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useChat } from '@/hooks/useChat';
@@ -18,9 +19,16 @@ interface ChatInterfaceProps {
   title?: string;
   description?: string;
   showBailey?: boolean;
+  onQuoteRequest?: (quoteData: any) => void;
 }
 
-export function ChatInterface({ clientId, title = "Assistente IPT Teixeira", description = "Assistente de Vendas", showBailey = false }: ChatInterfaceProps) {
+export function ChatInterface({ 
+  clientId, 
+  title = "Assistente IPT Teixeira", 
+  description = "Assistente de Vendas", 
+  showBailey = false,
+  onQuoteRequest 
+}: ChatInterfaceProps) {
   const [configOpen, setConfigOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('');
   
@@ -45,7 +53,8 @@ export function ChatInterface({ clientId, title = "Assistente IPT Teixeira", des
   const { message, setMessage, messages, isLoading, handleSendMessage } = useChat({
     clientId,
     source: 'web',
-    webhookUrl
+    webhookUrl,
+    onQuoteRequest
   });
 
   return (

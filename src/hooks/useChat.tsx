@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
 import { ChatMessage, ChatSession } from '@/lib/types';
@@ -227,7 +228,9 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
             setQuoteId(data.quote_id);
           }
           
-          onQuoteRequest?.(data.quote_data);
+          if (onQuoteRequest) {
+            onQuoteRequest(data.quote_data);
+          }
         }
       }
       
