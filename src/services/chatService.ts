@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage } from '@/lib/types';
@@ -8,7 +7,6 @@ class ChatService {
   private sessionId: string;
   private messages: ChatMessage[] = [];
   private webhookUrl: string;
-  private fallbackUrl: string = '/api/chat'; // URL local de fallback se necessário
   
   constructor(webhookUrl: string) {
     // Verificar se já existe um session ID no localStorage
@@ -22,8 +20,9 @@ class ChatService {
       localStorage.setItem('chatSessionId', this.sessionId);
     }
     
-    this.webhookUrl = webhookUrl;
-    console.log("ChatService inicializado com URL:", webhookUrl);
+    // Garantir que a URL do webhook é exatamente a fornecida
+    this.webhookUrl = "https://http://gbservin8n.sevirenostrinta.com.br./.sevirenostrinta.com.br/webhook-test/chat-assistant";
+    console.log("ChatService inicializado com URL:", this.webhookUrl);
   }
   
   async loadMessages(): Promise<void> {
@@ -85,16 +84,16 @@ class ChatService {
     console.log('Enviando mensagem para webhook:', this.webhookUrl);
     console.log('Payload:', payload);
     
-    // Primeiro tente usar o webhook externo
+    // Tentar usar o webhook externo com a URL exata fornecida
     try {
       const response = await this.callWebhook(this.webhookUrl, payload);
       return this.processWebhookResponse(response);
-    } catch (primaryError) {
-      console.error('Erro ao chamar webhook principal:', primaryError);
+    } catch (webhookError) {
+      console.error('Erro ao chamar webhook:', webhookError);
       
-      // Tente usar a função Edge no Supabase como fallback
+      // Tentar usar a função Edge no Supabase como plano B
       try {
-        console.log('Tentando usar função Edge como fallback');
+        console.log('Tentando usar função Edge como alternativa');
         const edgeResponse = await supabase.functions.invoke('chat-assistant', {
           body: payload.body
         });
@@ -105,7 +104,7 @@ class ChatService {
         
         return this.processWebhookResponse(edgeResponse.data);
       } catch (fallbackError) {
-        console.error('Erro no fallback:', fallbackError);
+        console.error('Erro no backup:', fallbackError);
         
         // Mensagem de erro
         const errorMessage: ChatMessage = {
@@ -128,7 +127,10 @@ class ChatService {
         // Mostrar notificação de erro
         toast.error("Não foi possível conectar ao serviço de assistente");
         
-        throw fallbackError;
+        return {
+          message: errorMessage.content,
+          error: fallbackError.message
+        };
       }
     }
   }
