@@ -127,17 +127,23 @@ async function saveQuoteData(quoteData, sessionId, clientId = null) {
 }
 
 // Função para usar o webhook do n8n
-async function callN8nWebhook(payload) {
+async function callN8nWebhook(payload: any) {
   try {
     console.log(`Chamando webhook n8n em: ${n8nWebhookUrl}`);
     console.log(`Payload: ${JSON.stringify(payload)}`);
+    
+    // Garantir que o payload seja formatado como esperado pelo n8n
+    // O n8n espera que os dados estejam dentro de um objeto "body"
+    const formattedPayload = {
+      body: payload
+    };
     
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(formattedPayload)
     });
     
     if (!response.ok) {
@@ -151,7 +157,7 @@ async function callN8nWebhook(payload) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(formattedPayload)
       });
       
       if (!backupResponse.ok) {
@@ -180,21 +186,20 @@ serve(async (req) => {
   }
 
   try {
-    const { message, sessionId, clientId, source = 'web', name, email, phone } = await req.json();
+    // Extrair o corpo da requisição
+    const requestData = await req.json();
+    
+    // Verificar se os dados estão diretos ou dentro de um objeto "body"
+    const payload = requestData.body || requestData;
+    
+    const { message, sessionId, clientId, source = 'web', name, email, phone } = payload;
+    
     console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
     console.log(`Fonte: ${source}, ClientID: ${clientId || 'não fornecido'}`);
     
     try {
       console.log("Chamando webhook do n8n...");
-      const n8nResponse = await callN8nWebhook({
-        message, 
-        sessionId, 
-        clientId, 
-        source,
-        name,
-        email,
-        phone
-      });
+      const n8nResponse = await callN8nWebhook(payload);
       
       console.log("Resposta do webhook obtida com sucesso:", n8nResponse);
       

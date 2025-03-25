@@ -21,7 +21,7 @@ class ChatService {
       localStorage.setItem('chatSessionId', this.sessionId);
     }
     
-    // Garantir que a URL do webhook é correta (sem o https://http:// duplicado)
+    // Garantir que a URL do webhook é correta
     this.webhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
     console.log("ChatService inicializado com URL:", this.webhookUrl);
   }
@@ -69,7 +69,8 @@ class ChatService {
     
     this.messages.push(userMessage);
     
-    // Preparar o payload para o webhook
+    // Preparar o payload no formato esperado pelo n8n
+    // O n8n espera que os dados estejam dentro de um objeto "body"
     const payload = {
       body: {
         message: message,
@@ -83,7 +84,7 @@ class ChatService {
     };
     
     console.log('Enviando mensagem para webhook:', this.webhookUrl);
-    console.log('Payload:', payload);
+    console.log('Payload formatado para n8n:', payload);
     
     // Tentar usar o webhook externo com a URL corrigida
     try {

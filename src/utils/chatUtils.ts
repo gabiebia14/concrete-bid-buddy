@@ -13,7 +13,7 @@ export function generateSessionId(): string {
  */
 export function formatWebhookUrl(url?: string): string {
   if (!url) {
-    return "http://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
+    return "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
   }
   
   // Verifica se a URL tem o protocolo
@@ -35,4 +35,14 @@ export function getFinalWebhookUrl(webhookUrl?: string, useProxy: boolean = true
   return useProxy 
     ? `/api/n8n/chat-assistant` 
     : formatWebhookUrl(localStorage.getItem('chatWebhookUrl') || undefined);
+}
+
+/**
+ * Formata o payload para o formato esperado pelo n8n
+ */
+export function formatPayloadForN8n(data: any): any {
+  // O n8n espera que os dados estejam dentro de um objeto "body"
+  return {
+    body: data
+  };
 }
