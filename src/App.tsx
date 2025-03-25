@@ -15,7 +15,7 @@ import Index from './pages/Index';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
-import { ChatInterface } from './components/ui/chat-interface';
+import ChatAssistant from './pages/ChatAssistant';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -69,11 +69,7 @@ function App() {
                 />
                 <Route 
                   path="/chat-assistant" 
-                  element={
-                    <PrivateRoute>
-                      <ChatInterface />
-                    </PrivateRoute>
-                  } 
+                  element={<ChatAssistant />} 
                 />
                 
                 {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
