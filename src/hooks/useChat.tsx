@@ -56,11 +56,11 @@ export function useChat({ clientId, source = 'web', webhookUrl, onQuoteRequest, 
       };
       
       // Enviar mensagem ao serviço
-      const response = await chatService.sendMessage(state.message, userData);
+      const responseData = await chatService.sendMessage(state.message, userData);
       
       // Verificar se há dados de orçamento na resposta
-      if (response && response.quoteData && onQuoteRequest) {
-        onQuoteRequest(response.quoteData);
+      if (responseData && responseData.quoteData && onQuoteRequest) {
+        onQuoteRequest(responseData.quoteData);
       }
       
       // Limpar a mensagem de entrada e atualizar estado

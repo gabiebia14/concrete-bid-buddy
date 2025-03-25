@@ -21,7 +21,7 @@ export interface ChatState {
 }
 
 export interface ChatService {
-  sendMessage: (message: string, userData: any) => Promise<void>;
+  sendMessage: (message: string, userData: any) => Promise<any>; // Modificado para retornar Promise<any> em vez de Promise<void>
   getMessages: () => ChatMessage[];
   getSessionId: () => string;
 }
