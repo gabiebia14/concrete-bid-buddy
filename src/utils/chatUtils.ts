@@ -39,10 +39,6 @@ export function getFinalWebhookUrl(webhookUrl?: string, useProxy: boolean = true
 
 /**
  * Formata o payload para o formato esperado pelo n8n
+ * Não usar - já que o webhook está recebendo aninhado (body dentro de body)
  */
-export function formatPayloadForN8n(data: any): any {
-  // O n8n espera que os dados estejam dentro de um objeto "body"
-  return {
-    body: data
-  };
-}
+// Função removida para evitar duplicação do objeto body

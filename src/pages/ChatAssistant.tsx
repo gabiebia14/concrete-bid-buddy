@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -145,17 +144,14 @@ const ChatAssistant = () => {
       // Adicionar mensagem do usuário à lista
       setMessages(prev => [...prev, userMessage]);
       
-      // Preparar payload formatado para o n8n
-      // O n8n espera que os dados estejam dentro de um objeto "body"
+      // Preparar payload para o webhook - SEM aninhar em body novamente
       const payload = {
-        body: {
-          message: inputMessage,
-          sessionId: sessionId,
-          source: 'web',
-          name: userInfo.name,
-          email: userInfo.email,
-          phone: userInfo.phone
-        }
+        message: inputMessage,
+        sessionId: sessionId,
+        source: 'web',
+        name: userInfo.name,
+        email: userInfo.email,
+        phone: userInfo.phone
       };
       
       console.log('Enviando mensagem para webhook:', payload);

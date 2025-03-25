@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage } from '@/lib/types';
@@ -69,22 +68,19 @@ class ChatService {
     
     this.messages.push(userMessage);
     
-    // Preparar o payload no formato esperado pelo n8n
-    // O n8n espera que os dados estejam dentro de um objeto "body"
+    // Preparar o payload diretamente (sem aninhar em body novamente)
     const payload = {
-      body: {
-        message: message,
-        sessionId: this.sessionId,
-        source: userData.source || 'web',
-        name: userData.name || '',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        clientId: userData.clientId || null
-      }
+      message: message,
+      sessionId: this.sessionId,
+      source: userData.source || 'web',
+      name: userData.name || '',
+      email: userData.email || '',
+      phone: userData.phone || '',
+      clientId: userData.clientId || null
     };
     
     console.log('Enviando mensagem para webhook:', this.webhookUrl);
-    console.log('Payload formatado para n8n:', payload);
+    console.log('Payload:', payload);
     
     // Tentar usar o webhook externo com a URL corrigida
     try {
@@ -97,7 +93,7 @@ class ChatService {
       try {
         console.log('Tentando usar função Edge como alternativa');
         const edgeResponse = await supabase.functions.invoke('chat-assistant', {
-          body: payload.body
+          body: payload
         });
         
         if (edgeResponse.error) {

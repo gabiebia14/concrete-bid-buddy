@@ -132,18 +132,14 @@ async function callN8nWebhook(payload: any) {
     console.log(`Chamando webhook n8n em: ${n8nWebhookUrl}`);
     console.log(`Payload: ${JSON.stringify(payload)}`);
     
-    // Garantir que o payload seja formatado como esperado pelo n8n
     // O n8n espera que os dados estejam dentro de um objeto "body"
-    const formattedPayload = {
-      body: payload
-    };
-    
+    // Como vimos que está chegando aninhado (body.body), enviamos o payload direto
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formattedPayload)
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
@@ -157,7 +153,7 @@ async function callN8nWebhook(payload: any) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formattedPayload)
+        body: JSON.stringify(payload)
       });
       
       if (!backupResponse.ok) {
@@ -189,17 +185,33 @@ serve(async (req) => {
     // Extrair o corpo da requisição
     const requestData = await req.json();
     
-    // Verificar se os dados estão diretos ou dentro de um objeto "body"
-    const payload = requestData.body || requestData;
+    // Verificar se os dados já estão aninhados em body.body ou diretamente
+    // Importante: não aninhar novamente!
+    let payload;
+    if (requestData.body && requestData.body.body) {
+      // Dados já estão aninhados duas vezes
+      console.log('Payload já está com body aninhado, usando requestData.body.body');
+      payload = requestData.body.body;
+    } else if (requestData.body) {
+      // Dados estão aninhados uma vez
+      console.log('Usando requestData.body como payload');
+      payload = requestData.body;
+    } else {
+      // Dados estão no nível superior
+      console.log('Usando requestData como payload');
+      payload = requestData;
+    }
     
     const { message, sessionId, clientId, source = 'web', name, email, phone } = payload;
     
-    console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message.substring(0, 50)}..."`);
+    console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message?.substring(0, 50)}..."`);
     console.log(`Fonte: ${source}, ClientID: ${clientId || 'não fornecido'}`);
     
     try {
       console.log("Chamando webhook do n8n...");
-      const n8nResponse = await callN8nWebhook(payload);
+      const n8nResponse = await callN8nWebhook({
+        body: payload // Encapsulamos em body aqui para o n8n
+      });
       
       console.log("Resposta do webhook obtida com sucesso:", n8nResponse);
       

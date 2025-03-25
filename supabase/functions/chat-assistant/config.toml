@@ -1,6 +1,4 @@
 
-
 # Config para a função chat-assistant
 n8n_webhook_url = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant"
-
 
