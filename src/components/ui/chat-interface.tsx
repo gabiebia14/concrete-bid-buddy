@@ -5,11 +5,13 @@ import { useChat } from '@/hooks/useChat';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Layout } from '@/components/layout/Layout';
-import { Bot, MessageSquare, CheckCircle2, ClipboardList, MessageCircle } from 'lucide-react';
+import { Bot, MessageSquare, CheckCircle2, ClipboardList, MessageCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -19,6 +21,16 @@ interface ChatInterfaceProps {
 export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) {
   const navigate = useNavigate();
   const [enableBailey, setEnableBailey] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  
+  useEffect(() => {
+    // Carregar URL do webhook do localStorage se existir
+    const savedUrl = localStorage.getItem('chatWebhookUrl');
+    if (savedUrl) {
+      setWebhookUrl(savedUrl);
+    }
+  }, []);
   
   const { 
     message, 
@@ -28,7 +40,7 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
     handleSendMessage,
     quoteData,
     quoteId
-  } = useChat({ clientId, onQuoteRequest, source: 'web' });
+  } = useChat({ clientId, onQuoteRequest, source: 'web', webhookUrl });
 
   const [showQuoteSummary, setShowQuoteSummary] = useState(false);
 
@@ -44,14 +56,57 @@ export function ChatInterface({ clientId, onQuoteRequest }: ChatInterfaceProps) 
       navigate(`/quotes/${quoteId}`);
     }
   };
+  
+  const saveWebhookUrl = () => {
+    localStorage.setItem('chatWebhookUrl', webhookUrl);
+    toast.success('URL do webhook salvo com sucesso!');
+    setShowSettings(false);
+  };
 
   return (
     <Layout>
       <div className="container mx-auto py-8 px-4">
         <div className="flex flex-col mb-6">
-          <h1 className="text-2xl font-bold">Vendas Online</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Vendas Online</h1>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          </div>
           <p className="text-muted-foreground">Tire suas dúvidas e solicite orçamentos a qualquer hora do dia</p>
         </div>
+        
+        {showSettings && (
+          <Card className="mb-6 border-l-4 border-l-yellow-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Configurações do Chat</CardTitle>
+              <CardDescription>Configure os endpoints do assistente de vendas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <Label htmlFor="webhook-url">URL do Webhook N8N</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="webhook-url"
+                      placeholder="https://seu-n8n.dominio.com/webhook-test/chat-assistant"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                    />
+                    <Button onClick={saveWebhookUrl}>Salvar</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Se nenhum URL for fornecido, o chat usará o proxy local ou a função Edge do Supabase.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 border-l-4 border-l-primary">

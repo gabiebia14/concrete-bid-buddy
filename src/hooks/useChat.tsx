@@ -10,9 +10,10 @@ interface UseChatProps {
   clientId?: string;
   onQuoteRequest?: (quoteData: any) => void;
   source?: 'web' | 'whatsapp';
+  webhookUrl?: string;
 }
 
-export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatProps) {
+export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }: UseChatProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
@@ -22,8 +23,8 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
   const [clientInfo, setClientInfo] = useState<any>(null);
   const navigate = useNavigate();
 
-  // URL do webhook do n8n (em produção, use um .env para isso)
-  const n8nWebhookUrl = "http://localhost:5678/webhook-test/chat-assistant";
+  // URL padrão para o webhook do n8n (usando proxy para evitar CORS)
+  const defaultWebhookUrl = "/api/n8n/chat-assistant";
 
   useEffect(() => {
     const loadClientInfo = async () => {
@@ -77,6 +78,65 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
     initSession();
   }, [clientId]);
 
+  const callWebhook = async (userMessage: string) => {
+    try {
+      // Usar a URL fornecida ou a URL padrão
+      const targetUrl = webhookUrl || defaultWebhookUrl;
+      console.log(`Chamando webhook em: ${targetUrl}`);
+      
+      // Montando o payload para o webhook do n8n
+      const payload = {
+        message: userMessage,
+        sessionId: sessionId,
+        clientId: clientId,
+        source: source,
+        name: clientInfo?.name,
+        email: clientInfo?.email,
+        phone: clientInfo?.phone
+      };
+      
+      // Chamando o webhook do n8n
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro na resposta do webhook: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Erro ao chamar webhook:", error);
+      throw error;
+    }
+  }
+
+  const callEdgeFunction = async (userMessage: string) => {
+    try {
+      console.log('Usando função Edge como fallback...');
+      const response = await supabase.functions.invoke("chat-assistant", {
+        body: {
+          message: userMessage,
+          sessionId: sessionId,
+          clientId: clientId,
+          source: source,
+          name: clientInfo?.name,
+          email: clientInfo?.email,
+          phone: clientInfo?.phone
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error("Erro ao chamar função Edge:", error);
+      throw error;
+    }
+  }
+
   const handleSendMessage = async () => {
     if (!message.trim() || !sessionId) return;
     
@@ -108,37 +168,27 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         console.error('Erro ao salvar mensagem do usuário:', error);
       }
       
+      let data;
+      
       try {
-        console.log('Chamando webhook do n8n para processamento...');
-        
-        // Montando o payload para o webhook do n8n
-        const payload = {
-          message: message,
-          sessionId: sessionId,
-          clientId: clientId,
-          source: source,
-          name: clientInfo?.name,
-          email: clientInfo?.email,
-          phone: clientInfo?.phone
-        };
-        
-        // Chamando o webhook do n8n em vez da função edge
-        const response = await fetch(n8nWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Erro na resposta do webhook: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        // Tentativa 1: Usar o webhook do n8n via proxy
+        data = await callWebhook(message);
         console.log('Resposta recebida do webhook n8n:', data);
+      } catch (webhookError) {
+        console.error("Erro ao chamar webhook n8n:", webhookError);
         
-        // A resposta agora vem do n8n, não da função edge
+        try {
+          // Tentativa 2: Usar a função Edge do Supabase como fallback
+          data = await callEdgeFunction(message);
+          console.log('Resposta recebida da função Edge:', data);
+        } catch (edgeError) {
+          console.error("Erro ao chamar função Edge:", edgeError);
+          throw new Error("Todos os métodos de processamento falharam");
+        }
+      }
+      
+      // Processar a resposta
+      if (data) {
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           session_id: sessionId,
@@ -149,8 +199,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
         };
         
         setMessages(prev => [...prev, assistantMessage]);
-        
-        // Não precisamos mais salvar a mensagem do assistente, pois o n8n já faz isso
         
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
@@ -163,39 +211,35 @@ export function useChat({ clientId, onQuoteRequest, source = 'web' }: UseChatPro
           
           onQuoteRequest?.(data.quote_data);
         }
-      } catch (error) {
-        console.error("Erro ao chamar webhook n8n:", error);
-        
-        const fallbackMessage: ChatMessage = {
-          id: `assistant-fallback-${Date.now()}`,
-          session_id: sessionId,
-          content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
-          role: 'assistant',
-          created_at: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
-        };
-        
-        setMessages(prev => [...prev, fallbackMessage]);
-        
-        try {
-          await saveChatMessage({
-            session_id: fallbackMessage.session_id,
-            content: fallbackMessage.content,
-            role: fallbackMessage.role,
-            created_at: fallbackMessage.created_at
-          });
-        } catch (saveError) {
-          console.error('Erro ao salvar mensagem de fallback:', saveError);
-        }
-        
-        toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
       }
       
       setIsLoading(false);
-      
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Erro ao enviar mensagem. Por favor, tente novamente.');
+      
+      const fallbackMessage: ChatMessage = {
+        id: `assistant-fallback-${Date.now()}`,
+        session_id: sessionId,
+        content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
+        role: 'assistant',
+        created_at: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+      
+      try {
+        await saveChatMessage({
+          session_id: fallbackMessage.session_id,
+          content: fallbackMessage.content,
+          role: fallbackMessage.role,
+          created_at: fallbackMessage.created_at
+        });
+      } catch (saveError) {
+        console.error('Erro ao salvar mensagem de fallback:', saveError);
+      }
+      
+      toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
       setIsLoading(false);
     }
   };
