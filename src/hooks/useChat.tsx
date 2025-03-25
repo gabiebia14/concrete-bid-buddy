@@ -95,6 +95,8 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
         phone: clientInfo?.phone
       };
       
+      console.log('Enviando payload para webhook:', JSON.stringify(payload));
+      
       // Chamando o webhook do n8n
       const response = await fetch(targetUrl, {
         method: 'POST',
@@ -105,10 +107,14 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       });
       
       if (!response.ok) {
-        throw new Error(`Erro na resposta do webhook: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Erro na resposta do webhook: ${response.status}`, errorText);
+        throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
       }
       
-      return await response.json();
+      const responseData = await response.json();
+      console.log('Resposta recebida do webhook:', responseData);
+      return responseData;
     } catch (error) {
       console.error("Erro ao chamar webhook:", error);
       throw error;
@@ -130,6 +136,11 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
         }
       });
       
+      if (!response.data) {
+        throw new Error("Resposta vazia da função Edge");
+      }
+      
+      console.log('Resposta recebida da função Edge:', response.data);
       return response.data;
     } catch (error) {
       console.error("Erro ao chamar função Edge:", error);
@@ -169,13 +180,15 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       }
       
       let data;
+      let errorMessages = [];
       
       try {
-        // Tentativa 1: Usar o webhook do n8n via proxy
+        // Tentativa 1: Usar o webhook do n8n via proxy ou URL personalizada
         data = await callWebhook(message);
         console.log('Resposta recebida do webhook n8n:', data);
       } catch (webhookError) {
         console.error("Erro ao chamar webhook n8n:", webhookError);
+        errorMessages.push(`Webhook: ${webhookError.message}`);
         
         try {
           // Tentativa 2: Usar a função Edge do Supabase como fallback
@@ -183,22 +196,41 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
           console.log('Resposta recebida da função Edge:', data);
         } catch (edgeError) {
           console.error("Erro ao chamar função Edge:", edgeError);
-          throw new Error("Todos os métodos de processamento falharam");
+          errorMessages.push(`Edge Function: ${edgeError.message}`);
+          throw new Error(`Falha em todas as tentativas: ${errorMessages.join(', ')}`);
         }
       }
       
       // Processar a resposta
       if (data) {
-        const assistantMessage: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          session_id: sessionId,
-          content: data?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.",
-          role: 'assistant',
-          created_at: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
+        // Salvar mensagem do assistente no banco de dados
+        try {
+          const assistantMessageContent = data?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.";
+          
+          // Registrar mensagem no estado local
+          const assistantMessage: ChatMessage = {
+            id: `assistant-${Date.now()}`,
+            session_id: sessionId,
+            content: assistantMessageContent,
+            role: 'assistant',
+            created_at: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+          };
+          
+          setMessages(prev => [...prev, assistantMessage]);
+          
+          // Salvar no banco de dados
+          await saveChatMessage({
+            session_id: assistantMessage.session_id,
+            content: assistantMessage.content,
+            role: assistantMessage.role,
+            created_at: assistantMessage.created_at
+          });
+          
+          console.log('Mensagem do assistente salva com sucesso');
+        } catch (error) {
+          console.error('Erro ao salvar mensagem do assistente:', error);
+        }
         
         if (data?.quote_data) {
           console.log("Dados do orçamento detectados:", data.quote_data);
