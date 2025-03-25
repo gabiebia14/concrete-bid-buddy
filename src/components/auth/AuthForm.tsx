@@ -13,12 +13,20 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
 
 // Schema para validação
-const authSchema = z.object({
+const loginSchema = z.object({
   email: z.string().email({ message: 'Digite um email válido' }),
   password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres' }),
 });
 
-type AuthFormValues = z.infer<typeof authSchema>;
+const registerSchema = z.object({
+  name: z.string().min(2, { message: 'Digite seu nome completo' }),
+  email: z.string().email({ message: 'Digite um email válido' }),
+  phone: z.string().min(8, { message: 'Digite um telefone válido' }),
+  password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres' }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 interface AuthFormProps {
   isManager?: boolean;
@@ -30,70 +38,44 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("entrar");
 
-  const form = useForm<AuthFormValues>({
-    resolver: zodResolver(authSchema),
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  async function onSubmit(data: AuthFormValues) {
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+    },
+  });
+
+  async function onLoginSubmit(data: LoginFormValues) {
     setIsLoading(true);
     try {
-      if (activeTab === "entrar") {
-        // Login
-        console.log('Tentando fazer login com:', data.email);
-        const { data: authData, error } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        });
+      console.log('Tentando fazer login com:', data.email);
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        console.log('Login bem-sucedido:', authData);
-        
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo de volta.",
-        });
+      console.log('Login bem-sucedido:', authData);
+      
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo de volta.",
+      });
 
-        // Redirecionar para o dashboard apropriado
-        navigate(isManager ? '/manager/dashboard' : '/dashboard');
-      } else {
-        // Cadastro
-        console.log('Tentando cadastrar usuário:', data.email);
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            data: {
-              is_manager: isManager,
-            },
-          },
-        });
-
-        if (error) throw error;
-
-        console.log('Cadastro bem-sucedido:', authData);
-        
-        if (authData.user?.identities?.length === 0) {
-          toast({
-            variant: "destructive",
-            title: "Email já cadastrado",
-            description: "Este email já está em uso, tente fazer login.",
-          });
-          setActiveTab("entrar");
-          return;
-        }
-
-        toast({
-          title: "Conta criada com sucesso!",
-          description: "Verifique seu email para confirmar o cadastro.",
-        });
-        
-        setActiveTab("entrar");
-      }
+      // Redirecionar para o dashboard apropriado
+      navigate(isManager ? '/manager/dashboard' : '/dashboard');
     } catch (error: any) {
       console.error('Erro de autenticação:', error);
       
@@ -109,6 +91,55 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
         variant: "destructive",
         title: "Erro",
         description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  async function onRegisterSubmit(data: RegisterFormValues) {
+    setIsLoading(true);
+    try {
+      console.log('Tentando cadastrar usuário:', data.email);
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.name,
+            phone: data.phone,
+            is_manager: isManager,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      console.log('Cadastro bem-sucedido:', authData);
+      
+      if (authData.user?.identities?.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Email já cadastrado",
+          description: "Este email já está em uso, tente fazer login.",
+        });
+        setActiveTab("entrar");
+        return;
+      }
+
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Verifique seu email para confirmar o cadastro.",
+      });
+      
+      setActiveTab("entrar");
+    } catch (error: any) {
+      console.error('Erro de cadastro:', error);
+      
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Ocorreu um erro ao criar sua conta.",
       });
     } finally {
       setIsLoading(false);
@@ -134,41 +165,109 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
             <TabsTrigger value="cadastrar">Cadastrar</TabsTrigger>
           </TabsList>
           
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="seu@email.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <Button type="submit" className="w-full mt-6" disabled={isLoading}>
-                {isLoading ? "Processando..." : activeTab === "entrar" ? "Entrar" : "Cadastrar"}
-              </Button>
-            </form>
-          </Form>
+          <TabsContent value="entrar">
+            <Form {...loginForm}>
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                <FormField
+                  control={loginForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="seu@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={loginForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="******" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" className="w-full mt-6" disabled={isLoading}>
+                  {isLoading ? "Processando..." : "Entrar"}
+                </Button>
+              </form>
+            </Form>
+          </TabsContent>
+          
+          <TabsContent value="cadastrar">
+            <Form {...registerForm}>
+              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                <FormField
+                  control={registerForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome Completo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Seu nome completo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="seu@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(00) 00000-0000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="******" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" className="w-full mt-6" disabled={isLoading}>
+                  {isLoading ? "Processando..." : "Cadastrar"}
+                </Button>
+              </form>
+            </Form>
+          </TabsContent>
         </Tabs>
       </CardContent>
       <CardFooter>

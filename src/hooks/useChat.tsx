@@ -1,300 +1,177 @@
 
-import { useState, useEffect } from 'react';
-import { saveChatMessage, createChatSession, fetchClientById } from '@/lib/supabase';
-import { ChatMessage, ChatSession } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { ChatMessage } from '@/lib/types';
 
-interface UserInfo {
-  name: string;
-  email: string;
-  phone: string;
-}
-
-interface UseChatProps {
+interface ChatProps {
   clientId?: string;
-  onQuoteRequest?: (quoteData: any) => void;
-  source?: 'web' | 'whatsapp';
+  source?: string;
   webhookUrl?: string;
-  userInfo?: UserInfo;
+  onQuoteRequest?: (quoteData: any) => void;
+  userInfo?: {
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
-export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl, userInfo }: UseChatProps) {
-  const [message, setMessage] = useState('');
+export function useChat({ 
+  clientId,
+  source = 'web',
+  webhookUrl,
+  onQuoteRequest,
+  userInfo
+}: ChatProps) {
+  const [message, setMessage] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [quoteData, setQuoteData] = useState<any>(null);
-  const [quoteId, setQuoteId] = useState<string | null>(null);
-  const [clientInfo, setClientInfo] = useState<any>(null);
-  const navigate = useNavigate();
+  const [userData, setUserData] = useState<any>(null);
+  const { toast } = useToast();
 
-  // URL correta para o webhook do n8n
-  const defaultWebhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
-
+  // Iniciar sessão de chat
   useEffect(() => {
-    const loadClientInfo = async () => {
-      if (clientId) {
-        try {
-          const clientData = await fetchClientById(clientId);
-          setClientInfo(clientData);
-          console.log('Informações do cliente carregadas:', clientData);
-        } catch (error) {
-          console.error('Erro ao carregar informações do cliente:', error);
-        }
-      }
-    };
+    // Verificar se já existe um session ID no localStorage
+    const storedSessionId = localStorage.getItem('chatSessionId');
     
-    loadClientInfo();
-  }, [clientId]);
-
-  useEffect(() => {
-    const initSession = async () => {
-      try {
-        console.log('Iniciando sessão de chat...');
-        
-        // Gerar sessionId se não existir no localStorage ou usar o existente
-        let chatSessionId = localStorage.getItem('chatSessionId');
-        if (!chatSessionId) {
-          chatSessionId = generateSessionId();
-          localStorage.setItem('chatSessionId', chatSessionId);
-        }
-        
-        const session: ChatSession = await createChatSession({
-          client_id: clientId,
-          status: 'active',
-          created_at: new Date().toISOString()
-        });
-        
-        console.log('Sessão criada com ID:', session.id);
-        setSessionId(session.id);
-        
-        if (session.id) {
-          const { data, error } = await supabase
-            .from('chat_messages')
-            .select('*')
-            .eq('session_id', session.id)
-            .order('created_at', { ascending: true });
-            
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            setMessages(data as ChatMessage[]);
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao iniciar sessão de chat:', error);
-        toast.error('Erro ao iniciar o chat. Por favor, tente novamente.');
-      }
-    };
-    
-    initSession();
-  }, [clientId]);
-
-  // Função para gerar um ID de sessão único
-  const generateSessionId = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = (Math.random() * 16) | 0,
-            v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  };
-
-  const callWebhook = async (userMessage: string) => {
-    try {
-      // Usar a URL fornecida ou a URL padrão correta
-      const targetUrl = webhookUrl || defaultWebhookUrl;
-      console.log(`Chamando webhook em: ${targetUrl}`);
-      
-      // Determinar as informações do usuário a serem enviadas
-      const name = clientInfo?.name || userInfo?.name || '';
-      const email = clientInfo?.email || userInfo?.email || '';
-      const phone = clientInfo?.phone || userInfo?.phone || '';
-      
-      // Montando o payload para o webhook do n8n no formato especificado
-      const payload = {
-        body: {
-          message: userMessage,
-          sessionId: sessionId,
-          source: source,
-          name: name,
-          email: email,
-          phone: phone
-        }
-      };
-      
-      console.log('Enviando payload para webhook:', JSON.stringify(payload));
-      
-      // Chamando o webhook do n8n
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Erro na resposta do webhook: ${response.status}`, errorText);
-        throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
-      }
-      
-      const responseData = await response.json();
-      console.log('Resposta recebida do webhook:', responseData);
-      return responseData;
-    } catch (error) {
-      console.error("Erro ao chamar webhook:", error);
-      throw error;
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+    } else {
+      // Criar novo session ID
+      const newSessionId = uuidv4();
+      localStorage.setItem('chatSessionId', newSessionId);
+      setSessionId(newSessionId);
     }
-  }
 
-  const handleSendMessage = async () => {
-    if (!message.trim() || !sessionId) return;
+    // Buscar informações do usuário se estiver autenticado
+    const fetchUserData = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setUserData({
+          id: data.user.id,
+          name: data.user.user_metadata?.full_name || '',
+          email: data.user.email || '',
+          phone: data.user.user_metadata?.phone || '',
+        });
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Carregar mensagens iniciais
+  useEffect(() => {
+    if (sessionId) {
+      // Aqui você pode carregar mensagens anteriores se desejar
+      // Por exemplo, buscando do Supabase ou localStorage
+    }
+  }, [sessionId]);
+
+  const handleSendMessage = useCallback(async () => {
+    if (!message.trim()) return;
+    
+    // Informações do usuário - preferência para usuário logado, depois para userInfo passado como prop
+    const userMetadata = userData || userInfo || {};
     
     try {
-      console.log('Enviando mensagem:', message);
       setIsLoading(true);
       
+      // Adicionar mensagem do usuário à lista
       const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        session_id: sessionId,
+        id: uuidv4(),
         content: message,
-        role: 'user',
-        created_at: new Date().toISOString(),
-        timestamp: new Date().toISOString(),
+        role: 'user'
       };
       
       setMessages(prev => [...prev, userMessage]);
-      setMessage('');
       
-      try {
-        await saveChatMessage({
-          session_id: userMessage.session_id,
-          content: userMessage.content,
-          role: userMessage.role,
-          created_at: userMessage.created_at
+      // Preparar o payload para o webhook
+      const payload = {
+        body: {
+          message: message,
+          sessionId: sessionId,
+          source: source,
+          name: userMetadata.name || '',
+          email: userMetadata.email || '',
+          phone: userMetadata.phone || '',
+          clientId: clientId || userMetadata.id || null
+        }
+      };
+      
+      console.log('Enviando mensagem para webhook:', payload);
+      
+      // Enviar mensagem para webhook
+      let response;
+      
+      if (webhookUrl) {
+        response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
         });
-        console.log('Mensagem do usuário salva com sucesso');
-      } catch (error) {
-        console.error('Erro ao salvar mensagem do usuário:', error);
-      }
-      
-      let data;
-      
-      try {
-        // Chamar webhook do n8n
-        data = await callWebhook(message);
-        console.log('Resposta recebida do webhook n8n:', data);
-      } catch (webhookError) {
-        console.error("Erro ao chamar webhook n8n:", webhookError);
         
-        // Mostrar mensagem de erro
-        const fallbackMessage: ChatMessage = {
-          id: `assistant-fallback-${Date.now()}`,
-          session_id: sessionId,
-          content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
-          role: 'assistant',
-          created_at: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
-        };
+        const responseData = await response.json();
+        console.log('Resposta do webhook:', responseData);
         
-        setMessages(prev => [...prev, fallbackMessage]);
-        
-        try {
-          await saveChatMessage({
-            session_id: fallbackMessage.session_id,
-            content: fallbackMessage.content,
-            role: fallbackMessage.role,
-            created_at: fallbackMessage.created_at
-          });
-        } catch (saveError) {
-          console.error('Erro ao salvar mensagem de fallback:', saveError);
+        // Verificar se há dados de orçamento na resposta
+        if (responseData.quoteData && onQuoteRequest) {
+          onQuoteRequest(responseData.quoteData);
         }
         
-        setIsLoading(false);
-        toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
-        return;
-      }
-      
-      if (data) {
-        // Extrair a resposta do assistente do objeto retornado
-        const assistantMessageContent = data?.message || data?.body?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.";
-        
-        // Registrar mensagem no estado local
+        // Adicionar resposta do assistente à lista
         const assistantMessage: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          session_id: sessionId,
-          content: assistantMessageContent,
-          role: 'assistant',
-          created_at: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
+          id: uuidv4(),
+          content: responseData.message || responseData.reply || responseData.response || 'Desculpe, ocorreu um erro ao processar sua mensagem.',
+          role: 'assistant'
         };
         
         setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        console.error('Webhook URL não definida');
         
-        // Salvar no banco de dados
-        try {
-          await saveChatMessage({
-            session_id: assistantMessage.session_id,
-            content: assistantMessage.content,
-            role: assistantMessage.role,
-            created_at: assistantMessage.created_at
-          });
-          console.log('Mensagem do assistente salva com sucesso');
-        } catch (error) {
-          console.error('Erro ao salvar mensagem do assistente:', error);
-        }
+        // Mensagem de erro se não houver webhook
+        const errorMessage: ChatMessage = {
+          id: uuidv4(),
+          content: 'Desculpe, estamos com problemas para conectar ao serviço de assistente. Por favor, tente novamente mais tarde.',
+          role: 'assistant'
+        };
         
-        // Verificar se foram extraídos dados de orçamento
-        if (data?.quote_data || data?.body?.quote_data) {
-          const extractedQuoteData = data?.quote_data || data?.body?.quote_data;
-          console.log("Dados do orçamento detectados:", extractedQuoteData);
-          setQuoteData(extractedQuoteData);
-          
-          const extractedQuoteId = data?.quote_id || data?.body?.quote_id;
-          if (extractedQuoteId) {
-            console.log("Orçamento criado com ID:", extractedQuoteId);
-            setQuoteId(extractedQuoteId);
-          }
-          
-          if (onQuoteRequest) {
-            onQuoteRequest(extractedQuoteData);
-          }
-        }
+        setMessages(prev => [...prev, errorMessage]);
+        
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Não foi possível conectar ao serviço de assistente.'
+        });
       }
       
-      setIsLoading(false);
+      // Limpar a mensagem de entrada
+      setMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Erro ao enviar mensagem:', error);
       
-      const fallbackMessage: ChatMessage = {
-        id: `assistant-fallback-${Date.now()}`,
-        session_id: sessionId,
-        content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
-        role: 'assistant',
-        created_at: new Date().toISOString(),
-        timestamp: new Date().toISOString(),
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Ocorreu um erro ao enviar sua mensagem. Por favor, tente novamente.'
+      });
+      
+      // Adicionar mensagem de erro à lista
+      const errorMessage: ChatMessage = {
+        id: uuidv4(),
+        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
+        role: 'assistant'
       };
       
-      setMessages(prev => [...prev, fallbackMessage]);
-      
-      try {
-        await saveChatMessage({
-          session_id: fallbackMessage.session_id,
-          content: fallbackMessage.content,
-          role: fallbackMessage.role,
-          created_at: fallbackMessage.created_at
-        });
-      } catch (saveError) {
-        console.error('Erro ao salvar mensagem de fallback:', saveError);
-      }
-      
-      toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
     }
-  };
+  }, [message, sessionId, source, clientId, webhookUrl, onQuoteRequest, userData, userInfo, toast]);
 
   return {
     message,
@@ -302,8 +179,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl, 
     messages,
     isLoading,
     handleSendMessage,
-    quoteData,
-    quoteId,
-    clientInfo
+    sessionId
   };
 }

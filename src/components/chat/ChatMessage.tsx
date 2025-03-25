@@ -11,6 +11,38 @@ interface MessageItemProps {
 export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user';
   
+  // Função para processar links no texto
+  const formatMessageContent = (content: string) => {
+    // Expressão regular para encontrar URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    
+    // Dividir o conteúdo em pedaços (texto e URLs)
+    const parts = content.split(urlRegex);
+    
+    // Encontrar as URLs que correspondem ao regex
+    const matches = content.match(urlRegex) || [];
+    
+    // Juntar as partes novamente, mas transformando URLs em links
+    return parts.map((part, index) => {
+      // Se a parte corresponder a uma URL (verificando se está na lista de matches)
+      if (matches.includes(part)) {
+        return (
+          <a 
+            key={index} 
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={`underline ${isUser ? 'text-primary-foreground' : 'text-blue-600'}`}
+          >
+            {part}
+          </a>
+        );
+      }
+      // Se for texto normal
+      return part;
+    });
+  };
+  
   return (
     <div
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} items-start gap-2 animate-slide-in`}
@@ -28,7 +60,7 @@ export function MessageItem({ message }: MessageItemProps) {
             : 'bg-muted'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap">{formatMessageContent(message.content)}</p>
       </div>
       
       {isUser && (

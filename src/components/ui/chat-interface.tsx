@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { AuthForm } from '@/components/auth/AuthForm';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -41,22 +44,47 @@ export function ChatInterface({
     phone: ''
   });
   const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const navigate = useNavigate();
   
-  // Verificar se temos informações do usuário salvas
+  // Verificar se o usuário está autenticado
   useEffect(() => {
-    const savedUserInfo = localStorage.getItem('chatUserInfo');
-    if (savedUserInfo) {
-      try {
-        const parsedInfo = JSON.parse(savedUserInfo);
-        setUserInfo(parsedInfo);
-      } catch (error) {
-        console.error('Erro ao carregar informações do usuário:', error);
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+      setIsAuthenticated(!!data.user);
+      
+      if (data.user) {
+        // Usar informações do perfil do usuário
+        setUserInfo({
+          name: data.user.user_metadata?.full_name || '',
+          email: data.user.email || '',
+          phone: data.user.user_metadata?.phone || ''
+        });
       }
-    } else if (!clientId) {
-      // Se não temos informações do usuário e não é um cliente logado, mostrar diálogo
-      setUserInfoDialogOpen(true);
-    }
-  }, [clientId]);
+      
+      setIsAuthLoading(false);
+    };
+    
+    checkAuth();
+    
+    // Ouvir mudanças na autenticação
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      
+      if (session?.user) {
+        setUserInfo({
+          name: session.user.user_metadata?.full_name || '',
+          email: session.user.email || '',
+          phone: session.user.user_metadata?.phone || ''
+        });
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
   
   // Carregar URL do webhook e configuração de proxy do localStorage
   useEffect(() => {
@@ -90,19 +118,6 @@ export function ChatInterface({
     setConfigOpen(false);
   };
   
-  const saveUserInfo = () => {
-    localStorage.setItem('chatUserInfo', JSON.stringify(userInfo));
-    
-    // Verificar se temos informações básicas
-    if (!userInfo.name.trim()) {
-      toast.error('Por favor, informe pelo menos seu nome para continuar.');
-      return;
-    }
-    
-    toast.success('Informações salvas com sucesso!');
-    setUserInfoDialogOpen(false);
-  };
-  
   // Determinar a URL final baseada na configuração de proxy e na URL externa
   const finalWebhookUrl = webhookUrl || (useProxy 
     ? `/api/n8n/chat-assistant` 
@@ -113,8 +128,42 @@ export function ChatInterface({
     source: 'web',
     webhookUrl: finalWebhookUrl,
     onQuoteRequest,
-    userInfo: clientId ? undefined : userInfo
+    userInfo: isAuthenticated ? undefined : userInfo // Usa userInfo apenas se não estiver autenticado
   });
+
+  // Mostrar tela de autenticação se não estiver autenticado
+  if (isAuthLoading) {
+    return (
+      <Card className="h-full flex flex-col items-center justify-center">
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-8 h-8 rounded-full border-4 border-t-transparent border-primary animate-spin"></div>
+            <p className="text-muted-foreground">Carregando...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Card className="h-full flex flex-col">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="max-w-md w-full">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-semibold">Faça login ou cadastre-se</h2>
+              <p className="text-muted-foreground">Para usar o assistente, é necessário entrar na sua conta</p>
+            </div>
+            <AuthForm />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full flex flex-col">
@@ -123,16 +172,6 @@ export function ChatInterface({
         description={description}
         actions={
           <div className="flex items-center space-x-1">
-            {!clientId && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setUserInfoDialogOpen(true)}
-                title="Suas informações"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-            )}
             <Button 
               variant="ghost" 
               size="icon" 
@@ -192,67 +231,6 @@ export function ChatInterface({
           <DialogFooter>
             <Button type="button" onClick={saveConfig}>
               Salvar Configurações
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={userInfoDialogOpen} onOpenChange={setUserInfoDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Suas Informações</DialogTitle>
-            <DialogDescription>
-              Para melhor atendimento, informe seus dados de contato.
-              Isso nos ajudará a personalizar seu atendimento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="userName" className="text-right">
-                Nome *
-              </Label>
-              <Input 
-                id="userName" 
-                value={userInfo.name} 
-                onChange={(e) => setUserInfo({...userInfo, name: e.target.value})} 
-                className="col-span-3" 
-                required
-              />
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="userEmail" className="text-right">
-                Email
-              </Label>
-              <Input 
-                id="userEmail" 
-                type="email"
-                value={userInfo.email} 
-                onChange={(e) => setUserInfo({...userInfo, email: e.target.value})} 
-                className="col-span-3" 
-              />
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="userPhone" className="text-right">
-                Telefone
-              </Label>
-              <Input 
-                id="userPhone" 
-                value={userInfo.phone} 
-                onChange={(e) => setUserInfo({...userInfo, phone: e.target.value})} 
-                className="col-span-3" 
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            
-            <p className="text-xs text-muted-foreground">
-              * Campos obrigatórios
-            </p>
-          </div>
-          <DialogFooter>
-            <Button type="button" onClick={saveUserInfo}>
-              Salvar Informações
             </Button>
           </DialogFooter>
         </DialogContent>
