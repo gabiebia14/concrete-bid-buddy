@@ -6,14 +6,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
+interface UserInfo {
+  name: string;
+  email: string;
+  phone: string;
+}
+
 interface UseChatProps {
   clientId?: string;
   onQuoteRequest?: (quoteData: any) => void;
   source?: 'web' | 'whatsapp';
   webhookUrl?: string;
+  userInfo?: UserInfo;
 }
 
-export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }: UseChatProps) {
+export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl, userInfo }: UseChatProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
@@ -47,6 +54,13 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       try {
         console.log('Iniciando sessão de chat...');
         
+        // Gerar sessionId se não existir no localStorage ou usar o existente
+        let chatSessionId = localStorage.getItem('chatSessionId');
+        if (!chatSessionId) {
+          chatSessionId = generateSessionId();
+          localStorage.setItem('chatSessionId', chatSessionId);
+        }
+        
         const session: ChatSession = await createChatSession({
           client_id: clientId,
           status: 'active',
@@ -78,21 +92,36 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
     initSession();
   }, [clientId]);
 
+  // Função para gerar um ID de sessão único
+  const generateSessionId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = (Math.random() * 16) | 0,
+            v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
   const callWebhook = async (userMessage: string) => {
     try {
       // Usar a URL fornecida ou a URL padrão correta
       const targetUrl = webhookUrl || defaultWebhookUrl;
       console.log(`Chamando webhook em: ${targetUrl}`);
       
-      // Montando o payload para o webhook do n8n
+      // Determinar as informações do usuário a serem enviadas
+      const name = clientInfo?.name || userInfo?.name || '';
+      const email = clientInfo?.email || userInfo?.email || '';
+      const phone = clientInfo?.phone || userInfo?.phone || '';
+      
+      // Montando o payload para o webhook do n8n no formato especificado
       const payload = {
-        message: userMessage,
-        sessionId: sessionId,
-        clientId: clientId,
-        source: source,
-        name: clientInfo?.name,
-        email: clientInfo?.email,
-        phone: clientInfo?.phone
+        body: {
+          message: userMessage,
+          sessionId: sessionId,
+          source: source,
+          name: name,
+          email: email,
+          phone: phone
+        }
       };
       
       console.log('Enviando payload para webhook:', JSON.stringify(payload));
@@ -190,46 +219,48 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       }
       
       if (data) {
-        // Salvar mensagem do assistente no banco de dados
+        // Extrair a resposta do assistente do objeto retornado
+        const assistantMessageContent = data?.message || data?.body?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.";
+        
+        // Registrar mensagem no estado local
+        const assistantMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          session_id: sessionId,
+          content: assistantMessageContent,
+          role: 'assistant',
+          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        };
+        
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        // Salvar no banco de dados
         try {
-          const assistantMessageContent = data?.message || "Desculpe, estou tendo dificuldades para processar sua solicitação no momento.";
-          
-          // Registrar mensagem no estado local
-          const assistantMessage: ChatMessage = {
-            id: `assistant-${Date.now()}`,
-            session_id: sessionId,
-            content: assistantMessageContent,
-            role: 'assistant',
-            created_at: new Date().toISOString(),
-            timestamp: new Date().toISOString(),
-          };
-          
-          setMessages(prev => [...prev, assistantMessage]);
-          
-          // Salvar no banco de dados
           await saveChatMessage({
             session_id: assistantMessage.session_id,
             content: assistantMessage.content,
             role: assistantMessage.role,
             created_at: assistantMessage.created_at
           });
-          
           console.log('Mensagem do assistente salva com sucesso');
         } catch (error) {
           console.error('Erro ao salvar mensagem do assistente:', error);
         }
         
-        if (data?.quote_data) {
-          console.log("Dados do orçamento detectados:", data.quote_data);
-          setQuoteData(data.quote_data);
+        // Verificar se foram extraídos dados de orçamento
+        if (data?.quote_data || data?.body?.quote_data) {
+          const extractedQuoteData = data?.quote_data || data?.body?.quote_data;
+          console.log("Dados do orçamento detectados:", extractedQuoteData);
+          setQuoteData(extractedQuoteData);
           
-          if (data.quote_id) {
-            console.log("Orçamento criado com ID:", data.quote_id);
-            setQuoteId(data.quote_id);
+          const extractedQuoteId = data?.quote_id || data?.body?.quote_id;
+          if (extractedQuoteId) {
+            console.log("Orçamento criado com ID:", extractedQuoteId);
+            setQuoteId(extractedQuoteId);
           }
           
           if (onQuoteRequest) {
-            onQuoteRequest(data.quote_data);
+            onQuoteRequest(extractedQuoteData);
           }
         }
       }

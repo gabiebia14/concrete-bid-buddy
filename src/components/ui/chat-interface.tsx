@@ -7,7 +7,7 @@ import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Settings, Server } from 'lucide-react';
+import { Settings, Server, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,28 @@ export function ChatInterface({
   const [configOpen, setConfigOpen] = useState(false);
   const [localWebhookUrl, setLocalWebhookUrl] = useState<string>('');
   const [useProxy, setUseProxy] = useState<boolean>(true);
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false);
+  
+  // Verificar se temos informações do usuário salvas
+  useEffect(() => {
+    const savedUserInfo = localStorage.getItem('chatUserInfo');
+    if (savedUserInfo) {
+      try {
+        const parsedInfo = JSON.parse(savedUserInfo);
+        setUserInfo(parsedInfo);
+      } catch (error) {
+        console.error('Erro ao carregar informações do usuário:', error);
+      }
+    } else if (!clientId) {
+      // Se não temos informações do usuário e não é um cliente logado, mostrar diálogo
+      setUserInfoDialogOpen(true);
+    }
+  }, [clientId]);
   
   // Carregar URL do webhook e configuração de proxy do localStorage
   useEffect(() => {
@@ -68,6 +90,19 @@ export function ChatInterface({
     setConfigOpen(false);
   };
   
+  const saveUserInfo = () => {
+    localStorage.setItem('chatUserInfo', JSON.stringify(userInfo));
+    
+    // Verificar se temos informações básicas
+    if (!userInfo.name.trim()) {
+      toast.error('Por favor, informe pelo menos seu nome para continuar.');
+      return;
+    }
+    
+    toast.success('Informações salvas com sucesso!');
+    setUserInfoDialogOpen(false);
+  };
+  
   // Determinar a URL final baseada na configuração de proxy e na URL externa
   const finalWebhookUrl = webhookUrl || (useProxy 
     ? `/api/n8n/chat-assistant` 
@@ -77,7 +112,8 @@ export function ChatInterface({
     clientId,
     source: 'web',
     webhookUrl: finalWebhookUrl,
-    onQuoteRequest
+    onQuoteRequest,
+    userInfo: clientId ? undefined : userInfo
   });
 
   return (
@@ -86,9 +122,26 @@ export function ChatInterface({
         title={title}
         description={description}
         actions={
-          <Button variant="ghost" size="icon" onClick={() => setConfigOpen(true)}>
-            <Settings className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-1">
+            {!clientId && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setUserInfoDialogOpen(true)}
+                title="Suas informações"
+              >
+                <User className="h-4 w-4" />
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setConfigOpen(true)}
+              title="Configurações"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         }
       />
       <CardContent className="p-0 flex-1">
@@ -139,6 +192,67 @@ export function ChatInterface({
           <DialogFooter>
             <Button type="button" onClick={saveConfig}>
               Salvar Configurações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={userInfoDialogOpen} onOpenChange={setUserInfoDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Suas Informações</DialogTitle>
+            <DialogDescription>
+              Para melhor atendimento, informe seus dados de contato.
+              Isso nos ajudará a personalizar seu atendimento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="userName" className="text-right">
+                Nome *
+              </Label>
+              <Input 
+                id="userName" 
+                value={userInfo.name} 
+                onChange={(e) => setUserInfo({...userInfo, name: e.target.value})} 
+                className="col-span-3" 
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="userEmail" className="text-right">
+                Email
+              </Label>
+              <Input 
+                id="userEmail" 
+                type="email"
+                value={userInfo.email} 
+                onChange={(e) => setUserInfo({...userInfo, email: e.target.value})} 
+                className="col-span-3" 
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="userPhone" className="text-right">
+                Telefone
+              </Label>
+              <Input 
+                id="userPhone" 
+                value={userInfo.phone} 
+                onChange={(e) => setUserInfo({...userInfo, phone: e.target.value})} 
+                className="col-span-3" 
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              * Campos obrigatórios
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={saveUserInfo}>
+              Salvar Informações
             </Button>
           </DialogFooter>
         </DialogContent>

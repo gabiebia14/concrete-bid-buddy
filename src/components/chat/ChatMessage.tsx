@@ -4,7 +4,6 @@ import { Bot, User } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { ChatMessage as ChatMessageType } from '@/lib/types';
 
-// Renomeando para MessageItem para evitar confusão com o tipo ChatMessage
 interface MessageItemProps {
   message: ChatMessageType;
 }
