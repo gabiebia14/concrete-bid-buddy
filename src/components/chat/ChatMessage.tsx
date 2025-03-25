@@ -22,10 +22,13 @@ export function MessageItem({ message }: MessageItemProps) {
     // Encontrar as URLs que correspondem ao regex
     const matches = content.match(urlRegex) || [];
     
+    // Corrigido: Definir explicitamente o tipo de matches como string[]
+    const urlMatches: string[] = matches;
+    
     // Juntar as partes novamente, mas transformando URLs em links
     return parts.map((part, index) => {
       // Verificar se a parte é uma URL
-      if (matches.includes(part)) {
+      if (urlMatches.indexOf(part) !== -1) {
         return (
           <a 
             key={index} 
