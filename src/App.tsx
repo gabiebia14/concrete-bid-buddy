@@ -15,7 +15,6 @@ import Index from './pages/Index';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
-import VendedorOnline from './pages/VendedorOnline';
 import { ChatInterface } from './components/ui/chat-interface';
 import './App.css';
 
@@ -76,9 +75,6 @@ function App() {
                     </PrivateRoute>
                   } 
                 />
-                
-                {/* Nova rota para Vendedor Online */}
-                <Route path="/vendedor-online" element={<VendedorOnline />} />
                 
                 {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
                 <Route path="/manager/login" element={<ManagerLogin />} />
