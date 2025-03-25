@@ -39,7 +39,7 @@ export function MessageItem({ message }: MessageItemProps) {
         );
       }
       // Se for texto normal
-      return part;
+      return <React.Fragment key={index}>{part}</React.Fragment>;
     });
   };
   

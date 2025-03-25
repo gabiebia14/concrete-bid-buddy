@@ -66,6 +66,19 @@ export function useChat({
     if (sessionId) {
       // Aqui você pode carregar mensagens anteriores se desejar
       // Por exemplo, buscando do Supabase ou localStorage
+      const loadMessages = async () => {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true });
+        
+        if (!error && data) {
+          setMessages(data);
+        }
+      };
+      
+      loadMessages();
     }
   }, [sessionId]);
 
@@ -78,14 +91,31 @@ export function useChat({
     try {
       setIsLoading(true);
       
+      // Criar objeto de mensagem com timestamp atual
+      const now = new Date().toISOString();
+      
       // Adicionar mensagem do usuário à lista
       const userMessage: ChatMessage = {
         id: uuidv4(),
+        session_id: sessionId,
         content: message,
-        role: 'user'
+        role: 'user',
+        created_at: now
       };
       
+      // Salvar mensagem no Supabase
+      const { error: saveError } = await supabase
+        .from('chat_messages')
+        .insert(userMessage);
+      
+      if (saveError) {
+        console.error('Erro ao salvar mensagem:', saveError);
+      }
+      
       setMessages(prev => [...prev, userMessage]);
+      
+      // Corrigindo o URL do webhook
+      const correctWebhookUrl = "http://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
       
       // Preparar o payload para o webhook
       const payload = {
@@ -105,40 +135,84 @@ export function useChat({
       // Enviar mensagem para webhook
       let response;
       
-      if (webhookUrl) {
-        response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        const responseData = await response.json();
-        console.log('Resposta do webhook:', responseData);
-        
-        // Verificar se há dados de orçamento na resposta
-        if (responseData.quoteData && onQuoteRequest) {
-          onQuoteRequest(responseData.quoteData);
+      if (webhookUrl || correctWebhookUrl) {
+        try {
+          response = await fetch(webhookUrl || correctWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Erro na resposta do webhook: ${response.status}`);
+          }
+          
+          const responseData = await response.json();
+          console.log('Resposta do webhook:', responseData);
+          
+          // Verificar se há dados de orçamento na resposta
+          if (responseData.quoteData && onQuoteRequest) {
+            onQuoteRequest(responseData.quoteData);
+          }
+          
+          // Adicionar resposta do assistente à lista
+          const assistantMessage: ChatMessage = {
+            id: uuidv4(),
+            session_id: sessionId,
+            content: responseData.message || responseData.reply || responseData.response || 'Desculpe, ocorreu um erro ao processar sua mensagem.',
+            role: 'assistant',
+            created_at: new Date().toISOString()
+          };
+          
+          // Salvar resposta no Supabase
+          const { error: saveAssistantError } = await supabase
+            .from('chat_messages')
+            .insert(assistantMessage);
+          
+          if (saveAssistantError) {
+            console.error('Erro ao salvar resposta do assistente:', saveAssistantError);
+          }
+          
+          setMessages(prev => [...prev, assistantMessage]);
+        } catch (fetchError) {
+          console.error('Erro ao enviar mensagem:', fetchError);
+          
+          // Mensagem de erro
+          const errorMessage: ChatMessage = {
+            id: uuidv4(),
+            session_id: sessionId,
+            content: 'Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.',
+            role: 'assistant',
+            created_at: new Date().toISOString()
+          };
+          
+          // Salvar mensagem de erro no Supabase
+          await supabase.from('chat_messages').insert(errorMessage);
+          
+          setMessages(prev => [...prev, errorMessage]);
+          
+          toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Não foi possível conectar ao serviço de assistente.'
+          });
         }
-        
-        // Adicionar resposta do assistente à lista
-        const assistantMessage: ChatMessage = {
-          id: uuidv4(),
-          content: responseData.message || responseData.reply || responseData.response || 'Desculpe, ocorreu um erro ao processar sua mensagem.',
-          role: 'assistant'
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
       } else {
         console.error('Webhook URL não definida');
         
         // Mensagem de erro se não houver webhook
         const errorMessage: ChatMessage = {
           id: uuidv4(),
+          session_id: sessionId,
           content: 'Desculpe, estamos com problemas para conectar ao serviço de assistente. Por favor, tente novamente mais tarde.',
-          role: 'assistant'
+          role: 'assistant',
+          created_at: new Date().toISOString()
         };
+        
+        // Salvar mensagem de erro no Supabase
+        await supabase.from('chat_messages').insert(errorMessage);
         
         setMessages(prev => [...prev, errorMessage]);
         
@@ -163,9 +237,14 @@ export function useChat({
       // Adicionar mensagem de erro à lista
       const errorMessage: ChatMessage = {
         id: uuidv4(),
+        session_id: sessionId,
         content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
-        role: 'assistant'
+        role: 'assistant',
+        created_at: new Date().toISOString()
       };
+      
+      // Salvar mensagem de erro no Supabase
+      await supabase.from('chat_messages').insert(errorMessage);
       
       setMessages(prev => [...prev, errorMessage]);
     } finally {
