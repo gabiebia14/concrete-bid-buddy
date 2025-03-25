@@ -7,12 +7,13 @@ import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Settings, Server } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
+import { toast } from 'sonner';
 
 interface ChatInterfaceProps {
   clientId?: string;
@@ -31,10 +32,13 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [configOpen, setConfigOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [useProxy, setUseProxy] = useState<boolean>(true);
   
-  // Carregar URL do webhook do localStorage
+  // Carregar URL do webhook e configuração de proxy do localStorage
   useEffect(() => {
     const savedUrl = localStorage.getItem('chatWebhookUrl');
+    const savedProxyConfig = localStorage.getItem('useWebhookProxy');
+    
     if (savedUrl) {
       setWebhookUrl(savedUrl);
     } else {
@@ -43,23 +47,44 @@ export function ChatInterface({
       setWebhookUrl(defaultUrl);
       localStorage.setItem('chatWebhookUrl', defaultUrl);
     }
+    
+    // Carregar configuração de proxy
+    if (savedProxyConfig !== null) {
+      setUseProxy(savedProxyConfig === 'true');
+    }
   }, []);
   
   const saveConfig = () => {
     localStorage.setItem('chatWebhookUrl', webhookUrl);
+    localStorage.setItem('useWebhookProxy', useProxy.toString());
+    
+    toast.success('Configurações salvas com sucesso!');
     setConfigOpen(false);
   };
   
+  // Determinar a URL final baseada na configuração de proxy
+  const finalWebhookUrl = useProxy 
+    ? `/api/n8n/chat-assistant` 
+    : webhookUrl;
+    
   const { message, setMessage, messages, isLoading, handleSendMessage } = useChat({
     clientId,
     source: 'web',
-    webhookUrl,
+    webhookUrl: finalWebhookUrl,
     onQuoteRequest
   });
 
   return (
     <Card className="h-full flex flex-col">
-      <ChatHeader />
+      <ChatHeader 
+        title={title}
+        description={description}
+        actions={
+          <Button variant="ghost" size="icon" onClick={() => setConfigOpen(true)}>
+            <Settings className="h-4 w-4" />
+          </Button>
+        }
+      />
       <CardContent className="p-0 flex-1">
         <ChatMessages messages={messages} isTyping={isLoading} showBailey={showBailey} />
       </CardContent>
@@ -87,6 +112,23 @@ export function ChatInterface({
               </Label>
               <Input id="webhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} className="col-span-3" />
             </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useProxy"
+                checked={useProxy}
+                onChange={(e) => setUseProxy(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <Label htmlFor="useProxy" className="text-sm text-gray-700 flex items-center">
+                <Server className="h-4 w-4 mr-1" />
+                Usar proxy local (recomendado)
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O proxy local ajuda a evitar problemas de CORS e conectividade. Mantenha ativado para melhor experiência.
+            </p>
           </div>
           <DialogFooter>
             <Button type="button" onClick={saveConfig}>
