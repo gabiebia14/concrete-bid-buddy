@@ -121,33 +121,6 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
     }
   }
 
-  const callEdgeFunction = async (userMessage: string) => {
-    try {
-      console.log('Usando função Edge como fallback...');
-      const response = await supabase.functions.invoke("chat-assistant", {
-        body: {
-          message: userMessage,
-          sessionId: sessionId,
-          clientId: clientId,
-          source: source,
-          name: clientInfo?.name,
-          email: clientInfo?.email,
-          phone: clientInfo?.phone
-        }
-      });
-      
-      if (!response.data) {
-        throw new Error("Resposta vazia da função Edge");
-      }
-      
-      console.log('Resposta recebida da função Edge:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Erro ao chamar função Edge:", error);
-      throw error;
-    }
-  }
-
   const handleSendMessage = async () => {
     if (!message.trim() || !sessionId) return;
     
@@ -180,25 +153,40 @@ export function useChat({ clientId, onQuoteRequest, source = 'web', webhookUrl }
       }
       
       let data;
-      let errorMessages = [];
       
       try {
-        // Tentativa 1: Usar o webhook do n8n via proxy ou URL personalizada
+        // Usar webhook do n8n
         data = await callWebhook(message);
         console.log('Resposta recebida do webhook n8n:', data);
       } catch (webhookError) {
         console.error("Erro ao chamar webhook n8n:", webhookError);
-        errorMessages.push(`Webhook: ${webhookError.message}`);
+        
+        // Mostrar mensagem de erro
+        const fallbackMessage: ChatMessage = {
+          id: `assistant-fallback-${Date.now()}`,
+          session_id: sessionId,
+          content: "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.",
+          role: 'assistant',
+          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        };
+        
+        setMessages(prev => [...prev, fallbackMessage]);
         
         try {
-          // Tentativa 2: Usar a função Edge do Supabase como fallback
-          data = await callEdgeFunction(message);
-          console.log('Resposta recebida da função Edge:', data);
-        } catch (edgeError) {
-          console.error("Erro ao chamar função Edge:", edgeError);
-          errorMessages.push(`Edge Function: ${edgeError.message}`);
-          throw new Error(`Falha em todas as tentativas: ${errorMessages.join(', ')}`);
+          await saveChatMessage({
+            session_id: fallbackMessage.session_id,
+            content: fallbackMessage.content,
+            role: fallbackMessage.role,
+            created_at: fallbackMessage.created_at
+          });
+        } catch (saveError) {
+          console.error('Erro ao salvar mensagem de fallback:', saveError);
         }
+        
+        setIsLoading(false);
+        toast.error('Erro ao processar mensagem. Nossa equipe já foi notificada do problema.');
+        return;
       }
       
       // Processar a resposta
