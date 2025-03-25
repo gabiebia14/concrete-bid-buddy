@@ -25,7 +25,7 @@ export function MessageItem({ message }: MessageItemProps) {
     // Juntar as partes novamente, mas transformando URLs em links
     return parts.map((part, index) => {
       // Se a parte corresponder a uma URL (verificando se está na lista de matches)
-      if (matches.includes(part)) {
+      if (matches.indexOf(part) !== -1) {
         return (
           <a 
             key={index} 
