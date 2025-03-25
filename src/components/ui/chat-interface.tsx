@@ -20,6 +20,7 @@ interface ChatInterfaceProps {
   title?: string;
   description?: string;
   showBailey?: boolean;
+  webhookUrl?: string;
   onQuoteRequest?: (quoteData: any) => void;
 }
 
@@ -28,10 +29,11 @@ export function ChatInterface({
   title = "Assistente IPT Teixeira", 
   description = "Assistente de Vendas", 
   showBailey = false,
+  webhookUrl,
   onQuoteRequest 
 }: ChatInterfaceProps) {
   const [configOpen, setConfigOpen] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [localWebhookUrl, setLocalWebhookUrl] = useState<string>('');
   const [useProxy, setUseProxy] = useState<boolean>(true);
   
   // Carregar URL do webhook e configuração de proxy do localStorage
@@ -39,12 +41,16 @@ export function ChatInterface({
     const savedUrl = localStorage.getItem('chatWebhookUrl');
     const savedProxyConfig = localStorage.getItem('useWebhookProxy');
     
-    if (savedUrl) {
-      setWebhookUrl(savedUrl);
+    // Se um webhookUrl foi passado como prop, use-o com prioridade
+    if (webhookUrl) {
+      setLocalWebhookUrl(webhookUrl);
+      localStorage.setItem('chatWebhookUrl', webhookUrl);
+    } else if (savedUrl) {
+      setLocalWebhookUrl(savedUrl);
     } else {
       // Define a URL padrão correta
       const defaultUrl = 'https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant';
-      setWebhookUrl(defaultUrl);
+      setLocalWebhookUrl(defaultUrl);
       localStorage.setItem('chatWebhookUrl', defaultUrl);
     }
     
@@ -52,20 +58,20 @@ export function ChatInterface({
     if (savedProxyConfig !== null) {
       setUseProxy(savedProxyConfig === 'true');
     }
-  }, []);
+  }, [webhookUrl]);
   
   const saveConfig = () => {
-    localStorage.setItem('chatWebhookUrl', webhookUrl);
+    localStorage.setItem('chatWebhookUrl', localWebhookUrl);
     localStorage.setItem('useWebhookProxy', useProxy.toString());
     
     toast.success('Configurações salvas com sucesso!');
     setConfigOpen(false);
   };
   
-  // Determinar a URL final baseada na configuração de proxy
-  const finalWebhookUrl = useProxy 
+  // Determinar a URL final baseada na configuração de proxy e na URL externa
+  const finalWebhookUrl = webhookUrl || (useProxy 
     ? `/api/n8n/chat-assistant` 
-    : webhookUrl;
+    : localWebhookUrl);
     
   const { message, setMessage, messages, isLoading, handleSendMessage } = useChat({
     clientId,
@@ -110,7 +116,7 @@ export function ChatInterface({
               <Label htmlFor="webhookUrl" className="text-right">
                 Webhook URL
               </Label>
-              <Input id="webhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} className="col-span-3" />
+              <Input id="webhookUrl" value={localWebhookUrl} onChange={(e) => setLocalWebhookUrl(e.target.value)} className="col-span-3" />
             </div>
             
             <div className="flex items-center space-x-2">
