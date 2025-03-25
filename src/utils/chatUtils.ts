@@ -36,9 +36,3 @@ export function getFinalWebhookUrl(webhookUrl?: string, useProxy: boolean = true
     ? `/api/n8n/chat-assistant` 
     : formatWebhookUrl(localStorage.getItem('chatWebhookUrl') || undefined);
 }
-
-/**
- * Formata o payload para o formato esperado pelo n8n
- * Não usar - já que o webhook está recebendo aninhado (body dentro de body)
- */
-// Função removida para evitar duplicação do objeto body

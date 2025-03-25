@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
@@ -132,8 +131,7 @@ async function callN8nWebhook(payload: any) {
     console.log(`Chamando webhook n8n em: ${n8nWebhookUrl}`);
     console.log(`Payload: ${JSON.stringify(payload)}`);
     
-    // O n8n espera que os dados estejam dentro de um objeto "body"
-    // Como vimos que está chegando aninhado (body.body), enviamos o payload direto
+    // Enviar o payload no formato que o n8n está esperando
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: {
@@ -185,21 +183,13 @@ serve(async (req) => {
     // Extrair o corpo da requisição
     const requestData = await req.json();
     
-    // Verificar se os dados já estão aninhados em body.body ou diretamente
-    // Importante: não aninhar novamente!
-    let payload;
-    if (requestData.body && requestData.body.body) {
-      // Dados já estão aninhados duas vezes
-      console.log('Payload já está com body aninhado, usando requestData.body.body');
-      payload = requestData.body.body;
-    } else if (requestData.body) {
-      // Dados estão aninhados uma vez
-      console.log('Usando requestData.body como payload');
+    // Extrair o payload correto para o formato esperado pelo n8n
+    let payload = requestData;
+    
+    // Verificar se estamos recebendo dados aninhados e corrigir
+    if (requestData.body && typeof requestData.body === 'object') {
       payload = requestData.body;
-    } else {
-      // Dados estão no nível superior
-      console.log('Usando requestData como payload');
-      payload = requestData;
+      console.log('Usando payload do body:', payload);
     }
     
     const { message, sessionId, clientId, source = 'web', name, email, phone } = payload;
@@ -209,9 +199,8 @@ serve(async (req) => {
     
     try {
       console.log("Chamando webhook do n8n...");
-      const n8nResponse = await callN8nWebhook({
-        body: payload // Encapsulamos em body aqui para o n8n
-      });
+      // Enviar o payload diretamente, sem aninhar em body
+      const n8nResponse = await callN8nWebhook(payload);
       
       console.log("Resposta do webhook obtida com sucesso:", n8nResponse);
       
@@ -286,3 +275,4 @@ serve(async (req) => {
     );
   }
 });
+

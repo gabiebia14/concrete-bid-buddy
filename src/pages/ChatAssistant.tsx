@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -144,7 +145,7 @@ const ChatAssistant = () => {
       // Adicionar mensagem do usuário à lista
       setMessages(prev => [...prev, userMessage]);
       
-      // Preparar payload para o webhook - SEM aninhar em body novamente
+      // Preparar payload para o webhook - formato correto para o n8n
       const payload = {
         message: inputMessage,
         sessionId: sessionId,

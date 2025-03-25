@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage } from '@/lib/types';
@@ -68,7 +69,8 @@ class ChatService {
     
     this.messages.push(userMessage);
     
-    // Preparar o payload diretamente (sem aninhar em body novamente)
+    // Preparar o payload exatamente como o n8n espera
+    // Importante: NÃO aninhar em body.body, enviar direto
     const payload = {
       message: message,
       sessionId: this.sessionId,
