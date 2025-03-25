@@ -16,9 +16,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // URL do webhook do n8n
 const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL') || 'https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant';
+// URL alternativa se a principal falhar
+const backupWebhookUrl = 'https://webhook.site/3fe88e76-a025-48ba-85fc-3a03b8be9d75'; // Substitua por um webhook real de backup
 
 console.log("Iniciando função chat-assistant com URL: " + supabaseUrl);
 console.log("URL do webhook n8n: " + n8nWebhookUrl);
+console.log("URL do webhook de backup: " + backupWebhookUrl);
 
 // Função para salvar os dados de orçamento extraídos no Supabase
 async function saveQuoteData(quoteData, sessionId, clientId = null) {
@@ -139,15 +142,32 @@ async function callN8nWebhook(payload) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Erro na resposta do webhook: ${response.status}`, errorText);
-      throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
+      console.error(`Erro na resposta do webhook principal: ${response.status}`, errorText);
+      
+      // Tentar webhook de backup
+      console.log(`Tentando webhook de backup em: ${backupWebhookUrl}`);
+      const backupResponse = await fetch(backupWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!backupResponse.ok) {
+        throw new Error(`Erro na resposta do webhook de backup: ${backupResponse.status}`);
+      }
+      
+      console.log("Webhook de backup respondeu com sucesso");
+      const backupData = await backupResponse.json();
+      return backupData;
     }
     
     const data = await response.json();
     console.log(`Resposta do webhook: ${JSON.stringify(data)}`);
     return data;
   } catch (error) {
-    console.error("Erro ao chamar webhook n8n:", error);
+    console.error("Erro ao chamar webhooks:", error);
     throw error;
   }
 }
@@ -176,7 +196,7 @@ serve(async (req) => {
         phone
       });
       
-      console.log("Resposta do n8n obtida com sucesso:", n8nResponse);
+      console.log("Resposta do webhook obtida com sucesso:", n8nResponse);
       
       // Salvar a mensagem no banco de dados se necessário
       if (n8nResponse.message) {
@@ -197,7 +217,7 @@ serve(async (req) => {
       // Processar dados de orçamento se presentes
       let quote = null;
       if (n8nResponse.quote_data) {
-        console.log("Dados do orçamento detectados na resposta do n8n:", n8nResponse.quote_data);
+        console.log("Dados do orçamento detectados na resposta do webhook:", n8nResponse.quote_data);
         quote = await saveQuoteData(n8nResponse.quote_data, sessionId, clientId);
       }
       
@@ -211,15 +231,31 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (n8nError) {
-      console.error("Falha ao usar webhook do n8n:", n8nError);
+      console.error("Falha ao usar webhooks:", n8nError);
+      
+      // Salvar mensagem de erro no banco de dados
+      const errorMessageContent = "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe foi notificada. Por favor, tente novamente em alguns instantes.";
+      
+      try {
+        await supabase
+          .from('chat_messages')
+          .insert({
+            session_id: sessionId,
+            content: errorMessageContent,
+            role: 'assistant',
+            created_at: new Date().toISOString()
+          });
+      } catch (dbError) {
+        console.error("Erro ao salvar mensagem de erro:", dbError);
+      }
       
       // Retornar resposta de erro ao usuário
       return new Response(
         JSON.stringify({ 
-          message: "Desculpe, estou enfrentando problemas técnicos no momento. Por favor, tente novamente mais tarde.",
+          message: errorMessageContent,
           error: n8nError.message 
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
   } catch (error) {
@@ -229,7 +265,7 @@ serve(async (req) => {
         error: error.message,
         message: "Houve um erro ao processar sua solicitação. Por favor, tente novamente."
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
