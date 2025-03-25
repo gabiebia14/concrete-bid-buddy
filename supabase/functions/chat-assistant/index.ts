@@ -14,8 +14,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// URL do webhook do n8n exatamente como fornecida
-const n8nWebhookUrl = "https://http://gbservin8n.sevirenostrinta.com.br./.sevirenostrinta.com.br/webhook-test/chat-assistant";
+// URL do webhook do n8n corrigida
+const n8nWebhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
 // URL alternativa se a principal falhar
 const backupWebhookUrl = 'https://webhook.site/3fe88e76-a025-48ba-85fc-3a03b8be9d75'; // Substitua por um webhook real de backup
 

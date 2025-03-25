@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage } from '@/lib/types';
@@ -20,8 +21,8 @@ class ChatService {
       localStorage.setItem('chatSessionId', this.sessionId);
     }
     
-    // Garantir que a URL do webhook é exatamente a fornecida
-    this.webhookUrl = "https://http://gbservin8n.sevirenostrinta.com.br./.sevirenostrinta.com.br/webhook-test/chat-assistant";
+    // Garantir que a URL do webhook é correta (sem o https://http:// duplicado)
+    this.webhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
     console.log("ChatService inicializado com URL:", this.webhookUrl);
   }
   
@@ -84,7 +85,7 @@ class ChatService {
     console.log('Enviando mensagem para webhook:', this.webhookUrl);
     console.log('Payload:', payload);
     
-    // Tentar usar o webhook externo com a URL exata fornecida
+    // Tentar usar o webhook externo com a URL corrigida
     try {
       const response = await this.callWebhook(this.webhookUrl, payload);
       return this.processWebhookResponse(response);

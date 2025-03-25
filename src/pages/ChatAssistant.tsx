@@ -9,8 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 
-// URL do webhook exatamente como fornecida
-const WEBHOOK_URL = "https://http://gbservin8n.sevirenostrinta.com.br./.sevirenostrinta.com.br/webhook-test/chat-assistant";
+// URL do webhook corrigida
+const WEBHOOK_URL = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
 
 const ChatAssistant = () => {
   const [messages, setMessages] = useState<any[]>([]);
