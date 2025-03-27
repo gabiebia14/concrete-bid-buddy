@@ -2,10 +2,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChatState, ChatService, ChatProps } from '@/types/chat.types';
 import ChatServiceClass from '@/services/chatService';
-import { getFinalWebhookUrl } from '@/utils/chatUtils';
 import { toast } from 'sonner';
 
-export function useChat({ clientId, source = 'web', webhookUrl, onQuoteRequest, userInfo }: ChatProps) {
+export function useChat({ clientId, source = 'web', onQuoteRequest, userInfo }: ChatProps) {
   const [state, setState] = useState<ChatState>({
     message: '',
     messages: [],
@@ -17,8 +16,7 @@ export function useChat({ clientId, source = 'web', webhookUrl, onQuoteRequest, 
   
   // Inicializar o serviço de chat
   useEffect(() => {
-    const finalWebhookUrl = getFinalWebhookUrl(webhookUrl);
-    const service = new ChatServiceClass(finalWebhookUrl);
+    const service = new ChatServiceClass();
     
     // Carregar mensagens existentes
     const loadMessages = async () => {
@@ -32,7 +30,7 @@ export function useChat({ clientId, source = 'web', webhookUrl, onQuoteRequest, 
     
     setChatService(service);
     loadMessages();
-  }, [webhookUrl]);
+  }, []);
   
   // Atualizar a mensagem atual
   const setMessage = useCallback((message: string) => {

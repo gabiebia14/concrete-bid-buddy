@@ -5,15 +5,10 @@ import { useChat } from '@/hooks/useChat';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { Settings, Server, User } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Toaster } from '@/components/ui/toaster';
-import { toast } from 'sonner';
+import { Toaster } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
 import { AuthForm } from '@/components/auth/AuthForm';
 
 interface ChatInterfaceProps {
@@ -21,7 +16,6 @@ interface ChatInterfaceProps {
   title?: string;
   description?: string;
   showBailey?: boolean;
-  webhookUrl?: string;
   onQuoteRequest?: (quoteData: any) => void;
 }
 
@@ -30,7 +24,6 @@ export function ChatInterface({
   title = "Assistente IPT Teixeira", 
   description = "Assistente de Vendas", 
   showBailey = false,
-  webhookUrl,
   onQuoteRequest 
 }: ChatInterfaceProps) {
   const [userInfo, setUserInfo] = useState({
@@ -40,7 +33,6 @@ export function ChatInterface({
   });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const navigate = useNavigate();
   
   // Verificar se o usuário está autenticado
   useEffect(() => {
@@ -83,9 +75,8 @@ export function ChatInterface({
   const { message, setMessage, messages, isLoading, handleSendMessage } = useChat({
     clientId,
     source: 'web',
-    webhookUrl,
     onQuoteRequest,
-    userInfo: isAuthenticated ? undefined : userInfo // Usa userInfo apenas se não estiver autenticado
+    userInfo: isAuthenticated ? userInfo : undefined
   });
 
   // Mostrar tela de autenticação se não estiver autenticado

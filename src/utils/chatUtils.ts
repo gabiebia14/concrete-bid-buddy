@@ -9,14 +9,20 @@ export function generateSessionId(): string {
 }
 
 /**
- * Obtém a URL final para a função Edge do Supabase
+ * Verifica se uma sessão de chat existe no localStorage
  */
-export function getFinalWebhookUrl(webhookUrl?: string): string {
-  // Se um webhookUrl for fornecido, use-o
-  if (webhookUrl) {
-    return webhookUrl;
-  }
+export function chatSessionExists(): boolean {
+  return !!localStorage.getItem('chatSessionId');
+}
+
+/**
+ * Obtém o ID da sessão atual ou cria um novo
+ */
+export function getOrCreateSessionId(): string {
+  const existingId = localStorage.getItem('chatSessionId');
+  if (existingId) return existingId;
   
-  // Caso contrário, retorne vazio para usar a função Edge padrão
-  return '';
+  const newId = uuidv4();
+  localStorage.setItem('chatSessionId', newId);
+  return newId;
 }

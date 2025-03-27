@@ -7,9 +7,8 @@ import { toast } from 'sonner';
 class ChatService {
   private sessionId: string;
   private messages: ChatMessage[] = [];
-  private webhookUrl: string;
   
-  constructor(webhookUrl: string) {
+  constructor() {
     // Verificar se já existe um session ID no localStorage
     const storedSessionId = localStorage.getItem('chatSessionId');
     
@@ -21,9 +20,7 @@ class ChatService {
       localStorage.setItem('chatSessionId', this.sessionId);
     }
     
-    // Configurar URL da função Edge
-    this.webhookUrl = webhookUrl || "";
-    console.log("ChatService inicializado com URL:", this.webhookUrl);
+    console.log("ChatService inicializado com sessão:", this.sessionId);
   }
   
   async loadMessages(): Promise<void> {
@@ -46,45 +43,40 @@ class ChatService {
   async sendMessage(message: string, userData: any): Promise<any> {
     if (!message.trim()) return null;
     
-    // Criar objeto de mensagem com timestamp atual
-    const now = new Date().toISOString();
-    
-    // Adicionar mensagem do usuário à lista
-    const userMessage: ChatMessage = {
-      id: uuidv4(),
-      session_id: this.sessionId,
-      content: message,
-      role: 'user',
-      created_at: now
-    };
-    
-    // Salvar mensagem no Supabase
     try {
+      // Criar objeto de mensagem com timestamp atual
+      const now = new Date().toISOString();
+      
+      // Adicionar mensagem do usuário à lista
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        session_id: this.sessionId,
+        content: message,
+        role: 'user',
+        created_at: now
+      };
+      
+      // Salvar mensagem no Supabase
       await supabase.from('chat_messages').insert(userMessage);
       console.log("Mensagem do usuário salva com sucesso");
-    } catch (dbError) {
-      console.error("Erro ao salvar mensagem do usuário:", dbError);
-      // Continuar mesmo se falhar o salvamento no banco
-    }
-    
-    this.messages.push(userMessage);
-    
-    // Preparar payload para a função Edge
-    const payload = {
-      message: message,
-      sessionId: this.sessionId,
-      source: userData.source || 'web',
-      name: userData.name || '',
-      email: userData.email || '',
-      phone: userData.phone || '',
-      clientId: userData.clientId || null
-    };
-    
-    console.log('Enviando mensagem para função Edge');
-    console.log('Payload:', payload);
-    
-    // Chamar a função Edge do Supabase
-    try {
+      
+      this.messages.push(userMessage);
+      
+      // Preparar payload para a função Edge
+      const payload = {
+        message: message,
+        sessionId: this.sessionId,
+        source: userData.source || 'web',
+        name: userData.name || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        clientId: userData.clientId || null
+      };
+      
+      console.log('Enviando mensagem para função Edge');
+      console.log('Payload:', payload);
+      
+      // Chamar a função Edge do Supabase
       const response = await supabase.functions.invoke('chat-assistant', {
         body: payload
       });
