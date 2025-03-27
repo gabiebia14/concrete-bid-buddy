@@ -8,7 +8,7 @@ const SUPABASE_CLOUD_URL = "https://ehrerbpblmensiodhgka.supabase.co";
 const SUPABASE_CLOUD_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocmVyYnBibG1lbnNpb2RoZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTM2NzgsImV4cCI6MjA1NzMyOTY3OH0.Ppae9xwONU2Uy8__0v28OlyFGI6JXBFkMib8AJDwAn8";
 
 // Configurações do Supabase auto-hospedado (preencha após configuração)
-const SUPABASE_SELF_HOSTED_URL = "http://localhost:8000"; // Ajuste conforme sua configuração Docker
+const SUPABASE_SELF_HOSTED_URL = "http://localhost:54321"; // Ajuste conforme sua configuração Docker
 const SUPABASE_SELF_HOSTED_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTYyMjA0MDIwMCwiZXhwIjoxOTM3NjE2MjAwfQ.rl93-ry-QDR5DNDMJVSLgk84SrDJxjM_eKoOYGSqIpE"; // Usando uma chave padrão do Supabase local
 
 // Defina qual ambiente usar (cloud ou self-hosted)
