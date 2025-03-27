@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { createQuote, addClient } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
+import { ChatInterface } from '@/components/chat/ChatInterface';
 
 export default function CreateQuote() {
   const [activeTab, setActiveTab] = useState('manual');
@@ -25,6 +26,7 @@ export default function CreateQuote() {
   const [notes, setNotes] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const navigate = useNavigate();
 
   const handleProductsSelected = (products: QuoteItem[]) => {
@@ -86,13 +88,31 @@ export default function CreateQuote() {
           <div className="lg:col-span-2">
             <Card className="bg-white border-gray-200">
               <CardHeader>
-                <CardTitle>Selecione os Produtos</CardTitle>
-                <CardDescription>
-                  Escolha os produtos que você deseja incluir no seu orçamento
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Selecione os Produtos</CardTitle>
+                    <CardDescription>
+                      Escolha os produtos que você deseja incluir no seu orçamento
+                    </CardDescription>
+                  </div>
+                  <Button variant="outline" onClick={() => setShowChat(!showChat)}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {showChat ? 'Fechar Chat' : 'Precisa de Ajuda?'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
+                {showChat ? (
+                  <div className="mb-4">
+                    <ChatInterface
+                      title="Assistente de Orçamentos"
+                      description="Tire dúvidas sobre produtos e especificações"
+                      showReset={false}
+                    />
+                  </div>
+                ) : (
+                  <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
+                )}
               </CardContent>
             </Card>
           </div>

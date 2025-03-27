@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Layout } from "@/components/layout/Layout";
-import { FileText, ArrowRight } from "lucide-react";
+import { FileText, ArrowRight, MessageSquare } from "lucide-react";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
@@ -46,38 +46,40 @@ const Index = () => {
               
               <div className="flex items-start gap-4">
                 <div className="mt-1 bg-primary/10 p-2 rounded-full">
-                  <ArrowRight size={20} className="text-primary" />
+                  <MessageSquare size={20} className="text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-medium mb-1">Atendimento inteligente</h3>
+                  <h3 className="font-medium mb-1">Assistente virtual</h3>
                   <p className="text-muted-foreground text-sm">
-                    Assistente virtual disponível 24h para esclarecer suas dúvidas
+                    Converse com nosso assistente para tirar dúvidas e solicitar orçamentos
                   </p>
                 </div>
               </div>
             </div>
 
-            {!user && !showAuthForm && (
-              <div className="mt-8">
+            <div className="mt-8 flex flex-wrap gap-4">
+              {!user && !showAuthForm && (
                 <Button onClick={() => setShowAuthForm(true)} size="lg">
                   Fazer Login
                 </Button>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Acesse sua conta para gerenciar seus orçamentos
-                </p>
-              </div>
-            )}
-
-            {user && (
-              <div className="mt-8">
+              )}
+              
+              <Button asChild variant="outline" size="lg">
+                <Link to="/chat-assistant">
+                  <MessageSquare className="mr-2" size={18} />
+                  Falar com Assistente
+                </Link>
+              </Button>
+              
+              {user && (
                 <Button asChild size="lg">
                   <Link to="/dashboard">
                     Ir para o Dashboard
                     <ArrowRight className="ml-2" size={18} />
                   </Link>
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="w-full lg:w-1/2 max-w-md">
