@@ -1,9 +1,9 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { OpenAI } from "https://esm.sh/openai@4.28.0";
 
-// Configuração de cabeçalhos CORS
+// Configuração CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -14,358 +14,374 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Chave da API OpenAI
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+// Cliente OpenAI
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || '';
+const openai = new OpenAI({
+  apiKey: openaiApiKey
+});
 
-// Carregando a configuração do agente
-async function loadAgentConfig() {
+// Função para criar uma nova sessão de chat
+async function criarSessao(clientId = null) {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .insert([{ 
+      client_id: clientId, 
+      status: 'active' 
+    }])
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Erro ao criar sessão:', error);
+    throw error;
+  }
+  
+  return data;
+}
+
+// Função para salvar mensagem no banco de dados
+async function salvarMensagem(sessionId, role, content) {
   try {
-    // Consultar diretamente a tabela que contém a configuração do agente
-    const { data, error } = await supabase
-      .from('agent_configs')
-      .select('*')
-      .limit(1)
-      .single();
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert([{
+        session_id: sessionId,
+        role,
+        content
+      }]);
     
     if (error) {
-      console.error('Erro ao carregar configuração do agente:', error);
-      return null;
+      console.error('Erro ao salvar mensagem:', error);
+      throw error;
     }
-    
-    return data;
   } catch (error) {
-    console.error('Erro ao carregar configuração do agente:', error);
+    console.error('Erro ao salvar mensagem:', error);
+  }
+}
+
+// Função para buscar configuração do agente
+async function buscarConfigAgente() {
+  const { data, error } = await supabase
+    .from('agent_configs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  
+  if (error) {
+    console.error('Erro ao buscar configuração do agente:', error);
     return null;
   }
+  
+  return data;
 }
 
-// Função para processar o prompt do sistema com os dados do agente
-function processSystemPrompt(agentConfig) {
-  // Se não temos configuração, use um prompt padrão
-  if (!agentConfig) {
-    return `Você é um assistente da IPT Teixeira, especializado em produtos de concreto. 
-    Sua missão é atender clientes, coletar informações e auxiliar na criação de orçamentos. 
-    Seja sempre cordial, objetivo e certifique-se de obter as informações necessárias dos clientes.`;
+// Função para buscar o cliente pelo ID
+async function buscarCliente(clientId) {
+  if (!clientId) return null;
+  
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', clientId)
+    .single();
+  
+  if (error) {
+    console.error('Erro ao buscar cliente:', error);
+    return null;
   }
   
-  // Se temos a configuração, use-a para formar o prompt
-  return `${agentConfig.sistema_principal || ''}
-  
-  Você representa a empresa IPT Teixeira e deve:
-  - Ser cordial e profissional
-  - Responder em português do Brasil
-  - Ajudar os clientes com informações sobre produtos de concreto
-  - Auxiliar na criação de orçamentos
-  - Coletar informações necessárias como nome, email, telefone e endereço quando necessário`;
+  return data;
 }
 
-// Função para gerar resposta usando OpenAI
-async function generateOpenAIResponse(messages, sessionId) {
+// Função para processar mensagem com o OpenAI
+async function processarMensagem(mensagem, historico = [], clientId = null, sessionId = null) {
   try {
-    if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY não está definida');
+    // Buscar configuração do agente
+    const configAgente = await buscarConfigAgente();
+    
+    if (!configAgente) {
+      throw new Error('Configuração do agente não encontrada');
     }
     
-    // Carregar configuração do agente
-    const agentConfig = await loadAgentConfig();
+    // Buscar informações do cliente, se disponível
+    const cliente = clientId ? await buscarCliente(clientId) : null;
     
-    // Processar o prompt do sistema
-    const systemPrompt = processSystemPrompt(agentConfig);
+    // Criar ou usar a sessão existente
+    const sessao = sessionId ? 
+      { id: sessionId } : 
+      await criarSessao(clientId);
     
-    // Preparar os mensagens para enviar à OpenAI
-    const completeMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages
+    // Salvar mensagem do usuário
+    await salvarMensagem(sessao.id, 'user', mensagem);
+    
+    // Analisar a mensagem para entender a intenção
+    const analiseIntencao = await analisarIntencao(mensagem);
+    console.log('Análise de intenção:', JSON.stringify(analiseIntencao, null, 2));
+    
+    // Preparar as mensagens para o modelo
+    const mensagens = [
+      {
+        role: 'system',
+        content: configAgente.sistema_principal
+      }
     ];
     
-    // Fazer a chamada para a API da OpenAI
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',  // Usando o modelo GPT-4o Mini para custo-benefício
-        messages: completeMessages,
-        temperature: 0.7,
-      }),
+    // Adicionar contexto do cliente se disponível
+    if (cliente) {
+      mensagens.push({
+        role: 'system',
+        content: `Informações do cliente:\nNome: ${cliente.name}\nEmail: ${cliente.email}\nTelefone: ${cliente.phone || 'Não informado'}\nEndereço: ${cliente.address || 'Não informado'}`
+      });
+    }
+    
+    // Adicionar histórico de mensagens
+    historico.forEach(msg => {
+      if (msg.role !== 'system') {
+        mensagens.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Erro na API da OpenAI:', errorData);
-      throw new Error(`Erro na API da OpenAI: ${response.status}`);
+    // Adicionar a mensagem atual
+    mensagens.push({
+      role: 'user',
+      content: mensagem
+    });
+    
+    // Gerar resposta com o OpenAI
+    const resposta = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: mensagens,
+      temperature: 0.7,
+      max_tokens: 500
+    });
+    
+    const mensagemResposta = resposta.choices[0].message.content;
+    
+    // Salvar resposta no banco de dados
+    await salvarMensagem(sessao.id, 'assistant', mensagemResposta);
+    
+    // Verificar se a conversa indica um potencial orçamento
+    let quoteId = null;
+    if (analiseIntencao.intencao === 'orcamento' && analiseIntencao.dados.produtos.length > 0) {
+      quoteId = await criarOuAtualizarOrcamento(sessao.id, clientId, analiseIntencao.dados);
     }
     
-    const data = await response.json();
-    const aiMessage = data.choices[0].message.content;
-    
-    // Salvar a mensagem de resposta no banco de dados
-    if (sessionId) {
-      await supabase
-        .from('chat_messages')
-        .insert({
-          session_id: sessionId,
-          content: aiMessage,
-          role: 'assistant',
-          created_at: new Date().toISOString()
-        });
-    }
-    
-    return aiMessage;
+    return {
+      message: mensagemResposta,
+      sessionId: sessao.id,
+      quote_id: quoteId
+    };
   } catch (error) {
-    console.error('Erro ao gerar resposta:', error);
+    console.error('Erro ao processar mensagem:', error);
     throw error;
   }
 }
 
-// Função para extrair dados de orçamento do chat
-function extractQuoteData(messages) {
+// Analisar a intenção da mensagem
+async function analisarIntencao(mensagem) {
   try {
-    // Simplificação: verificamos apenas as últimas mensagens para informações básicas
-    // Em um caso real, pode-se usar uma função mais sofisticada da OpenAI para extrair entidades
-    const messageText = messages.map(m => m.content).join(' ');
+    // Usar OpenAI para analisar a intenção
+    const resposta = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Você é um analisador de intenções para um assistente virtual de uma empresa de produtos de concreto.
+          Baseado na mensagem do usuário, identifique:
+          1. A intenção principal (saudacao, duvida_produtos, orcamento, reclamacao, outro)
+          2. Categoria de produto mencionada (blocos, postes, lajes, null)
+          3. Extração de dados relevantes (como nome, email, telefone, endereço, produtos com quantidades, etc)
+          
+          Responda em formato JSON com esta estrutura exata:
+          {
+            "intencao": "tipo_intencao",
+            "categoria_produto": "categoria ou null",
+            "dados": {
+              "nome": "nome extraído ou null",
+              "email": "email extraído ou null",
+              "telefone": "telefone extraído ou null",
+              "endereco": "endereço extraído ou null",
+              "produtos": [
+                {"tipo": "tipo do produto", "quantidade": "quantidade mencionada", "especificacoes": "detalhes mencionados"}
+              ]
+            }
+          }`
+        },
+        {
+          role: 'user',
+          content: mensagem
+        }
+      ],
+      response_format: { type: 'json_object' }
+    });
     
-    const extractedData = {
-      name: null,
-      email: null,
-      phone: null,
-      address: null,
-      products: []
+    const analise = JSON.parse(resposta.choices[0].message.content);
+    console.log('Análise da mensagem:', analise);
+    return analise;
+  } catch (error) {
+    console.error('Erro ao analisar intenção:', error);
+    // Retornar uma análise padrão em caso de erro
+    return {
+      intencao: "outro",
+      categoria_produto: "null",
+      dados: {
+        nome: null,
+        email: null,
+        telefone: null,
+        endereco: null,
+        produtos: []
+      }
     };
+  }
+}
+
+// Criar ou atualizar um orçamento baseado na conversa
+async function criarOuAtualizarOrcamento(sessionId, clientId, dados) {
+  // Verificar se já existe orçamento vinculado à sessão
+  const { data: sessao, error: erroSessao } = await supabase
+    .from('chat_sessions')
+    .select('quote_id')
+    .eq('id', sessionId)
+    .single();
+  
+  if (erroSessao && erroSessao.code !== 'PGRST116') {
+    console.error('Erro ao buscar sessão:', erroSessao);
+    return null;
+  }
+  
+  // Se já existe um orçamento, retornar o ID
+  if (sessao?.quote_id) {
+    return sessao.quote_id;
+  }
+  
+  // Se não temos um cliente_id, não podemos criar um orçamento
+  if (!clientId) {
+    return null;
+  }
+  
+  try {
+    // Preparar itens para o orçamento
+    const items = dados.produtos.map(p => ({
+      product: p.tipo || 'Produto não especificado',
+      quantity: p.quantidade || '1',
+      specifications: p.especificacoes || '',
+      price: 0 // Preço será definido pelo administrador
+    }));
     
-    // Tentativa simples de extrair um email
-    const emailMatch = messageText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-    if (emailMatch) extractedData.email = emailMatch[0];
+    // Criar um novo orçamento
+    const { data: quote, error: quoteError } = await supabase
+      .from('quotes')
+      .insert([{
+        client_id: clientId,
+        status: 'draft',
+        items: items
+      }])
+      .select()
+      .single();
     
-    // Tentativa simples de extrair um telefone brasileiro
-    const phoneMatch = messageText.match(/\(?\d{2}\)?\s*\d{4,5}[-.\s]?\d{4}/);
-    if (phoneMatch) extractedData.phone = phoneMatch[0];
-    
-    // Se encontramos produtos mencionados...
-    if (messageText.includes('bloco') || messageText.includes('poste') || messageText.includes('laje')) {
-      // Simplificação: detectamos a menção a produtos e adicionamos um genérico
-      if (messageText.includes('bloco')) {
-        extractedData.products.push({
-          product_name: 'Bloco de Concreto',
-          quantity: 1
-        });
-      }
-      
-      if (messageText.includes('poste')) {
-        extractedData.products.push({
-          product_name: 'Poste de Concreto',
-          quantity: 1
-        });
-      }
-      
-      if (messageText.includes('laje')) {
-        extractedData.products.push({
-          product_name: 'Laje de Concreto',
-          quantity: 1
-        });
-      }
+    if (quoteError) {
+      console.error('Erro ao criar orçamento:', quoteError);
+      return null;
     }
     
-    return extractedData;
+    // Atualizar a sessão com o quote_id
+    const { error: updateError } = await supabase
+      .from('chat_sessions')
+      .update({ quote_id: quote.id })
+      .eq('id', sessionId);
+    
+    if (updateError) {
+      console.error('Erro ao atualizar sessão com quote_id:', updateError);
+    }
+    
+    return quote.id;
   } catch (error) {
-    console.error('Erro ao extrair dados de orçamento:', error);
+    console.error('Erro ao criar/atualizar orçamento:', error);
     return null;
   }
 }
 
+// Handler principal
 serve(async (req) => {
-  // Lidar com requisições CORS preflight
+  // Lidar com requisições OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    const { messages, sessionId } = await req.json();
-    
-    // Verificar se temos mensagens válidas
-    if (!messages || !Array.isArray(messages)) {
-      throw new Error('Formato de mensagens inválido');
+    // Processar apenas requisições POST
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Método não permitido' }),
+        { 
+          status: 405, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
     }
     
-    // Processar a sessão
-    let currentSessionId = sessionId;
+    // Extrair dados da requisição
+    const { messages, sessionId, clientId } = await req.json();
     
-    // Se não temos um ID de sessão, criar uma nova sessão
-    if (!currentSessionId) {
-      // Tentar extrair informações básicas para identificar o cliente
-      const extractedData = extractQuoteData(messages);
-      
-      // Verificar se já temos um cliente com este email ou telefone
-      let clientId = null;
-      
-      if (extractedData.email || extractedData.phone) {
-        const { data: existingClient } = await supabase
-          .from('clients')
-          .select('id')
-          .or(`email.eq.${extractedData.email},phone.eq.${extractedData.phone}`)
-          .maybeSingle();
-          
-        if (existingClient) {
-          clientId = existingClient.id;
+    // Validar dados
+    if (!messages || !messages.length) {
+      return new Response(
+        JSON.stringify({ error: 'Mensagens são obrigatórias' }),
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
         }
-      }
-      
-      // Se não encontramos um cliente, criar um novo "cliente potencial"
-      if (!clientId) {
-        const { data: newClient, error } = await supabase
-          .from('clients')
-          .insert({
-            name: extractedData.name || 'Cliente Potencial',
-            email: extractedData.email || `potencial_${Date.now()}@temp.com`,
-            phone: extractedData.phone || '',
-            address: extractedData.address || '',
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-          
-        if (error) {
-          console.error('Erro ao criar cliente:', error);
-        } else {
-          clientId = newClient.id;
-        }
-      }
-      
-      // Criar nova sessão de chat
-      if (clientId) {
-        const { data: newSession, error } = await supabase
-          .from('chat_sessions')
-          .insert({
-            client_id: clientId,
-            status: 'active',
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-          
-        if (error) {
-          console.error('Erro ao criar sessão:', error);
-        } else {
-          currentSessionId = newSession.id;
-          
-          // Salvar a mensagem inicial do usuário
-          await supabase
-            .from('chat_messages')
-            .insert({
-              session_id: currentSessionId,
-              content: messages[0].content,
-              role: 'user',
-              created_at: new Date().toISOString()
-            });
-        }
-      }
-    } else {
-      // Se já temos um ID de sessão, salvar a última mensagem do usuário
-      const lastUserMessage = messages[messages.length - 1];
-      if (lastUserMessage.role === 'user') {
-        await supabase
-          .from('chat_messages')
-          .insert({
-            session_id: currentSessionId,
-            content: lastUserMessage.content,
-            role: 'user',
-            created_at: new Date().toISOString()
-          });
-      }
+      );
     }
     
-    // Gerar resposta da OpenAI
-    const aiMessage = await generateOpenAIResponse(messages, currentSessionId);
+    // Extrair a última mensagem (do usuário)
+    const lastMessage = messages[messages.length - 1];
     
-    // Verificar se a conversa parece indicar um potencial orçamento
-    const extractedData = extractQuoteData([...messages, { role: 'assistant', content: aiMessage }]);
-    let quoteData = null;
-    let quoteId = null;
+    // Obter histórico (todas as mensagens exceto a última)
+    const historico = messages.slice(0, -1);
     
-    // Se temos produtos e dados suficientes, criar um orçamento
-    if (extractedData.products.length > 0 && (extractedData.email || extractedData.phone)) {
-      // Buscar o cliente associado à sessão
-      const { data: sessionData } = await supabase
-        .from('chat_sessions')
-        .select('client_id')
-        .eq('id', currentSessionId)
-        .single();
-        
-      if (sessionData) {
-        // Verificar se já existe um orçamento para esta sessão
-        const { data: existingQuote } = await supabase
-          .from('chat_sessions')
-          .select('quote_id')
-          .eq('id', currentSessionId)
-          .not('quote_id', 'is', null)
-          .single();
-          
-        if (!existingQuote) {
-          // Transformar os produtos extraídos no formato esperado para orçamentos
-          const quoteItems = extractedData.products.map(product => ({
-            product_id: 'chat_extracted',  // Um identificador genérico
-            product_name: product.product_name,
-            dimensions: 'A definir',
-            quantity: product.quantity,
-            unit_price: 0, // Será definido posteriormente
-            total_price: 0  // Será definido posteriormente
-          }));
-          
-          // Criar orçamento
-          quoteData = {
-            client_id: sessionData.client_id,
-            status: 'draft',
-            items: quoteItems,
-            total_value: 0, // Será calculado posteriormente
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          
-          const { data: newQuote, error } = await supabase
-            .from('quotes')
-            .insert(quoteData)
-            .select()
-            .single();
-            
-          if (error) {
-            console.error('Erro ao criar orçamento:', error);
-          } else {
-            quoteId = newQuote.id;
-            
-            // Atualizar a sessão com o ID do orçamento
-            await supabase
-              .from('chat_sessions')
-              .update({ quote_id: quoteId })
-              .eq('id', currentSessionId);
-          }
-        } else {
-          quoteId = existingQuote.quote_id;
-        }
-      }
-    }
+    // Processar a mensagem
+    const resposta = await processarMensagem(
+      lastMessage.content, 
+      historico, 
+      clientId, 
+      sessionId
+    );
     
     // Retornar a resposta
     return new Response(
-      JSON.stringify({ 
-        message: aiMessage, 
-        sessionId: currentSessionId,
-        quote_data: quoteData,
-        quote_id: quoteId
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(resposta),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   } catch (error) {
-    console.error('Erro no processamento:', error);
+    console.error('Erro no handler principal:', error);
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Erro no processamento da solicitação',
-        message: 'Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em alguns instantes.'
+        error: 'Erro interno do servidor', 
+        details: error.message 
       }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        status: 500, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
       }
     );
   }
