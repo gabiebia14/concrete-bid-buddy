@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -13,10 +13,13 @@ import {
   LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function ClientSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   const navItems = [
     {
@@ -50,11 +53,16 @@ export function ClientSidebar() {
     return location.pathname === path;
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <div className={`h-screen flex flex-col transition-all duration-300 shadow-lg ${
       collapsed ? 'w-16' : 'w-64'
-    } bg-sidebar`}>
-      <div className="p-4 flex flex-col items-center justify-center border-b border-sidebar-border">
+    } bg-zinc-900`}>
+      <div className="p-4 flex flex-col items-center justify-center border-b border-zinc-800">
         {!collapsed ? (
           <div className="flex flex-col items-center">
             <img 
@@ -63,7 +71,7 @@ export function ClientSidebar() {
               className="h-12 w-auto mb-2"
             />
             <div className="text-center">
-              <div className="text-xs text-white/70">ISO 9001</div>
+              <div className="text-xs text-lime-500">Artefatos de Concreto</div>
             </div>
           </div>
         ) : (
@@ -77,7 +85,7 @@ export function ClientSidebar() {
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className="mt-2 text-white hover:bg-sidebar-accent"
+          className="mt-2 text-white hover:bg-lime-600/20"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
@@ -85,7 +93,7 @@ export function ClientSidebar() {
       
       {!collapsed && (
         <div className="px-4 py-2">
-          <p className="text-xs uppercase font-semibold text-white/70 mx-2 mt-2 mb-1">MENU</p>
+          <p className="text-xs uppercase font-semibold text-lime-500/70 mx-2 mt-2 mb-1">MENU</p>
         </div>
       )}
       
@@ -97,8 +105,8 @@ export function ClientSidebar() {
               to={item.href}
               className={`flex items-center px-3 py-2 rounded-md text-sm ${
                 isActive(item.href)
-                  ? 'bg-white/20 text-white font-medium'
-                  : 'text-white/90 hover:bg-white/10 hover:text-white'
+                  ? 'bg-lime-500/20 text-lime-500 font-medium'
+                  : 'text-white/90 hover:bg-zinc-800 hover:text-lime-400'
               } transition-colors ${
                 collapsed ? 'justify-center' : ''
               }`}
@@ -112,20 +120,25 @@ export function ClientSidebar() {
         </nav>
       </div>
       
-      <div className="p-3 border-t border-sidebar-border">
+      <div className="p-3 border-t border-zinc-800">
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-white">
                 <User size={16} />
               </div>
               <div className="ml-2">
-                <p className="text-sm font-medium text-white">Cliente</p>
-                <p className="text-xs text-white/70">cliente@exemplo.com</p>
+                <p className="text-sm font-medium text-white">{user?.email?.split('@')[0] || 'Cliente'}</p>
+                <p className="text-xs text-white/70">{user?.email || ''}</p>
               </div>
             </div>
           )}
-          <Button variant="ghost" size="icon" className={`text-white hover:bg-sidebar-accent ${collapsed ? '' : 'ml-auto'}`}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`text-white hover:bg-zinc-800 ${collapsed ? '' : 'ml-auto'}`}
+            onClick={handleSignOut}
+          >
             <LogOut size={18} />
           </Button>
         </div>

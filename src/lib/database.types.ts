@@ -16,7 +16,8 @@ export interface Database {
           name: string
           description: string
           category: string
-          dimensions: string[]
+          type?: string
+          dimensions: string | string[]
           image_url?: string
           created_at: string
         }
@@ -25,7 +26,8 @@ export interface Database {
           name: string
           description: string
           category: string
-          dimensions: string[]
+          type?: string
+          dimensions: string | string[]
           image_url?: string
           created_at?: string
         }
@@ -34,7 +36,8 @@ export interface Database {
           name?: string
           description?: string
           category?: string
-          dimensions?: string[]
+          type?: string
+          dimensions?: string | string[]
           image_url?: string
           created_at?: string
         }

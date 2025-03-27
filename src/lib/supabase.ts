@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Product, Quote, Client } from './database.types';
 
@@ -51,6 +50,11 @@ export async function fetchProductById(id: string) {
   
   if (error) throw error;
   return data;
+}
+
+// Tipos adicionais para a versão atualizada de produtos
+export interface ProductWithType extends Product {
+  type?: string;
 }
 
 // Orçamentos
