@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ChatInterface } from '@/components/ui/chat-interface';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { QuoteItem } from '@/lib/types';
 import { toast } from 'sonner';
@@ -30,44 +29,6 @@ export default function CreateQuote() {
 
   const handleProductsSelected = (products: QuoteItem[]) => {
     setSelectedProducts(products);
-  };
-
-  // Função para processar dados de orçamento do assistente
-  const handleQuoteRequest = (quoteData: any) => {
-    console.log('Quote data from AI:', quoteData);
-    
-    if (quoteData) {
-      // Preencher os campos do formulário manual com os dados do assistente
-      if (quoteData.cliente) {
-        setName(quoteData.cliente.nome || '');
-        setEmail(quoteData.cliente.email || '');
-        setPhone(quoteData.cliente.telefone || '');
-      }
-      
-      if (quoteData.entrega) {
-        setLocation(quoteData.entrega.local || '');
-        setDeadline(quoteData.entrega.prazo || '');
-      }
-      
-      if (quoteData.pagamento) {
-        setPaymentMethod(quoteData.pagamento.forma || '');
-      }
-      
-      // Converter produtos para o formato esperado pelo ProductSelector
-      if (quoteData.produtos && Array.isArray(quoteData.produtos)) {
-        const formattedProducts = quoteData.produtos.map(produto => ({
-          product_id: '', // Será preenchido posteriormente
-          product_name: produto.nome,
-          dimensions: produto.especificacoes || '',
-          quantity: produto.quantidade || 0
-        }));
-        
-        setSelectedProducts(formattedProducts);
-      }
-      
-      // Mudar para a aba manual para revisão
-      setActiveTab('manual');
-    }
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -121,186 +82,118 @@ export default function CreateQuote() {
           </p>
         </div>
 
-        <Tabs defaultValue="manual" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-muted/20 p-1 inline-flex w-full sm:w-auto">
-            <TabsTrigger value="manual" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Seleção Manual
-            </TabsTrigger>
-            <TabsTrigger value="assistant" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Assistente Virtual
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="manual">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card className="bg-white border-gray-200">
-                  <CardHeader>
-                    <CardTitle>Selecione os Produtos</CardTitle>
-                    <CardDescription>
-                      Escolha os produtos que você deseja incluir no seu orçamento
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dados para Contato</CardTitle>
-                    <CardDescription>
-                      Preencha suas informações para receber o orçamento
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleManualSubmit} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Nome</Label>
-                        <Input 
-                          id="name" 
-                          value={name} 
-                          onChange={(e) => setName(e.target.value)} 
-                          placeholder="Seu nome completo" 
-                          required 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="email">E-mail</Label>
-                        <Input 
-                          id="email" 
-                          type="email" 
-                          value={email} 
-                          onChange={(e) => setEmail(e.target.value)} 
-                          placeholder="seu@email.com" 
-                          required 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Telefone</Label>
-                        <Input 
-                          id="phone" 
-                          value={phone} 
-                          onChange={(e) => setPhone(e.target.value)} 
-                          placeholder="(00) 00000-0000" 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Local de Entrega</Label>
-                        <Input 
-                          id="location" 
-                          value={location} 
-                          onChange={(e) => setLocation(e.target.value)} 
-                          placeholder="Endereço de entrega" 
-                          required 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="deadline">Prazo Desejado</Label>
-                        <Input 
-                          id="deadline" 
-                          value={deadline} 
-                          onChange={(e) => setDeadline(e.target.value)} 
-                          placeholder="Ex: 15 dias" 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="payment">Forma de Pagamento</Label>
-                        <Input 
-                          id="payment" 
-                          value={paymentMethod} 
-                          onChange={(e) => setPaymentMethod(e.target.value)} 
-                          placeholder="Ex: À vista, 30/60/90 dias" 
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="notes">Observações</Label>
-                        <Textarea 
-                          id="notes" 
-                          value={notes} 
-                          onChange={(e) => setNotes(e.target.value)} 
-                          placeholder="Informações adicionais..." 
-                          rows={3} 
-                        />
-                      </div>
-                      
-                      <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={isSubmitting || selectedProducts.length === 0}
-                      >
-                        {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="assistant">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
             <Card className="bg-white border-gray-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Assistente Virtual
-                </CardTitle>
+                <CardTitle>Selecione os Produtos</CardTitle>
                 <CardDescription>
-                  Converse com nosso assistente para criar um orçamento personalizado
+                  Escolha os produtos que você deseja incluir no seu orçamento
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <ChatInterface onQuoteRequest={handleQuoteRequest} />
-                  </div>
-                  <div>
-                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                      <h3 className="font-medium text-gray-900 mb-4">Como funciona:</h3>
-                      <ol className="space-y-3 text-sm text-gray-600">
-                        <li className="flex gap-2">
-                          <span className="font-medium">1.</span>
-                          Descreva os produtos que você precisa
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-medium">2.</span>
-                          Forneça as quantidades e dimensões
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-medium">3.</span>
-                          Informe o local de entrega
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-medium">4.</span>
-                          Receba seu orçamento personalizado
-                        </li>
-                      </ol>
-
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="font-medium text-gray-900 mb-3">Sugestões:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['Blocos', 'Pisos', 'Lajes', 'Prazos', 'Pagamento'].map(tag => <span key={tag} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                              {tag}
-                            </span>)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Dados para Contato</CardTitle>
+                <CardDescription>
+                  Preencha suas informações para receber o orçamento
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleManualSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input 
+                      id="name" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      placeholder="Seu nome completo" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)} 
+                      placeholder="seu@email.com" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input 
+                      id="phone" 
+                      value={phone} 
+                      onChange={(e) => setPhone(e.target.value)} 
+                      placeholder="(00) 00000-0000" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Local de Entrega</Label>
+                    <Input 
+                      id="location" 
+                      value={location} 
+                      onChange={(e) => setLocation(e.target.value)} 
+                      placeholder="Endereço de entrega" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="deadline">Prazo Desejado</Label>
+                    <Input 
+                      id="deadline" 
+                      value={deadline} 
+                      onChange={(e) => setDeadline(e.target.value)} 
+                      placeholder="Ex: 15 dias" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="payment">Forma de Pagamento</Label>
+                    <Input 
+                      id="payment" 
+                      value={paymentMethod} 
+                      onChange={(e) => setPaymentMethod(e.target.value)} 
+                      placeholder="Ex: À vista, 30/60/90 dias" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea 
+                      id="notes" 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)} 
+                      placeholder="Informações adicionais..." 
+                      rows={3} 
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isSubmitting || selectedProducts.length === 0}
+                  >
+                    {isSubmitting ? 'Enviando...' : 'Solicitar Orçamento'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </Layout>;
 }
