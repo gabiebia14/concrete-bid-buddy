@@ -248,35 +248,13 @@ serve(async (req) => {
   }
   
   try {
-    // Extrair o caminho da URL para determinar a ação
-    const url = new URL(req.url);
-    const path = url.pathname.split("/").pop();
+    // Extrair dados da requisição
+    const requestData = await req.json();
     
-    // Rota para processar mensagens
-    if (path === "chat-assistant" && req.method === "POST") {
-      const { message, sessionId } = await req.json();
-      
-      if (!message) {
-        return new Response(
-          JSON.stringify({ error: "Mensagem não fornecida" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      
-      const resultado = await processarMensagem(message, sessionId);
-      
-      return new Response(JSON.stringify(resultado), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    // Rota para buscar histórico de chat
-    if (path === "history" && req.method === "POST") {
-      const { sessionId } = await req.json();
+    // Verificar qual ação realizar com base nos parâmetros da requisição
+    if (requestData.action === "history") {
+      // Rota para buscar histórico
+      const { sessionId } = requestData;
       
       if (!sessionId) {
         return new Response(
@@ -294,16 +272,26 @@ serve(async (req) => {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-    
-    // Rota não encontrada
-    return new Response(
-      JSON.stringify({ error: "Rota não encontrada" }),
-      {
-        status: 404,
+    } else if (requestData.message) {
+      // Rota para processar mensagens
+      const { message, sessionId } = requestData;
+      
+      const resultado = await processarMensagem(message, sessionId);
+      
+      return new Response(JSON.stringify(resultado), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+      });
+    } else {
+      // Requisição inválida
+      return new Response(
+        JSON.stringify({ error: "Parâmetros inválidos" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (error) {
     console.error("Erro no handler principal:", error);
     

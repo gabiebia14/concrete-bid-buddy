@@ -36,12 +36,12 @@ export async function sendMessage(content: string, sessionId: string | null = nu
  */
 export async function fetchChatHistory(sessionId: string): Promise<ChatMessage[]> {
   try {
+    // Modificado para usar o endpoint correto sem a propriedade 'path'
     const { data, error } = await supabase.functions.invoke("chat-assistant", {
       body: {
-        sessionId
-      },
-      method: "POST",
-      path: "history"
+        sessionId,
+        action: "history" // Usar um campo na requisição para indicar que queremos o histórico
+      }
     });
     
     if (error) {
