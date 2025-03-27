@@ -1,387 +1,320 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { OpenAI } from "https://esm.sh/openai@4.28.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+import { OpenAI } from "https://esm.sh/openai@4.32.0";
 
-// Configuração CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Configurações do Supabase
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-// Cliente Supabase
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Inicializar cliente Supabase com SERVICE_ROLE_KEY (importante para ter permissão de escrita)
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Cliente OpenAI
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || '';
+// Configuração da API OpenAI
+const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 const openai = new OpenAI({
-  apiKey: openaiApiKey
+  apiKey: openaiApiKey,
 });
 
-// Função para criar uma nova sessão de chat
-async function criarSessao(clientId = null) {
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .insert([{ 
-      client_id: clientId, 
-      status: 'active' 
-    }])
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Erro ao criar sessão:', error);
-    throw error;
-  }
-  
-  return data;
+// Definir cabeçalhos CORS - em produção, restrinja ao domínio específico
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", // Restrinja para seu domínio em produção
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+// Interface para resposta estruturada do assistente
+interface AnaliseMensagem {
+  intencao: string;
+  categoria_produto: string;
+  dados: {
+    nome: string | null;
+    email: string | null;
+    telefone: string | null;
+    endereco: string | null;
+    produtos: Array<{
+      tipo: string;
+      quantidade: number;
+      detalhes?: string;
+    }>;
+  };
 }
 
-// Função para salvar mensagem no banco de dados
-async function salvarMensagem(sessionId, role, content) {
+// Função principal para processar mensagens
+async function processarMensagem(mensagemUsuario: string, sessionId: string | null = null) {
+  console.log(`Processando mensagem: "${mensagemUsuario}" para sessão: ${sessionId}`);
+  
   try {
-    const { error } = await supabase
-      .from('chat_messages')
-      .insert([{
-        session_id: sessionId,
-        role,
-        content
-      }]);
+    // Buscar configuração do agente na tabela agent_configs
+    const { data: configAgente, error: errorConfig } = await supabase
+      .from("agent_configs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
     
-    if (error) {
-      console.error('Erro ao salvar mensagem:', error);
-      throw error;
-    }
-  } catch (error) {
-    console.error('Erro ao salvar mensagem:', error);
-  }
-}
-
-// Função para buscar configuração do agente
-async function buscarConfigAgente() {
-  const { data, error } = await supabase
-    .from('agent_configs')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  
-  if (error) {
-    console.error('Erro ao buscar configuração do agente:', error);
-    return null;
-  }
-  
-  return data;
-}
-
-// Função para buscar o cliente pelo ID
-async function buscarCliente(clientId) {
-  if (!clientId) return null;
-  
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('id', clientId)
-    .single();
-  
-  if (error) {
-    console.error('Erro ao buscar cliente:', error);
-    return null;
-  }
-  
-  return data;
-}
-
-// Função para processar mensagem com o OpenAI
-async function processarMensagem(mensagem, historico = [], clientId = null, sessionId = null) {
-  try {
-    // Buscar configuração do agente
-    const configAgente = await buscarConfigAgente();
-    
-    if (!configAgente) {
-      throw new Error('Configuração do agente não encontrada');
+    if (errorConfig) {
+      console.error("Erro ao buscar configuração do agente:", errorConfig);
+      throw new Error("Configuração do agente não encontrada");
     }
     
-    // Buscar informações do cliente, se disponível
-    const cliente = clientId ? await buscarCliente(clientId) : null;
+    // Criar ou recuperar sessão
+    let idSessao = sessionId;
     
-    // Criar ou usar a sessão existente
-    const sessao = sessionId ? 
-      { id: sessionId } : 
-      await criarSessao(clientId);
+    if (!idSessao) {
+      const { data: novaSessao, error: errorSessao } = await supabase
+        .from("chat_sessions")
+        .insert({
+          status: "active",
+        })
+        .select()
+        .single();
+      
+      if (errorSessao) {
+        console.error("Erro ao criar sessão:", errorSessao);
+        throw new Error("Falha ao criar sessão de chat");
+      }
+      
+      idSessao = novaSessao.id;
+      console.log(`Nova sessão criada: ${idSessao}`);
+    }
+    
+    // Buscar histórico da sessão, se existir
+    const { data: historicoMensagens, error: errorHistorico } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("session_id", idSessao)
+      .order("created_at", { ascending: true });
+    
+    if (errorHistorico) {
+      console.error("Erro ao buscar histórico:", errorHistorico);
+      // Continuamos mesmo com erro no histórico
+    }
     
     // Salvar mensagem do usuário
-    await salvarMensagem(sessao.id, 'user', mensagem);
+    const { error: errorSalvarMsg } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: idSessao,
+        role: "user",
+        content: mensagemUsuario,
+      });
     
-    // Analisar a mensagem para entender a intenção
-    const analiseIntencao = await analisarIntencao(mensagem);
-    console.log('Análise de intenção:', JSON.stringify(analiseIntencao, null, 2));
+    if (errorSalvarMsg) {
+      console.error("Erro ao salvar mensagem:", errorSalvarMsg);
+      // Continuamos mesmo com erro ao salvar
+    }
     
-    // Preparar as mensagens para o modelo
-    const mensagens = [
-      {
-        role: 'system',
-        content: configAgente.sistema_principal
-      }
+    // Construir contexto para o modelo
+    const messages = [
+      { role: "system", content: configAgente.sistema_principal },
     ];
     
-    // Adicionar contexto do cliente se disponível
-    if (cliente) {
-      mensagens.push({
-        role: 'system',
-        content: `Informações do cliente:\nNome: ${cliente.name}\nEmail: ${cliente.email}\nTelefone: ${cliente.phone || 'Não informado'}\nEndereço: ${cliente.address || 'Não informado'}`
+    // Adicionar histórico ao contexto
+    if (historicoMensagens && historicoMensagens.length > 0) {
+      historicoMensagens.forEach(msg => {
+        messages.push({ role: msg.role, content: msg.content });
       });
     }
     
-    // Adicionar histórico de mensagens
-    historico.forEach(msg => {
-      if (msg.role !== 'system') {
-        mensagens.push({
-          role: msg.role,
-          content: msg.content
-        });
+    // Adicionar mensagem atual
+    messages.push({ role: "user", content: mensagemUsuario });
+    
+    // Analisar intenção do usuário com OpenAI
+    const analiseResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        ...messages,
+        {
+          role: "system",
+          content: `Analise a mensagem do usuário e categorize conforme o formato JSON abaixo:
+{
+  "intencao": "<saudacao|duvida_produto|interesse_compra|orcamento|reclamacao|outra>",
+  "categoria_produto": "<blocos|postes|lajes|tubos|canaletas|outro|null>",
+  "dados": {
+    "nome": "<nome_extraido_ou_null>",
+    "email": "<email_extraido_ou_null>",
+    "telefone": "<telefone_extraido_ou_null>",
+    "endereco": "<endereco_extraido_ou_null>",
+    "produtos": [
+      {
+        "tipo": "<tipo_produto>",
+        "quantidade": <numero_ou_0>,
+        "detalhes": "<especificacoes_adicionais>"
       }
+    ]
+  }
+}
+Retorne APENAS o objeto JSON, sem nenhum texto adicional.`,
+        },
+      ],
+      temperature: 0.2,
     });
     
-    // Adicionar a mensagem atual
-    mensagens.push({
-      role: 'user',
-      content: mensagem
-    });
+    // Extrair e analisar a resposta JSON
+    const analiseTexto = analiseResponse.choices[0].message.content?.trim() || "{}";
+    console.log("Análise de intenção:", analiseTexto);
     
-    // Gerar resposta com o OpenAI
-    const resposta = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: mensagens,
+    let analise: AnaliseMensagem;
+    try {
+      analise = JSON.parse(analiseTexto) as AnaliseMensagem;
+      console.log("Análise da mensagem:", analise);
+    } catch (error) {
+      console.error("Erro ao parsear análise JSON:", error);
+      analise = {
+        intencao: "outra",
+        categoria_produto: "null",
+        dados: {
+          nome: null,
+          email: null,
+          telefone: null,
+          endereco: null,
+          produtos: [],
+        },
+      };
+    }
+    
+    // Verificar se é uma solicitação de orçamento
+    let quoteId: string | null = null;
+    if (analise.intencao === "orcamento" && analise.dados.produtos.length > 0) {
+      // Implementação para criar orçamento quando necessário
+      // (Desabilitado por enquanto para simplificar)
+    }
+    
+    // Responder ao usuário
+    const chatResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
       temperature: 0.7,
-      max_tokens: 500
     });
     
-    const mensagemResposta = resposta.choices[0].message.content;
+    const respostaAssistente = chatResponse.choices[0].message.content || 
+                               "Desculpe, não consegui processar sua mensagem. Como posso ajudar?";
     
-    // Salvar resposta no banco de dados
-    await salvarMensagem(sessao.id, 'assistant', mensagemResposta);
+    // Salvar resposta do assistente
+    const { error: errorSalvarResposta } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: idSessao,
+        role: "assistant",
+        content: respostaAssistente,
+      });
     
-    // Verificar se a conversa indica um potencial orçamento
-    let quoteId = null;
-    if (analiseIntencao.intencao === 'orcamento' && analiseIntencao.dados.produtos.length > 0) {
-      quoteId = await criarOuAtualizarOrcamento(sessao.id, clientId, analiseIntencao.dados);
+    if (errorSalvarResposta) {
+      console.error("Erro ao salvar resposta:", errorSalvarResposta);
+      // Continuamos mesmo com erro ao salvar
     }
     
     return {
-      message: mensagemResposta,
-      sessionId: sessao.id,
-      quote_id: quoteId
+      sessionId: idSessao,
+      message: respostaAssistente,
+      quote_id: quoteId,
     };
   } catch (error) {
-    console.error('Erro ao processar mensagem:', error);
+    console.error("Erro ao processar mensagem:", error);
     throw error;
   }
 }
 
-// Analisar a intenção da mensagem
-async function analisarIntencao(mensagem) {
+// Função para buscar histórico de chat
+async function buscarHistoricoChat(sessionId: string) {
   try {
-    // Usar OpenAI para analisar a intenção
-    const resposta = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `Você é um analisador de intenções para um assistente virtual de uma empresa de produtos de concreto.
-          Baseado na mensagem do usuário, identifique:
-          1. A intenção principal (saudacao, duvida_produtos, orcamento, reclamacao, outro)
-          2. Categoria de produto mencionada (blocos, postes, lajes, null)
-          3. Extração de dados relevantes (como nome, email, telefone, endereço, produtos com quantidades, etc)
-          
-          Responda em formato JSON com esta estrutura exata:
-          {
-            "intencao": "tipo_intencao",
-            "categoria_produto": "categoria ou null",
-            "dados": {
-              "nome": "nome extraído ou null",
-              "email": "email extraído ou null",
-              "telefone": "telefone extraído ou null",
-              "endereco": "endereço extraído ou null",
-              "produtos": [
-                {"tipo": "tipo do produto", "quantidade": "quantidade mencionada", "especificacoes": "detalhes mencionados"}
-              ]
-            }
-          }`
-        },
-        {
-          role: 'user',
-          content: mensagem
-        }
-      ],
-      response_format: { type: 'json_object' }
-    });
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
     
-    const analise = JSON.parse(resposta.choices[0].message.content);
-    console.log('Análise da mensagem:', analise);
-    return analise;
+    if (error) {
+      console.error("Erro ao buscar histórico:", error);
+      throw error;
+    }
+    
+    return data || [];
   } catch (error) {
-    console.error('Erro ao analisar intenção:', error);
-    // Retornar uma análise padrão em caso de erro
-    return {
-      intencao: "outro",
-      categoria_produto: "null",
-      dados: {
-        nome: null,
-        email: null,
-        telefone: null,
-        endereco: null,
-        produtos: []
-      }
-    };
+    console.error("Erro ao buscar histórico:", error);
+    throw error;
   }
 }
 
-// Criar ou atualizar um orçamento baseado na conversa
-async function criarOuAtualizarOrcamento(sessionId, clientId, dados) {
-  // Verificar se já existe orçamento vinculado à sessão
-  const { data: sessao, error: erroSessao } = await supabase
-    .from('chat_sessions')
-    .select('quote_id')
-    .eq('id', sessionId)
-    .single();
-  
-  if (erroSessao && erroSessao.code !== 'PGRST116') {
-    console.error('Erro ao buscar sessão:', erroSessao);
-    return null;
-  }
-  
-  // Se já existe um orçamento, retornar o ID
-  if (sessao?.quote_id) {
-    return sessao.quote_id;
-  }
-  
-  // Se não temos um cliente_id, não podemos criar um orçamento
-  if (!clientId) {
-    return null;
-  }
-  
-  try {
-    // Preparar itens para o orçamento
-    const items = dados.produtos.map(p => ({
-      product: p.tipo || 'Produto não especificado',
-      quantity: p.quantidade || '1',
-      specifications: p.especificacoes || '',
-      price: 0 // Preço será definido pelo administrador
-    }));
-    
-    // Criar um novo orçamento
-    const { data: quote, error: quoteError } = await supabase
-      .from('quotes')
-      .insert([{
-        client_id: clientId,
-        status: 'draft',
-        items: items
-      }])
-      .select()
-      .single();
-    
-    if (quoteError) {
-      console.error('Erro ao criar orçamento:', quoteError);
-      return null;
-    }
-    
-    // Atualizar a sessão com o quote_id
-    const { error: updateError } = await supabase
-      .from('chat_sessions')
-      .update({ quote_id: quote.id })
-      .eq('id', sessionId);
-    
-    if (updateError) {
-      console.error('Erro ao atualizar sessão com quote_id:', updateError);
-    }
-    
-    return quote.id;
-  } catch (error) {
-    console.error('Erro ao criar/atualizar orçamento:', error);
-    return null;
-  }
-}
-
-// Handler principal
+// Servidor HTTP
 serve(async (req) => {
-  // Lidar com requisições OPTIONS (CORS preflight)
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Tratamento de CORS para requisições OPTIONS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
   
   try {
-    // Processar apenas requisições POST
-    if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ error: 'Método não permitido' }),
-        { 
-          status: 405, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
+    // Extrair o caminho da URL para determinar a ação
+    const url = new URL(req.url);
+    const path = url.pathname.split("/").pop();
+    
+    // Rota para processar mensagens
+    if (path === "chat-assistant" && req.method === "POST") {
+      const { message, sessionId } = await req.json();
+      
+      if (!message) {
+        return new Response(
+          JSON.stringify({ error: "Mensagem não fornecida" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      const resultado = await processarMensagem(message, sessionId);
+      
+      return new Response(JSON.stringify(resultado), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     
-    // Extrair dados da requisição
-    const { messages, sessionId, clientId } = await req.json();
-    
-    // Validar dados
-    if (!messages || !messages.length) {
-      return new Response(
-        JSON.stringify({ error: 'Mensagens são obrigatórias' }),
-        { 
-          status: 400, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
+    // Rota para buscar histórico de chat
+    if (path === "history" && req.method === "POST") {
+      const { sessionId } = await req.json();
+      
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "ID da sessão não fornecido" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      const historico = await buscarHistoricoChat(sessionId);
+      
+      return new Response(JSON.stringify(historico), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     
-    // Extrair a última mensagem (do usuário)
-    const lastMessage = messages[messages.length - 1];
-    
-    // Obter histórico (todas as mensagens exceto a última)
-    const historico = messages.slice(0, -1);
-    
-    // Processar a mensagem
-    const resposta = await processarMensagem(
-      lastMessage.content, 
-      historico, 
-      clientId, 
-      sessionId
-    );
-    
-    // Retornar a resposta
+    // Rota não encontrada
     return new Response(
-      JSON.stringify(resposta),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+      JSON.stringify({ error: "Rota não encontrada" }),
+      {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error('Erro no handler principal:', error);
+    console.error("Erro no handler principal:", error);
     
     return new Response(
       JSON.stringify({ 
-        error: 'Erro interno do servidor', 
-        details: error.message 
+        error: "Erro interno do servidor", 
+        details: error instanceof Error ? error.message : String(error)
       }),
-      { 
-        status: 500, 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }

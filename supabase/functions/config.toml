@@ -1,3 +1,5 @@
 
-# Arquivo de configuração das funções edge do Supabase
 project_id = "ehrerbpblmensiodhgka"
+
+[global]
+[global.env]

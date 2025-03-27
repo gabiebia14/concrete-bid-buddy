@@ -38,7 +38,7 @@ export function useChat(initialSessionId?: string) {
           toast({
             variant: 'destructive',
             title: 'Erro ao carregar histórico',
-            description: 'Não foi possível recuperar as mensagens anteriores.'
+            description: 'Não foi possível recuperar as mensagens anteriores. Por favor, recarregue a página ou tente novamente mais tarde.'
           });
         });
     }
@@ -89,6 +89,7 @@ export function useChat(initialSessionId?: string) {
       return assistantMessage;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
+      
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -98,7 +99,7 @@ export function useChat(initialSessionId?: string) {
       toast({
         variant: 'destructive',
         title: 'Erro ao enviar mensagem',
-        description: 'Não foi possível enviar sua mensagem. Por favor, tente novamente.'
+        description: 'Não foi possível enviar sua mensagem. Por favor, verifique sua conexão e tente novamente.'
       });
       
       return null;
