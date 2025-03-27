@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Plus, Minus, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,10 +77,15 @@ export function ProductSelector({ onProductsSelected, initialProducts = [] }: Pr
       setSelectedItems(updatedItems);
     } else {
       // Adicionar novo item
+      // Verificar se dimensions é uma string ou array e tratar adequadamente
+      const defaultDimension = Array.isArray(product.dimensions) 
+        ? product.dimensions[0] 
+        : product.dimensions;
+      
       const newItem: QuoteItem = {
         product_id: product.id,
         product_name: product.name,
-        dimensions: product.dimensions[0], // Default para a primeira dimensão
+        dimensions: defaultDimension, // Usar a primeira dimensão ou a string completa
         quantity: 1,
       };
       
@@ -122,10 +128,18 @@ export function ProductSelector({ onProductsSelected, initialProducts = [] }: Pr
     onProductsSelected(updatedItems);
   };
 
-  // Para mock - em uma aplicação real, isso viria do banco de dados
+  // Para tratar corretamente as dimensões do produto
   const getProductDimensions = (productId: string): string[] => {
     const product = products.find(p => p.id === productId);
-    return product?.dimensions || [];
+    if (!product) return [];
+    
+    // Se dimensions for uma string, converta para um array com um único elemento
+    if (typeof product.dimensions === 'string') {
+      return [product.dimensions];
+    }
+    
+    // Se já for um array, retorne diretamente
+    return product.dimensions;
   };
 
   return (
@@ -187,7 +201,9 @@ export function ProductSelector({ onProductsSelected, initialProducts = [] }: Pr
                       <p className="text-xs text-muted-foreground mb-2">{product.description}</p>
                       <div className="text-xs">
                         <span className="font-medium">Dimensões:</span>{' '}
-                        {product.dimensions.join(', ')}
+                        {Array.isArray(product.dimensions) 
+                          ? product.dimensions.join(', ')
+                          : product.dimensions}
                       </div>
                     </div>
                     <Button 

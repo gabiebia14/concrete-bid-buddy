@@ -1,106 +1,246 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { fetchProducts, fetchProductCategories } from '@/lib/supabase';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GridIcon, ListIcon, SearchIcon, FilterIcon } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, Filter, Grid, List, ChevronDown } from 'lucide-react';
+import { fetchProducts, fetchProductCategories } from '@/lib/supabase';
+import { Product } from '@/lib/database.types';
 
-const Catalog = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
+export default function Catalog() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Buscar todos os produtos
-  const { data: products = [], isLoading: isLoadingProducts } = useQuery({
-    queryKey: ['products'],
-    queryFn: fetchProducts
-  });
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Carregar produtos
+        const productsData = await fetchProducts();
+        setProducts(productsData);
+        setFilteredProducts(productsData);
+        
+        // Carregar categorias
+        const categoriesData = await fetchProductCategories();
+        setCategories(categoriesData || []);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
 
-  // Buscar categorias
-  const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchProductCategories
-  });
+  // Filtrar produtos quando a pesquisa ou categoria mudar
+  useEffect(() => {
+    const filtered = products.filter(product => {
+      const matchesSearch = searchQuery === '' || 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+    
+    setFilteredProducts(filtered);
+  }, [searchQuery, selectedCategory, products]);
 
-  // Obter tipos únicos dos produtos
-  const types = React.useMemo(() => {
-    const allTypes = products.map(product => product.type || '').filter(Boolean);
-    return [...new Set(allTypes)];
-  }, [products]);
+  // Renderizar produtos em formato grid
+  const renderProductGrid = () => {
+    if (filteredProducts.length === 0) {
+      return (
+        <div className="col-span-full flex justify-center items-center py-10">
+          <p className="text-center text-muted-foreground">
+            Nenhum produto encontrado para os filtros selecionados
+          </p>
+        </div>
+      );
+    }
 
-  // Filtrar produtos por categoria, tipo e termo de busca
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    const matchesType = selectedType === 'all' || product.type === selectedType;
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         (product.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesType && matchesSearch;
-  });
+    return filteredProducts.map(product => (
+      <Card key={product.id} className="overflow-hidden transition-all hover:shadow-md">
+        <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+          {product.image_url ? (
+            <img 
+              src={product.image_url} 
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="text-2xl font-bold text-muted-foreground opacity-30">
+              IPT
+            </div>
+          )}
+        </div>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-1">
+            <Badge className="w-fit my-1 bg-lime-500 hover:bg-lime-600">
+              {product.category}
+            </Badge>
+            <h3 className="font-medium text-lg">{product.name}</h3>
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+              {product.description || 'Sem descrição disponível'}
+            </p>
+            
+            <div className="mt-auto pt-2 flex flex-col gap-1 text-sm">
+              {product.type && (
+                <div className="flex justify-between">
+                  <span className="font-medium">Tipo:</span>
+                  <span>{product.type}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="font-medium">Dimensões:</span>
+                <span>
+                  {Array.isArray(product.dimensions) 
+                    ? product.dimensions.join(', ')
+                    : product.dimensions}
+                </span>
+              </div>
+            </div>
+            
+            <Button 
+              className="mt-4 w-full bg-green-600 hover:bg-green-700" 
+              size="sm"
+            >
+              Solicitar Orçamento
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    ));
+  };
+
+  // Renderizar produtos em formato lista
+  const renderProductList = () => {
+    if (filteredProducts.length === 0) {
+      return (
+        <div className="flex justify-center items-center py-10">
+          <p className="text-center text-muted-foreground">
+            Nenhum produto encontrado para os filtros selecionados
+          </p>
+        </div>
+      );
+    }
+
+    return filteredProducts.map(product => (
+      <Card key={product.id} className="overflow-hidden transition-all hover:shadow-md">
+        <CardContent className="p-0">
+          <div className="flex flex-col md:flex-row">
+            <div className="w-full md:w-1/4 lg:w-1/5 bg-muted flex items-center justify-center overflow-hidden">
+              {product.image_url ? (
+                <img 
+                  src={product.image_url} 
+                  alt={product.name}
+                  className="w-full h-full object-cover aspect-video md:aspect-square"
+                />
+              ) : (
+                <div className="text-2xl font-bold text-muted-foreground opacity-30 h-full flex items-center justify-center aspect-video md:aspect-square">
+                  IPT
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 w-full md:w-3/4 lg:w-4/5 flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                <div>
+                  <Badge className="mb-2 bg-lime-500 hover:bg-lime-600">
+                    {product.category}
+                  </Badge>
+                  <h3 className="font-medium text-lg">{product.name}</h3>
+                </div>
+                <Button 
+                  className="bg-green-600 hover:bg-green-700 w-full sm:w-auto" 
+                  size="sm"
+                >
+                  Solicitar Orçamento
+                </Button>
+              </div>
+              
+              <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                {product.description || 'Sem descrição disponível'}
+              </p>
+              
+              <div className="mt-auto flex flex-col sm:flex-row gap-4 text-sm">
+                {product.type && (
+                  <div className="flex gap-2">
+                    <span className="font-medium">Tipo:</span>
+                    <span>{product.type}</span>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <span className="font-medium">Dimensões:</span>
+                  <span>
+                    {Array.isArray(product.dimensions) 
+                      ? product.dimensions.join(', ')
+                      : product.dimensions}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ));
+  };
 
   return (
     <Layout>
-      <div className="w-full px-4 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div className="container mx-auto py-10 px-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-zinc-900">Catálogo de Produtos</h1>
-            <p className="text-muted-foreground">Visualize a linha completa de produtos IPT Teixeira</p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
-              className={viewMode === 'grid' ? 'bg-lime-500 hover:bg-lime-600' : ''}
-            >
-              <GridIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('list')}
-              className={viewMode === 'list' ? 'bg-lime-500 hover:bg-lime-600' : ''}
-            >
-              <ListIcon className="h-4 w-4" />
-            </Button>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">Catálogo de Produtos</h1>
+            <p className="text-muted-foreground">
+              Conheça nossos produtos e solicite orçamentos
+            </p>
           </div>
         </div>
         
-        {/* Barra de busca e filtros */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <div className="bg-white rounded-lg shadow-sm border mb-8">
+          <div className="p-4 flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                className="pl-9"
                 placeholder="Buscar produtos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             
-            <div className="flex gap-3 w-full md:w-auto">
-              <div className="w-full md:w-40">
-                <p className="text-sm mb-1">Categoria</p>
+            <div className="flex gap-2">
+              <div className="w-full sm:w-48">
                 <Select 
                   value={selectedCategory} 
                   onValueChange={setSelectedCategory}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
+                    <SelectValue placeholder="Categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {categories.map((category) => (
+                    <SelectItem value="all">Todas as Categorias</SelectItem>
+                    {categories.map(category => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -109,181 +249,53 @@ const Catalog = () => {
                 </Select>
               </div>
               
-              <div className="w-full md:w-40">
-                <p className="text-sm mb-1">Tipo</p>
-                <Select 
-                  value={selectedType} 
-                  onValueChange={setSelectedType}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Mais recentes</DropdownMenuItem>
+                  <DropdownMenuItem>A-Z</DropdownMenuItem>
+                  <DropdownMenuItem>Categoria</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <div className="flex rounded-md border overflow-hidden">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className={`rounded-none h-10 w-10 ${viewMode === 'grid' ? 'bg-muted' : ''}`}
+                  onClick={() => setViewMode('grid')}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {types.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Grid className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className={`rounded-none h-10 w-10 ${viewMode === 'list' ? 'bg-muted' : ''}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
-          
-          {(selectedCategory !== 'all' || selectedType !== 'all' || searchTerm) && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {selectedCategory !== 'all' && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  Categoria: {selectedCategory}
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-4 w-4 ml-1 p-0" 
-                    onClick={() => setSelectedCategory('all')}
-                  >
-                    <span className="sr-only">Remover</span>
-                    ×
-                  </Button>
-                </Badge>
-              )}
-              
-              {selectedType !== 'all' && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  Tipo: {selectedType}
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-4 w-4 ml-1 p-0" 
-                    onClick={() => setSelectedType('all')}
-                  >
-                    <span className="sr-only">Remover</span>
-                    ×
-                  </Button>
-                </Badge>
-              )}
-              
-              {searchTerm && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  Busca: "{searchTerm}"
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-4 w-4 ml-1 p-0" 
-                    onClick={() => setSearchTerm('')}
-                  >
-                    <span className="sr-only">Remover</span>
-                    ×
-                  </Button>
-                </Badge>
-              )}
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-xs" 
-                onClick={() => {
-                  setSelectedCategory('all');
-                  setSelectedType('all');
-                  setSearchTerm('');
-                }}
-              >
-                Limpar filtros
-              </Button>
-            </div>
-          )}
         </div>
-
-        {/* Conteúdo */}
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          {isLoadingProducts ? (
-            <div className="flex justify-center py-12">
-              <p>Carregando produtos...</p>
+        
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin h-8 w-8 border-4 border-lime-500 rounded-full border-t-transparent"></div>
             </div>
-          ) : filteredProducts.length > 0 ? (
-            viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
-                  <Card key={product.id} className="h-full flex flex-col border-t-4 border-t-lime-500">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="line-clamp-2 text-lg">{product.name}</CardTitle>
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="outline" className="bg-zinc-100">
-                          {product.category}
-                        </Badge>
-                        {product.type && (
-                          <Badge variant="outline" className="bg-zinc-100">
-                            {product.type}
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex-grow py-3">
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground mb-4">{product.description}</p>
-                      )}
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">Dimensões:</p>
-                        <p className="text-sm bg-zinc-100 px-2 py-1 rounded inline-block">
-                          {product.dimensions}
-                        </p>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-3 border-t">
-                      <Button variant="default" className="w-full bg-lime-500 hover:bg-lime-600">
-                        Solicitar Orçamento
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Dimensões</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>{product.type || "-"}</TableCell>
-                      <TableCell>{product.dimensions}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="text-lime-600 border-lime-600 hover:bg-lime-50">
-                          Orçamento
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
           ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">Nenhum produto encontrado.</p>
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory('all');
-                  setSelectedType('all');
-                }}
-              >
-                Limpar filtros
-              </Button>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
+              {viewMode === 'grid' ? renderProductGrid() : renderProductList()}
             </div>
           )}
         </div>
       </div>
     </Layout>
   );
-};
-
-export default Catalog;
+}

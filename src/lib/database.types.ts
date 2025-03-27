@@ -16,7 +16,7 @@ export interface Database {
           name: string
           description: string
           category: string
-          type?: string
+          type: string | null
           dimensions: string | string[]
           image_url?: string
           created_at: string
@@ -26,7 +26,7 @@ export interface Database {
           name: string
           description: string
           category: string
-          type?: string
+          type?: string | null
           dimensions: string | string[]
           image_url?: string
           created_at?: string
@@ -36,7 +36,7 @@ export interface Database {
           name?: string
           description?: string
           category?: string
-          type?: string
+          type?: string | null
           dimensions?: string | string[]
           image_url?: string
           created_at?: string
@@ -97,6 +97,26 @@ export interface Database {
           created_at?: string
         }
       }
+      agent_configs: {
+        Row: {
+          id: string
+          title: string
+          sistema_principal: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          sistema_principal: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          sistema_principal?: string
+          created_at?: string
+        }
+      }
     }
     Views: {}
     Functions: {}
@@ -107,6 +127,7 @@ export interface Database {
 export type Product = Database['public']['Tables']['products']['Row']
 export type Client = Database['public']['Tables']['clients']['Row']
 export type Quote = Database['public']['Tables']['quotes']['Row']
+export type AgentConfig = Database['public']['Tables']['agent_configs']['Row']
 
 export type QuoteItem = {
   product_id: string

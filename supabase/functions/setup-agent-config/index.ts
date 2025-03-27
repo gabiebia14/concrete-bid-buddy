@@ -1,224 +1,151 @@
 
+// Este arquivo configura o agente para o assistente de chat
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
 
-// Headers CORS
+// Configurações do Supabase
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+// Inicializar cliente Supabase
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Definir cabeçalhos CORS
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Cliente Supabase
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Definir o modelo de sistema principal para o agente
+const sistemaPrompt = `Você é o Assistente Virtual da IPT Teixeira, empresa especializada em produtos de concreto pré-fabricados.
 
-// Definindo o modelo de agente diretamente na função em vez de importar de um arquivo
-const modeloAgente = {
-  "configuracao_agente": {
-    "nome": "Assistente IPT Teixeira",
-    "versao": "1.0.0",
-    "descricao": "Agente especializado em atendimento e orçamentos de produtos de concreto",
-    "openai": {
-      "modelo_principal": "gpt-4o-mini",
-      "modelo_especialista": "gpt-4o-mini",
-      "sistema_principal": "Você é um assistente da IPT Teixeira, especializado em produtos de concreto. Sua missão é atender clientes, coletar informações e auxiliar na criação de orçamentos. Seja sempre cordial, objetivo e certifique-se de obter as informações necessárias dos clientes.",
-      "sistema_especialista": "Você é um especialista técnico em produtos de concreto, particularmente blocos, postes e lajes. Forneça informações precisas e técnicas sobre especificações, dimensões e aplicações dos produtos."
-    },
-    "fluxo_de_conversacao": {
-      "inicio": {
-        "saudacao": "Olá! Seja bem-vindo à IPT Teixeira. Como posso ajudá-lo hoje?",
-        "identificacao_cliente": {
-          "cliente_existente": "Obrigado por voltar, {nome_cliente}! Como posso ajudá-lo hoje?",
-          "cliente_novo": "Para melhor atendê-lo, poderia me informar seu nome completo, por favor?"
-        },
-        "coleta_dados": [
-          {
-            "campo": "name",
-            "pergunta": "Para registrar seu orçamento, preciso do seu nome completo.",
-            "obrigatorio": true
-          },
-          {
-            "campo": "email",
-            "pergunta": "Por favor, informe seu e-mail para contato.",
-            "obrigatorio": true
-          },
-          {
-            "campo": "phone",
-            "pergunta": "Qual o seu telefone para contato?",
-            "obrigatorio": true
-          }
-        ]
-      },
-      "levantamento_necessidades": {
-        "produtos": {
-          "pergunta_inicial": "Quais produtos você deseja incluir no orçamento?",
-          "detalhamento": "Poderia me fornecer mais detalhes sobre as especificações e quantidade que você precisa?"
-        },
-        "categorias": [
-          {
-            "nome": "Blocos",
-            "perguntas_especificas": [
-              "Qual o tamanho dos blocos?",
-              "Qual a quantidade necessária?"
-            ]
-          },
-          {
-            "nome": "Postes",
-            "perguntas_especificas": [
-              "Qual o modelo do poste (circular ou quadrado)?",
-              "Qual o padrão necessário (CPFL, Eletropaulo)?",
-              "Qual o tamanho do poste?",
-              "Qual a quantidade necessária?"
-            ]
-          },
-          {
-            "nome": "Lajes",
-            "perguntas_especificas": [
-              "Qual o tipo de laje?",
-              "Qual a metragem necessária?",
-              "Qual a espessura desejada?"
-            ]
-          }
-        ]
-      },
-      "detalhes_entrega": {
-        "perguntas": [
-          {
-            "campo": "address",
-            "pergunta": "Qual o endereço completo para entrega?",
-            "obrigatorio": true
-          },
-          {
-            "campo": "prazo",
-            "pergunta": "Existe algum prazo específico para a entrega?",
-            "obrigatorio": false
-          },
-          {
-            "campo": "observacoes_entrega",
-            "pergunta": "Existe alguma observação importante sobre a entrega?",
-            "obrigatorio": false
-          }
-        ]
-      },
-      "forma_pagamento": {
-        "pergunta": "Qual seria sua preferência de forma de pagamento?",
-        "opcoes": [
-          "À vista",
-          "Parcelado",
-          "Entrada + Restante na entrega",
-          "Faturamento 30 dias"
-        ]
-      },
-      "confirmacao": {
-        "apresentacao_resumo": "Com base nas informações que você me forneceu, vou preparar um orçamento com os seguintes itens:\n\n{lista_itens}\n\nEntrega em: {endereco}\nPrazo: {prazo}\nForma de pagamento: {pagamento}\n\nEste orçamento será enviado para o seu email {email} e nossa equipe entrará em contato pelo telefone {telefone} para confirmar os detalhes e os valores. Posso finalizar o orçamento assim?",
-        "confirmacao_final": "Seu orçamento foi registrado com sucesso. Em breve nossa equipe entrará em contato para confirmar todos os detalhes e informar os valores. Agradecemos pela preferência e ficamos à disposição para qualquer dúvida adicional."
-      }
-    },
-    "integracao_banco_dados": {
-      "tabelas": {
-        "clients": {
-          "campos_obrigatorios": ["name", "email"],
-          "campos_opcionais": ["phone", "address"]
-        },
-        "chat_sessions": {
-          "campos_obrigatorios": ["status"],
-          "campos_opcionais": ["client_id", "quote_id"]
-        },
-        "chat_messages": {
-          "campos_obrigatorios": ["session_id", "content", "role"],
-          "campos_opcionais": []
-        },
-        "quotes": {
-          "campos_obrigatorios": ["client_id", "status", "items"],
-          "campos_opcionais": ["total_value"]
-        }
-      }
-    },
-    "respostas_padrao": {
-      "saudacao": "Olá! Sou o assistente da IPT Teixeira, especializado em produtos de concreto. Como posso ajudá-lo hoje?",
-      "duvida_produtos": "Temos vários tipos de produtos de concreto. Posso lhe fornecer mais informações sobre blocos, postes, lajes, ou outros produtos específicos. Qual categoria lhe interessa?",
-      "solicitar_complemento": "Para que eu possa lhe ajudar melhor, poderia me fornecer mais detalhes sobre o que você está procurando?",
-      "agradecimento": "Obrigado por fornecer essas informações. Isso nos ajudará a preparar um orçamento mais preciso para você.",
-      "explicacoes_tecnicas": {
-        "blocos": "Nossos blocos de concreto são fabricados com materiais de alta qualidade, garantindo resistência e durabilidade para sua construção.",
-        "postes": "Os postes de concreto que fabricamos seguem rigorosos padrões técnicos, adequados para diversas aplicações em rede elétrica e telefonia.",
-        "lajes": "Nossas lajes são projetadas para oferecer excelente resistência estrutural, com diferentes opções para atender às necessidades específicas de cada projeto."
-      },
-      "error": {
-        "sem_compreensao": "Desculpe, não compreendi completamente sua solicitação. Poderia reformular ou fornecer mais detalhes?",
-        "sistema_indisponivel": "Estamos enfrentando algumas dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes ou entre em contato pelo telefone (XX) XXXX-XXXX.",
-        "produto_nao_encontrado": "Infelizmente, não encontrei o produto com as especificações exatas que você mencionou. Posso mostrar algumas alternativas similares que temos disponíveis?"
-      }
-    }
-  }
-};
+INFORMAÇÕES SOBRE A EMPRESA:
+- Nome: IPT Teixeira
+- Segmento: Fábrica de artefatos de concreto
+- Produtos: Blocos estruturais, postes, tubos, lajes, piso intertravado, guias, sarjetas e outros artefatos de concreto
+- Localização: Região do ABC Paulista, São Paulo
+
+SUA FUNÇÃO:
+- Responder dúvidas sobre produtos de concreto da IPT Teixeira
+- Ajudar clientes a escolher os produtos mais adequados para suas necessidades
+- Informar sobre especificações técnicas dos produtos
+- Coletar informações básicas para orçamentos
+- Direcionar o cliente para o formulário de orçamento para solicitações formais
+
+COMPORTAMENTO:
+- Seja cordial e prestativo
+- Comunique-se de forma clara e técnica quando necessário
+- Evite gírias e linguagem muito informal
+- Não forneça preços específicos (direcione para orçamento)
+- Não se faça passar por humano (deixe claro que é um assistente virtual)
+- Colete informações como nome, e-mail, telefone se o cliente demonstrar interesse em um orçamento
+
+RESPOSTAS SOBRE PRODUTOS:
+Quando um cliente perguntar sobre um produto específico, forneça:
+- Descrição básica
+- Aplicações comuns
+- Vantagens do produto
+- Variações disponíveis (se aplicável)
+- Convide-o a fazer um orçamento formal
+
+INFORMAÇÕES DE CONTATO DA EMPRESA:
+- Telefone: (11) 4444-5555
+- Email: contato@iptteixeira.com.br
+- Site: www.iptteixeira.com.br
+- Horário de atendimento: Segunda a Sexta, das 8h às 18h`;
 
 serve(async (req) => {
-  // Tratar requisições CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Tratamento de CORS para requisições OPTIONS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
 
   try {
     // Verificar se a tabela agent_configs existe
-    const { error: tableCheckError } = await supabase
-      .from('agent_configs')
-      .select('id')
-      .limit(1);
-
-    // Se houver erro, provavelmente a tabela não existe
-    if (tableCheckError) {
-      console.log('A tabela agent_configs não existe. Criando...');
-      
+    const { error: tableCheckError } = await supabase.from("agent_configs").select("count", { count: "exact", head: true });
+    
+    // Se a tabela não existir, criar a tabela
+    if (tableCheckError && tableCheckError.code === "42P01") { // relação não existe
       // Criar a tabela agent_configs
-      const createTableResult = await supabase.rpc('create_agent_configs_table');
-      console.log('Resultado da criação da tabela:', createTableResult);
+      const { error: createTableError } = await supabase.rpc("create_agent_configs_table");
+      
+      if (createTableError) {
+        console.error("Erro ao criar tabela:", createTableError);
+        // Tentar criar tabela via SQL diretamente
+        const { error: sqlError } = await supabase.sql(`
+          CREATE TABLE IF NOT EXISTS public.agent_configs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            title TEXT NOT NULL,
+            sistema_principal TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+          );
+          
+          -- Permitir acesso de leitura para todos
+          ALTER TABLE public.agent_configs ENABLE ROW LEVEL SECURITY;
+          CREATE POLICY "Allow public read access" ON public.agent_configs FOR SELECT USING (true);
+        `);
+        
+        if (sqlError) {
+          console.error("Erro ao criar tabela via SQL:", sqlError);
+          throw new Error("Não foi possível criar a tabela agent_configs");
+        }
+      }
     }
-
-    // Extrair dados do modelo de agente
-    const config = modeloAgente.configuracao_agente;
     
-    // Preparar dados para inserção
-    const agentConfigData = {
-      name: config.nome,
-      version: config.versao,
-      description: config.descricao,
-      sistema_principal: config.openai.sistema_principal,
-      sistema_especialista: config.openai.sistema_especialista,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Configurar o agente se não existir
+    const { data: existingConfig, error: configCheckError } = await supabase
+      .from("agent_configs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1);
+      
+    if (configCheckError) {
+      console.error("Erro ao verificar configuração existente:", configCheckError);
+      throw new Error("Erro ao verificar configuração do agente");
+    }
     
-    // Salvar configuração do agente na tabela
-    const { data, error } = await supabase
-      .from('agent_configs')
-      .upsert([agentConfigData], { onConflict: 'name' })
-      .select();
-    
-    if (error) {
-      throw error;
+    if (!existingConfig || existingConfig.length === 0) {
+      // Inserir a configuração do agente
+      const { error: insertError } = await supabase
+        .from("agent_configs")
+        .insert({
+          title: "IPT Teixeira Assistant",
+          sistema_principal: sistemaPrompt
+        });
+        
+      if (insertError) {
+        console.error("Erro ao inserir configuração:", insertError);
+        throw new Error("Não foi possível configurar o agente");
+      }
     }
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Configuração do agente salva com sucesso',
-        data
+        message: "Agente configurado com sucesso" 
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   } catch (error) {
-    console.error('Erro:', error);
+    console.error("Erro:", error);
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        message: "Erro ao configurar o agente", 
+        error: error instanceof Error ? error.message : String(error) 
       }),
-      { 
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }

@@ -94,7 +94,11 @@ export function Header() {
 
           <div className="flex items-center gap-4">
             {user ? (
-              <UserDropdown user={user} handleSignOut={handleSignOut} />
+              <UserDropdown 
+                user={user} 
+                handleSignOut={handleSignOut} 
+                isManager={isManager} // Adicionando a propriedade isManager
+              />
             ) : (
               <AuthButtons />
             )}

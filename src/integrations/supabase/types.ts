@@ -133,6 +133,7 @@ export type Database = {
           id: string
           image_url: string | null
           name: string
+          type: string | null
         }
         Insert: {
           category: string
@@ -142,6 +143,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name: string
+          type?: string | null
         }
         Update: {
           category?: string
@@ -151,6 +153,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name?: string
+          type?: string | null
         }
         Relationships: []
       }
