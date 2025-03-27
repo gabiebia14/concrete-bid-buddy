@@ -1,62 +1,46 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { FileText, ArrowRight, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, ArrowDown, Award, Shield, User, Check, Truck, PieChart } from "lucide-react";
-
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("empresa");
-
-  const products = [
-    {
-      title: "Postes",
-      image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
-      description: "Postes de concreto para diversas aplicações"
-    },
-    {
-      title: "Blocos e Meio Blocos",
-      image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
-      description: "Blocos estruturais de concreto"
-    },
-    {
-      title: "Tubos e Aduelas",
-      image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
-      description: "Tubos de concreto para infraestrutura"
-    },
-    {
-      title: "Pavimentos e Mini Guias",
-      image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
-      description: "Soluções para pavimentação"
-    }
-  ];
-
-  const vantagens = [
-    {
-      icon: <Check className="w-5 h-5 text-lime-600" />,
-      title: "Qualidade Superior",
-      description: "Produtos certificados com rigoroso controle de qualidade"
-    },
-    {
-      icon: <Truck className="w-5 h-5 text-lime-600" />,
-      title: "Entrega em Todo o Estado",
-      description: "Logística própria para atendimento em todo o estado de São Paulo"
-    },
-    {
-      icon: <Calculator className="w-5 h-5 text-lime-600" />,
-      title: "Orçamentos Personalizados",
-      description: "Soluções dimensionadas de acordo com as necessidades do cliente"
-    },
-    {
-      icon: <PieChart className="w-5 h-5 text-lime-600" />,
-      title: "Inovação Contínua",
-      description: "Investimento constante em tecnologia e processos"
-    }
-  ];
-
-  return (
-    <div className="flex flex-col min-h-screen">
+  const products = [{
+    title: "Postes",
+    image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
+    description: "Postes de concreto para diversas aplicações"
+  }, {
+    title: "Blocos e Meio Blocos",
+    image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
+    description: "Blocos estruturais de concreto"
+  }, {
+    title: "Tubos e Aduelas",
+    image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
+    description: "Tubos de concreto para infraestrutura"
+  }, {
+    title: "Pavimentos e Mini Guias",
+    image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
+    description: "Soluções para pavimentação"
+  }];
+  const vantagens = [{
+    icon: <Check className="w-5 h-5 text-lime-600" />,
+    title: "Qualidade Superior",
+    description: "Produtos certificados com rigoroso controle de qualidade"
+  }, {
+    icon: <Truck className="w-5 h-5 text-lime-600" />,
+    title: "Entrega em Todo o Estado",
+    description: "Logística própria para atendimento em todo o estado de São Paulo"
+  }, {
+    icon: <Calculator className="w-5 h-5 text-lime-600" />,
+    title: "Orçamentos Personalizados",
+    description: "Soluções dimensionadas de acordo com as necessidades do cliente"
+  }, {
+    icon: <PieChart className="w-5 h-5 text-lime-600" />,
+    title: "Inovação Contínua",
+    description: "Investimento constante em tecnologia e processos"
+  }];
+  return <div className="flex flex-col min-h-screen">
       {/* Topo com certificações */}
       <div className="bg-lime-600 text-white py-1">
         <div className="container mx-auto px-4 flex justify-between items-center text-xs">
@@ -88,11 +72,7 @@ const LandingPage = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <img 
-                src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
-                alt="IPT Teixeira Logo" 
-                className="h-16 mr-3"
-              />
+              <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-16 mr-3" />
               <div className="hidden md:block">
                 <h1 className="font-bold text-lime-600 text-xl">IPT TEIXEIRA</h1>
                 <p className="text-sm text-gray-500">Produtos de Concreto</p>
@@ -168,11 +148,7 @@ const LandingPage = () => {
             
             <div className="order-1 lg:order-2 relative">
               <div className="aspect-square bg-gradient-to-br from-lime-200 to-lime-50 rounded-full absolute -top-10 -right-10 w-48 h-48 blur-3xl opacity-50 z-0"></div>
-              <img 
-                src="/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png" 
-                alt="Produtos IPT Teixeira" 
-                className="relative z-10 rounded-lg shadow-xl max-w-full mx-auto"
-              />
+              
             </div>
           </div>
         </div>
@@ -198,8 +174,7 @@ const LandingPage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {vantagens.map((vantagem, index) => (
-              <Card key={index} className="border-t-4 border-lime-500">
+            {vantagens.map((vantagem, index) => <Card key={index} className="border-t-4 border-lime-500">
                 <div className="p-6">
                   <div className="w-10 h-10 rounded-full bg-lime-100 flex items-center justify-center mb-4">
                     {vantagem.icon}
@@ -207,8 +182,7 @@ const LandingPage = () => {
                   <h3 className="font-semibold text-lg mb-2">{vantagem.title}</h3>
                   <p className="text-gray-600 text-sm">{vantagem.description}</p>
                 </div>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -224,14 +198,9 @@ const LandingPage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((product, index) => (
-              <div key={index} className="group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
+            {products.map((product, index) => <div key={index} className="group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
                 <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                  <img 
-                    src={product.image} 
-                    alt={product.title} 
-                    className="object-cover w-full h-full transition-transform group-hover:scale-105" 
-                  />
+                  <img src={product.image} alt={product.title} className="object-cover w-full h-full transition-transform group-hover:scale-105" />
                 </div>
                 <div className="p-5 border-t">
                   <h3 className="font-semibold text-lg mb-2 text-lime-700">{product.title}</h3>
@@ -240,8 +209,7 @@ const LandingPage = () => {
                     <Link to="/login">Solicitar Orçamento</Link>
                   </Button>
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
           
           <div className="text-center mt-10">
@@ -373,12 +341,7 @@ const LandingPage = () => {
             Entre em contato conosco para obter um orçamento personalizado para seu projeto ou acesse nossa área do cliente.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Button 
-              asChild
-              size="lg" 
-              variant="secondary"
-              className="bg-white text-lime-600 hover:bg-gray-100"
-            >
+            <Button asChild size="lg" variant="secondary" className="bg-white text-lime-600 hover:bg-gray-100">
               <Link to="/login">
                 Acessar Área do Cliente
               </Link>
@@ -398,11 +361,7 @@ const LandingPage = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <img 
-                src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
-                alt="IPT Teixeira Logo" 
-                className="h-16 mb-4"
-              />
+              <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-16 mb-4" />
               <p className="text-sm text-gray-400 mb-4">
                 Qualidade e resistência em produtos de concreto desde 1994.
               </p>
@@ -475,8 +434,6 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default LandingPage;
