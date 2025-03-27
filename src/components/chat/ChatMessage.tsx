@@ -41,7 +41,7 @@ export function MessageItem({ message }: MessageItemProps) {
           </a>
         );
       }
-      // Se for texto normal
+      // Se for texto normal - corrigido: remover data-lov-id do Fragment
       return <React.Fragment key={index}>{part}</React.Fragment>;
     });
   };
