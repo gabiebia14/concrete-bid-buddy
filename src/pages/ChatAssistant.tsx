@@ -5,9 +5,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function ChatAssistant() {
   const navigate = useNavigate();
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [showPhoneInput, setShowPhoneInput] = useState<boolean>(false);
+  const [phoneSubmitted, setPhoneSubmitted] = useState<boolean>(false);
+  
+  const handlePhoneSubmit = () => {
+    if (phoneNumber.trim()) {
+      setPhoneSubmitted(true);
+    }
+  };
   
   return (
     <Layout>
@@ -25,7 +37,47 @@ export default function ChatAssistant() {
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <ChatInterface />
+            {!phoneSubmitted && showPhoneInput ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Digite seu número de telefone</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Para um atendimento personalizado e para possibilitar a continuidade da conversa
+                      em outros canais, como WhatsApp, precisamos do seu número de telefone.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Número de telefone</Label>
+                      <Input 
+                        id="phone" 
+                        type="tel" 
+                        placeholder="(XX) XXXXX-XXXX" 
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={handlePhoneSubmit}>
+                      Iniciar conversa
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {!phoneSubmitted && (
+                  <div className="mb-4 flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowPhoneInput(true)}
+                    >
+                      Identificar por telefone
+                    </Button>
+                  </div>
+                )}
+                <ChatInterface phoneNumber={phoneSubmitted ? phoneNumber : undefined} />
+              </>
+            )}
           </div>
           
           <div>

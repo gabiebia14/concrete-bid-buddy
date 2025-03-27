@@ -40,9 +40,31 @@ interface AnaliseMensagem {
   };
 }
 
+// Função para buscar cliente pelo número de telefone
+async function buscarClientePorTelefone(telefone: string) {
+  try {
+    console.log(`Buscando cliente pelo telefone: ${telefone}`);
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("phone", telefone)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Erro ao buscar cliente:", error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Erro ao buscar cliente:", error);
+    return null;
+  }
+}
+
 // Função principal para processar mensagens
-async function processarMensagem(mensagemUsuario: string, sessionId: string | null = null) {
-  console.log(`Processando mensagem: "${mensagemUsuario}" para sessão: ${sessionId}`);
+async function processarMensagem(mensagemUsuario: string, sessionId: string | null = null, phoneNumber: string | null = null) {
+  console.log(`Processando mensagem: "${mensagemUsuario}" para sessão: ${sessionId}, telefone: ${phoneNumber}`);
   
   try {
     // Buscar configuração do agente na tabela agent_configs
@@ -58,6 +80,18 @@ async function processarMensagem(mensagemUsuario: string, sessionId: string | nu
       throw new Error("Configuração do agente não encontrada");
     }
     
+    // Verificar se temos um cliente existente pelo número de telefone
+    let clientId = null;
+    if (phoneNumber) {
+      const cliente = await buscarClientePorTelefone(phoneNumber);
+      if (cliente) {
+        clientId = cliente.id;
+        console.log(`Cliente encontrado pelo telefone: ${phoneNumber}, ID: ${clientId}`);
+      } else {
+        console.log(`Nenhum cliente encontrado para o telefone: ${phoneNumber}`);
+      }
+    }
+    
     // Criar ou recuperar sessão
     let idSessao = sessionId;
     
@@ -66,6 +100,7 @@ async function processarMensagem(mensagemUsuario: string, sessionId: string | nu
         .from("chat_sessions")
         .insert({
           status: "active",
+          client_id: clientId // Associar com o cliente se encontrado
         })
         .select()
         .single();
@@ -76,7 +111,26 @@ async function processarMensagem(mensagemUsuario: string, sessionId: string | nu
       }
       
       idSessao = novaSessao.id;
-      console.log(`Nova sessão criada: ${idSessao}`);
+      console.log(`Nova sessão criada: ${idSessao}, clientId: ${clientId}`);
+    } else if (clientId) {
+      // Atualizar a sessão existente com o ID do cliente se não estiver definido
+      const { data: sessaoExistente, error: errorBuscaSessao } = await supabase
+        .from("chat_sessions")
+        .select("client_id")
+        .eq("id", idSessao)
+        .single();
+      
+      if (!errorBuscaSessao && !sessaoExistente.client_id) {
+        // Se a sessão não tem client_id, atualizar com o que encontramos
+        const { error: errorAtualizaSessao } = await supabase
+          .from("chat_sessions")
+          .update({ client_id: clientId })
+          .eq("id", idSessao);
+        
+        if (errorAtualizaSessao) {
+          console.error("Erro ao atualizar sessão com clientId:", errorAtualizaSessao);
+        }
+      }
     }
     
     // Buscar histórico da sessão, se existir
@@ -172,6 +226,74 @@ Retorne APENAS o objeto JSON, sem nenhum texto adicional.`,
           produtos: [],
         },
       };
+    }
+    
+    // Atualizar ou criar cliente com base em dados extraídos
+    if (phoneNumber && (analise.dados.nome || analise.dados.email)) {
+      // Tentar buscar o cliente pelo telefone
+      const clienteExistente = await buscarClientePorTelefone(phoneNumber);
+      
+      if (clienteExistente) {
+        // Atualizar cliente existente se temos novos dados
+        const atualizacoes: {[key: string]: any} = {};
+        
+        if (analise.dados.nome && !clienteExistente.name) {
+          atualizacoes.name = analise.dados.nome;
+        }
+        
+        if (analise.dados.email && !clienteExistente.email) {
+          atualizacoes.email = analise.dados.email;
+        }
+        
+        if (analise.dados.endereco && !clienteExistente.address) {
+          atualizacoes.address = analise.dados.endereco;
+        }
+        
+        // Se temos dados para atualizar
+        if (Object.keys(atualizacoes).length > 0) {
+          const { error: errorAtualizarCliente } = await supabase
+            .from("clients")
+            .update(atualizacoes)
+            .eq("id", clienteExistente.id);
+          
+          if (errorAtualizarCliente) {
+            console.error("Erro ao atualizar cliente:", errorAtualizarCliente);
+          } else {
+            console.log(`Cliente atualizado com sucesso: ${clienteExistente.id}`);
+          }
+        }
+      } else if (analise.dados.nome) {
+        // Criar novo cliente se temos pelo menos um nome
+        const novoCliente = {
+          phone: phoneNumber,
+          name: analise.dados.nome || "Cliente Sem Nome",
+          email: analise.dados.email || `${phoneNumber.replace(/\D/g, '')}@placeholder.com`,
+          address: analise.dados.endereco
+        };
+        
+        const { data: clienteCriado, error: errorCriarCliente } = await supabase
+          .from("clients")
+          .insert(novoCliente)
+          .select()
+          .single();
+        
+        if (errorCriarCliente) {
+          console.error("Erro ao criar cliente:", errorCriarCliente);
+        } else {
+          clientId = clienteCriado.id;
+          console.log(`Novo cliente criado: ${clientId}`);
+          
+          // Atualizar sessão com o novo cliente
+          const { error: errorAtualizarSessao } = await supabase
+            .from("chat_sessions")
+            .update({ client_id: clientId })
+            .eq("id", idSessao);
+          
+          if (errorAtualizarSessao) {
+            console.error("Erro ao atualizar sessão com novo cliente:", errorAtualizarSessao);
+          }
+        }
+      }
     }
     
     // Verificar se é uma solicitação de orçamento
@@ -274,9 +396,9 @@ serve(async (req) => {
       });
     } else if (requestData.message) {
       // Rota para processar mensagens
-      const { message, sessionId } = requestData;
+      const { message, sessionId, phoneNumber } = requestData;
       
-      const resultado = await processarMensagem(message, sessionId);
+      const resultado = await processarMensagem(message, sessionId, phoneNumber);
       
       return new Response(JSON.stringify(resultado), {
         status: 200,

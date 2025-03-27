@@ -4,7 +4,7 @@ import { ChatMessage, ChatState } from '@/lib/chatTypes';
 import { sendMessage, fetchChatHistory } from '@/services/chatService';
 import { useToast } from '@/components/ui/use-toast';
 
-export function useChat(initialSessionId?: string) {
+export function useChat(initialSessionId?: string, phoneNumber?: string) {
   const [state, setState] = useState<ChatState>({
     messages: [],
     isLoading: false,
@@ -62,7 +62,7 @@ export function useChat(initialSessionId?: string) {
       }));
       
       // Enviar a mensagem para a API
-      const response = await sendMessage(content, state.sessionId);
+      const response = await sendMessage(content, state.sessionId, phoneNumber);
       
       // Adicionar resposta do assistente ao estado
       const assistantMessage: ChatMessage = {
@@ -104,7 +104,7 @@ export function useChat(initialSessionId?: string) {
       
       return null;
     }
-  }, [state.sessionId, toast]);
+  }, [state.sessionId, phoneNumber, toast]);
   
   // Função para limpar o chat
   const resetChat = useCallback(() => {

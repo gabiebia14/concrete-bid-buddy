@@ -6,14 +6,16 @@ import { ChatMessage } from "@/lib/chatTypes";
  * Envia uma mensagem para o assistente virtual
  * @param content Conteúdo da mensagem
  * @param sessionId ID da sessão (opcional)
+ * @param phoneNumber Número de telefone para identificação do cliente (opcional)
  * @returns Resposta do assistente
  */
-export async function sendMessage(content: string, sessionId: string | null = null) {
+export async function sendMessage(content: string, sessionId: string | null = null, phoneNumber: string | null = null) {
   try {
     const { data, error } = await supabase.functions.invoke("chat-assistant", {
       body: {
         message: content,
-        sessionId: sessionId
+        sessionId: sessionId,
+        phoneNumber: phoneNumber
       }
     });
     
