@@ -9,30 +9,14 @@ export function generateSessionId(): string {
 }
 
 /**
- * Formata a URL do webhook para garantir que seja válida
+ * Obtém a URL final para a função Edge do Supabase
  */
-export function formatWebhookUrl(url?: string): string {
-  if (!url) {
-    return "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
-  }
-  
-  // Verifica se a URL tem o protocolo
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    return `https://${url}`;
-  }
-  
-  return url;
-}
-
-/**
- * Obtém a URL final com base na configuração de proxy
- */
-export function getFinalWebhookUrl(webhookUrl?: string, useProxy: boolean = true): string {
+export function getFinalWebhookUrl(webhookUrl?: string): string {
+  // Se um webhookUrl for fornecido, use-o
   if (webhookUrl) {
     return webhookUrl;
   }
   
-  return useProxy 
-    ? `/api/n8n/chat-assistant` 
-    : formatWebhookUrl(localStorage.getItem('chatWebhookUrl') || undefined);
+  // Caso contrário, retorne vazio para usar a função Edge padrão
+  return '';
 }

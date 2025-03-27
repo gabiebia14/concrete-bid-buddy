@@ -21,8 +21,8 @@ class ChatService {
       localStorage.setItem('chatSessionId', this.sessionId);
     }
     
-    // Garantir que a URL do webhook é correta
-    this.webhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
+    // Configurar URL da função Edge
+    this.webhookUrl = webhookUrl || "";
     console.log("ChatService inicializado com URL:", this.webhookUrl);
   }
   
@@ -69,8 +69,7 @@ class ChatService {
     
     this.messages.push(userMessage);
     
-    // Preparar o payload exatamente como o n8n espera
-    // Importante: NÃO aninhar em body.body, enviar direto
+    // Preparar payload para a função Edge
     const payload = {
       message: message,
       sessionId: this.sessionId,
@@ -81,89 +80,53 @@ class ChatService {
       clientId: userData.clientId || null
     };
     
-    console.log('Enviando mensagem para webhook:', this.webhookUrl);
+    console.log('Enviando mensagem para função Edge');
     console.log('Payload:', payload);
     
-    // Tentar usar o webhook externo com a URL corrigida
+    // Chamar a função Edge do Supabase
     try {
-      const response = await this.callWebhook(this.webhookUrl, payload);
-      return this.processWebhookResponse(response);
-    } catch (webhookError) {
-      console.error('Erro ao chamar webhook:', webhookError);
-      
-      // Tentar usar a função Edge no Supabase como plano B
-      try {
-        console.log('Tentando usar função Edge como alternativa');
-        const edgeResponse = await supabase.functions.invoke('chat-assistant', {
-          body: payload
-        });
-        
-        if (edgeResponse.error) {
-          throw new Error(`Erro na função Edge: ${edgeResponse.error.message}`);
-        }
-        
-        return this.processWebhookResponse(edgeResponse.data);
-      } catch (fallbackError) {
-        console.error('Erro no backup:', fallbackError);
-        
-        // Mensagem de erro
-        const errorMessage: ChatMessage = {
-          id: uuidv4(),
-          session_id: this.sessionId,
-          content: 'Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.',
-          role: 'assistant',
-          created_at: new Date().toISOString()
-        };
-        
-        // Salvar mensagem de erro no Supabase
-        try {
-          await supabase.from('chat_messages').insert(errorMessage);
-        } catch (dbError) {
-          console.error("Erro ao salvar mensagem de erro:", dbError);
-        }
-        
-        this.messages.push(errorMessage);
-        
-        // Mostrar notificação de erro
-        toast.error("Não foi possível conectar ao serviço de assistente");
-        
-        return {
-          message: errorMessage.content,
-          error: fallbackError.message
-        };
-      }
-    }
-  }
-  
-  private async callWebhook(url: string, payload: any): Promise<Response> {
-    const timeoutId = setTimeout(() => {
-      console.log("Timeout de 10 segundos atingido");
-    }, 10000);
-    
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      const response = await supabase.functions.invoke('chat-assistant', {
+        body: payload
       });
       
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Erro na resposta do webhook: ${response.status}`);
+      if (response.error) {
+        throw new Error(`Erro na função Edge: ${response.error.message}`);
       }
       
-      return response;
+      return this.processResponse(response.data);
     } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
+      console.error('Erro ao chamar função Edge:', error);
+      
+      // Mensagem de erro
+      const errorMessage: ChatMessage = {
+        id: uuidv4(),
+        session_id: this.sessionId,
+        content: 'Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe já foi notificada. Por favor, tente novamente em instantes.',
+        role: 'assistant',
+        created_at: new Date().toISOString()
+      };
+      
+      // Salvar mensagem de erro no Supabase
+      try {
+        await supabase.from('chat_messages').insert(errorMessage);
+      } catch (dbError) {
+        console.error("Erro ao salvar mensagem de erro:", dbError);
+      }
+      
+      this.messages.push(errorMessage);
+      
+      // Mostrar notificação de erro
+      toast.error("Não foi possível conectar ao serviço de assistente");
+      
+      return {
+        message: errorMessage.content,
+        error: error.message
+      };
     }
   }
   
-  private async processWebhookResponse(responseData: any): Promise<any> {
-    console.log('Resposta do webhook:', responseData);
+  private async processResponse(responseData: any): Promise<any> {
+    console.log('Resposta da função Edge:', responseData);
     
     // Verificar se há dados de orçamento na resposta
     if (responseData.quoteData || responseData.quote_data) {
