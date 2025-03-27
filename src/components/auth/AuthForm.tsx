@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
 
@@ -18,11 +19,28 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres' }),
 });
 
+// Schema de cadastro atualizado com novos campos
 const registerSchema = z.object({
-  name: z.string().min(2, { message: 'Digite seu nome completo' }),
+  tipoPessoa: z.enum(['fisica', 'juridica'], { 
+    required_error: 'Selecione o tipo de pessoa' 
+  }),
+  nome: z.string().min(2, { message: 'Digite o nome completo ou razão social' }),
+  cpfCnpj: z.string().min(11, { message: 'Digite um CPF ou CNPJ válido' }),
   email: z.string().email({ message: 'Digite um email válido' }),
-  phone: z.string().min(8, { message: 'Digite um telefone válido' }),
+  telefone: z.string().min(8, { message: 'Digite um telefone válido' }),
+  endereco: z.string().optional(),
+  representanteNome: z.string().optional(),
+  representanteCpf: z.string().optional(),
   password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres' }),
+}).refine(data => {
+  // Validação condicional: se for pessoa jurídica, o representante é obrigatório
+  if (data.tipoPessoa === 'juridica') {
+    return !!data.representanteNome && !!data.representanteCpf;
+  }
+  return true;
+}, {
+  message: "Representante legal é obrigatório para pessoa jurídica",
+  path: ["representanteNome"]
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -49,12 +67,20 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      name: "",
+      tipoPessoa: "fisica",
+      nome: "",
+      cpfCnpj: "",
       email: "",
-      phone: "",
+      telefone: "",
+      endereco: "",
+      representanteNome: "",
+      representanteCpf: "",
       password: "",
     },
   });
+
+  // Observar mudanças no tipo de pessoa para ajustar a validação
+  const tipoPessoa = registerForm.watch("tipoPessoa");
 
   async function onLoginSubmit(data: LoginFormValues) {
     setIsLoading(true);
@@ -100,21 +126,46 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
   async function onRegisterSubmit(data: RegisterFormValues) {
     setIsLoading(true);
     try {
-      console.log('Tentando cadastrar usuário:', data.email);
-      const { data: authData, error } = await supabase.auth.signUp({
+      console.log('Tentando cadastrar usuário:', data);
+      
+      // 1. Registrar o usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
           data: {
-            full_name: data.name,
-            phone: data.phone,
+            full_name: data.nome,
+            phone: data.telefone,
             is_manager: isManager,
+            tipo_pessoa: data.tipoPessoa,
           },
         },
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
 
+      // 2. Criar o perfil de cliente na tabela clients
+      if (authData.user) {
+        const clientData = {
+          name: data.nome,
+          email: data.email,
+          phone: data.telefone,
+          address: data.endereco || null,
+          tipo_pessoa: data.tipoPessoa,
+          cpf_cnpj: data.cpfCnpj,
+          representante_nome: data.representanteNome || null,
+          representante_cpf: data.representanteCpf || null
+        };
+        
+        const { error: clientError } = await supabase
+          .from('clients')
+          .insert(clientData);
+          
+        if (clientError) {
+          console.error('Erro ao criar perfil de cliente:', clientError);
+        }
+      }
+      
       console.log('Cadastro bem-sucedido:', authData);
       
       if (authData.user?.identities?.length === 0) {
@@ -208,17 +259,100 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
               <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                 <FormField
                   control={registerForm.control}
-                  name="name"
+                  name="tipoPessoa"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome Completo</FormLabel>
+                    <FormItem className="mb-4">
+                      <FormLabel>Tipo de Pessoa</FormLabel>
                       <FormControl>
-                        <Input placeholder="Seu nome completo" {...field} />
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex space-x-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="fisica" id="fisica" />
+                            <FormLabel htmlFor="fisica" className="font-normal cursor-pointer">
+                              Pessoa Física
+                            </FormLabel>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="juridica" id="juridica" />
+                            <FormLabel htmlFor="juridica" className="font-normal cursor-pointer">
+                              Pessoa Jurídica
+                            </FormLabel>
+                          </div>
+                        </RadioGroup>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="nome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{tipoPessoa === 'fisica' ? 'Nome Completo' : 'Razão Social'}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder={tipoPessoa === 'fisica' ? 'Seu nome completo' : 'Nome da empresa'} 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="cpfCnpj"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{tipoPessoa === 'fisica' ? 'CPF' : 'CNPJ'}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder={tipoPessoa === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {tipoPessoa === 'juridica' && (
+                  <>
+                    <FormField
+                      control={registerForm.control}
+                      name="representanteNome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome do Representante Legal</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome completo do representante" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={registerForm.control}
+                      name="representanteCpf"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CPF do Representante</FormLabel>
+                          <FormControl>
+                            <Input placeholder="000.000.000-00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
                 
                 <FormField
                   control={registerForm.control}
@@ -236,12 +370,26 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
                 
                 <FormField
                   control={registerForm.control}
-                  name="phone"
+                  name="telefone"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Telefone</FormLabel>
                       <FormControl>
                         <Input placeholder="(00) 00000-0000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={registerForm.control}
+                  name="endereco"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço (opcional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Rua, número, bairro, cidade" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

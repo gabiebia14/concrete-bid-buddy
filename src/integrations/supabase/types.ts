@@ -79,27 +79,39 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          cpf_cnpj: string | null
           created_at: string | null
           email: string
           id: string
           name: string
-          phone: string | null
+          phone: string
+          representante_cpf: string | null
+          representante_nome: string | null
+          tipo_pessoa: string
         }
         Insert: {
           address?: string | null
+          cpf_cnpj?: string | null
           created_at?: string | null
           email: string
           id?: string
           name: string
-          phone?: string | null
+          phone: string
+          representante_cpf?: string | null
+          representante_nome?: string | null
+          tipo_pessoa?: string
         }
         Update: {
           address?: string | null
+          cpf_cnpj?: string | null
           created_at?: string | null
           email?: string
           id?: string
           name?: string
-          phone?: string | null
+          phone?: string
+          representante_cpf?: string | null
+          representante_nome?: string | null
+          tipo_pessoa?: string
         }
         Relationships: []
       }

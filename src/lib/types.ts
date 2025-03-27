@@ -17,6 +17,10 @@ export type ClientData = {
   email: string;
   phone: string;
   address?: string;
+  tipo_pessoa?: string;
+  cpf_cnpj?: string;
+  representante_nome?: string;
+  representante_cpf?: string;
 };
 
 export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'sent' | 'completed';
