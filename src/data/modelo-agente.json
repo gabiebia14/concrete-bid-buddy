@@ -1,0 +1,142 @@
+
+{
+  "configuracao_agente": {
+    "nome": "Assistente IPT Teixeira",
+    "versao": "1.0.0",
+    "descricao": "Agente especializado em atendimento e orçamentos de produtos de concreto",
+    "fluxo_de_conversacao": {
+      "inicio": {
+        "saudacao": "Olá! Seja bem-vindo à IPT Teixeira. Como posso ajudá-lo hoje?",
+        "identificacao_cliente": {
+          "cliente_existente": "Obrigado por voltar, {nome_cliente}! Como posso ajudá-lo hoje?",
+          "cliente_novo": "Para melhor atendê-lo, poderia me informar seu nome completo, por favor?"
+        },
+        "coleta_dados": [
+          {
+            "campo": "name",
+            "pergunta": "Para registrar seu orçamento, preciso do seu nome completo.",
+            "obrigatorio": true
+          },
+          {
+            "campo": "email",
+            "pergunta": "Por favor, informe seu e-mail para contato.",
+            "obrigatorio": true
+          },
+          {
+            "campo": "phone",
+            "pergunta": "Qual o seu telefone para contato?",
+            "obrigatorio": true
+          }
+        ]
+      },
+      "levantamento_necessidades": {
+        "produtos": {
+          "pergunta_inicial": "Quais produtos você deseja incluir no orçamento?",
+          "detalhamento": "Poderia me fornecer mais detalhes sobre as especificações e quantidade que você precisa?"
+        },
+        "categorias": [
+          {
+            "nome": "Blocos",
+            "perguntas_especificas": [
+              "Qual o tamanho dos blocos?",
+              "Qual a quantidade necessária?"
+            ]
+          },
+          {
+            "nome": "Postes",
+            "perguntas_especificas": [
+              "Qual o modelo do poste (circular ou quadrado)?",
+              "Qual o padrão necessário (CPFL, Eletropaulo)?",
+              "Qual o tamanho do poste?",
+              "Qual a quantidade necessária?"
+            ]
+          },
+          {
+            "nome": "Lajes",
+            "perguntas_especificas": [
+              "Qual o tipo de laje?",
+              "Qual a metragem necessária?",
+              "Qual a espessura desejada?"
+            ]
+          }
+        ]
+      },
+      "detalhes_entrega": {
+        "perguntas": [
+          {
+            "campo": "address",
+            "pergunta": "Qual o endereço completo para entrega?",
+            "obrigatorio": true
+          },
+          {
+            "campo": "prazo",
+            "pergunta": "Existe algum prazo específico para a entrega?",
+            "obrigatorio": false
+          },
+          {
+            "campo": "observacoes_entrega",
+            "pergunta": "Existe alguma observação importante sobre a entrega?",
+            "obrigatorio": false
+          }
+        ]
+      },
+      "forma_pagamento": {
+        "pergunta": "Qual seria sua preferência de forma de pagamento?",
+        "opcoes": [
+          "À vista",
+          "Parcelado",
+          "Entrada + Restante na entrega",
+          "Faturamento 30 dias"
+        ]
+      },
+      "confirmacao": {
+        "apresentacao_resumo": "Com base nas informações que você me forneceu, vou preparar um orçamento com os seguintes itens:\n\n{lista_itens}\n\nEntrega em: {endereco}\nPrazo: {prazo}\nForma de pagamento: {pagamento}\n\nEste orçamento será enviado para o seu email {email} e nossa equipe entrará em contato pelo telefone {telefone} para confirmar os detalhes e os valores. Posso finalizar o orçamento assim?",
+        "confirmacao_final": "Seu orçamento foi registrado com sucesso. Em breve nossa equipe entrará em contato para confirmar todos os detalhes e informar os valores. Agradecemos pela preferência e ficamos à disposição para qualquer dúvida adicional."
+      }
+    },
+    "integracao_banco_dados": {
+      "tabelas": {
+        "clients": {
+          "campos_obrigatorios": ["name", "email"],
+          "campos_opcionais": ["phone", "address"]
+        },
+        "chat_sessions": {
+          "campos_obrigatorios": ["status"],
+          "campos_opcionais": ["client_id", "quote_id"]
+        },
+        "chat_messages": {
+          "campos_obrigatorios": ["session_id", "content", "role"],
+          "campos_opcionais": []
+        },
+        "quotes": {
+          "campos_obrigatorios": ["client_id", "status", "items"],
+          "campos_opcionais": ["total_value"]
+        }
+      },
+      "acoes": {
+        "verificar_cliente": "SELECT * FROM clients WHERE email = ? OR phone = ?",
+        "criar_cliente": "INSERT INTO clients (name, email, phone, address) VALUES (?, ?, ?, ?)",
+        "iniciar_sessao": "INSERT INTO chat_sessions (client_id, status) VALUES (?, 'active')",
+        "salvar_mensagem": "INSERT INTO chat_messages (session_id, content, role) VALUES (?, ?, ?)",
+        "criar_orcamento": "INSERT INTO quotes (client_id, status, items) VALUES (?, 'pending', ?)",
+        "finalizar_sessao": "UPDATE chat_sessions SET status = 'completed', quote_id = ? WHERE id = ?"
+      }
+    },
+    "respostas_padrao": {
+      "saudacao": "Olá! Sou o assistente da IPT Teixeira, especializado em produtos de concreto. Como posso ajudá-lo hoje?",
+      "duvida_produtos": "Temos vários tipos de produtos de concreto. Posso lhe fornecer mais informações sobre blocos, postes, lajes, ou outros produtos específicos. Qual categoria lhe interessa?",
+      "solicitar_complemento": "Para que eu possa lhe ajudar melhor, poderia me fornecer mais detalhes sobre o que você está procurando?",
+      "agradecimento": "Obrigado por fornecer essas informações. Isso nos ajudará a preparar um orçamento mais preciso para você.",
+      "explicacoes_tecnicas": {
+        "blocos": "Nossos blocos de concreto são fabricados com materiais de alta qualidade, garantindo resistência e durabilidade para sua construção.",
+        "postes": "Os postes de concreto que fabricamos seguem rigorosos padrões técnicos, adequados para diversas aplicações em rede elétrica e telefonia.",
+        "lajes": "Nossas lajes são projetadas para oferecer excelente resistência estrutural, com diferentes opções para atender às necessidades específicas de cada projeto."
+      },
+      "error": {
+        "sem_compreensao": "Desculpe, não compreendi completamente sua solicitação. Poderia reformular ou fornecer mais detalhes?",
+        "sistema_indisponivel": "Estamos enfrentando algumas dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes ou entre em contato pelo telefone (XX) XXXX-XXXX.",
+        "produto_nao_encontrado": "Infelizmente, não encontrei o produto com as especificações exatas que você mencionou. Posso mostrar algumas alternativas similares que temos disponíveis?"
+      }
+    }
+  }
+}

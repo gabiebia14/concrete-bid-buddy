@@ -1,0 +1,172 @@
+
+{
+  "orcamento": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "cliente": {
+      "id": "7a1b9e80-c77d-4f63-ad25-b0a18e1a0001",
+      "nome": "João Silva",
+      "email": "joao.silva@exemplo.com",
+      "telefone": "(11) 98765-4321",
+      "endereco": "Rua das Flores, 123 - São Paulo/SP"
+    },
+    "status": "pending",
+    "data_criacao": "2023-10-15T14:30:00Z",
+    "data_atualizacao": "2023-10-15T14:45:00Z",
+    "produtos": [
+      {
+        "id": "3c7f8a90-d5e6-47f2-9b10-a1b2c3d4e5f6",
+        "nome": "Bloco de Concreto 14x19x39",
+        "descricao": "Bloco vazado de concreto para vedação",
+        "categoria": "Blocos",
+        "especificacoes": "14x19x39cm",
+        "quantidade": 500,
+        "preco_unitario": null,
+        "preco_total": null
+      },
+      {
+        "id": "4d8e9b01-e6f7-48g3-0c21-b2c3d4e5f6g7",
+        "nome": "Poste de Concreto",
+        "descricao": "Poste de concreto para construção",
+        "categoria": "Postes",
+        "modelo": "Circular",
+        "padrao": "CPFL",
+        "tamanho": "9 metros",
+        "especificacoes": "250daN",
+        "quantidade": 2,
+        "preco_unitario": null,
+        "preco_total": null
+      }
+    ],
+    "entrega": {
+      "local": "Rua das Flores, 123 - São Paulo/SP",
+      "prazo": "15 dias úteis"
+    },
+    "pagamento": {
+      "forma": "50% entrada, 50% na entrega",
+      "observacoes": "Pagamento via PIX ou transferência bancária"
+    },
+    "valor_total": null,
+    "observacoes": "Cliente solicitou entrega aos sábados, apenas pela manhã."
+  },
+  "sessao_chat": {
+    "id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+    "cliente_id": "7a1b9e80-c77d-4f63-ad25-b0a18e1a0001",
+    "status": "completed",
+    "orcamento_id": "550e8400-e29b-41d4-a716-446655440000",
+    "data_criacao": "2023-10-15T14:00:00Z",
+    "mensagens": [
+      {
+        "id": "9c2d1e30-g99f-50i5-1e47-f2g3h4i5j6k7",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Olá, gostaria de fazer um orçamento de blocos de concreto.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:00:10Z"
+      },
+      {
+        "id": "0d3e2f40-h00g-51j6-2f58-g3h4i5j6k7l8",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Olá! Seja bem-vindo à IPT Teixeira. Ficarei feliz em ajudá-lo com o orçamento. Poderia me informar seu nome completo, por favor?",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:00:15Z"
+      },
+      {
+        "id": "1e4f3g50-i11h-52k7-3g69-h4i5j6k7l8m9",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Meu nome é João Silva.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:00:30Z"
+      },
+      {
+        "id": "2f5g4h60-j22i-53l8-4h70-i5j6k7l8m9n0",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Obrigado, João. Para registrar seu orçamento, preciso também do seu email e telefone para contato.",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:00:35Z"
+      },
+      {
+        "id": "3g6h5i70-k33j-54m9-5i81-j6k7l8m9n0o1",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Meu email é joao.silva@exemplo.com e meu telefone é (11) 98765-4321.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:01:00Z"
+      },
+      {
+        "id": "4h7i6j80-l44k-55n0-6j92-k7l8m9n0o1p2",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Perfeito! Agora me conte sobre os produtos que você precisa. Temos blocos de concreto em vários tamanhos. Quais são as especificações e quantidade que você precisa?",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:01:05Z"
+      },
+      {
+        "id": "5i8j7k90-m55l-56o1-7k03-l8m9n0o1p2q3",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Preciso de 500 blocos de concreto de 14x19x39 e também 2 postes de concreto para a construção.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:01:30Z"
+      },
+      {
+        "id": "6j9k8l00-n66m-57p2-8l14-m9n0o1p2q3r4",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Entendi. Para os postes, temos diferentes modelos e tamanhos. Você tem preferência por algum modelo específico? Temos postes circulares e quadrados, com diferentes padrões como CPFL e Eletropaulo.",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:01:35Z"
+      },
+      {
+        "id": "7k0l9m10-o77n-58q3-9m25-n0o1p2q3r4s5",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Quero postes circulares, padrão CPFL, de 9 metros.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:02:00Z"
+      },
+      {
+        "id": "8l1m0n20-p88o-59r4-0n36-o1p2q3r4s5t6",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Ótimo. Qual é o endereço de entrega e existe algum prazo específico que você precisa que os produtos sejam entregues?",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:02:05Z"
+      },
+      {
+        "id": "9m2n1o30-q99p-60s5-1o47-p2q3r4s5t6u7",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "O endereço é Rua das Flores, 123 - São Paulo/SP. Preciso em 15 dias úteis. E só podem entregar pela manhã aos sábados.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:02:30Z"
+      },
+      {
+        "id": "0n3o2p40-r00q-61t6-2p58-q3r4s5t6u7v8",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Entendido. E quanto à forma de pagamento, você tem alguma preferência?",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:02:35Z"
+      },
+      {
+        "id": "1o4p3q50-s11r-62u7-3q69-r4s5t6u7v8w9",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Prefiro pagar 50% de entrada e 50% na entrega, por PIX ou transferência.",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:03:00Z"
+      },
+      {
+        "id": "2p5q4r60-t22s-63v8-4r70-s5t6u7v8w9x0",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Perfeito, João! Com base nas informações que você me forneceu, vou preparar um orçamento com os seguintes itens:\n\n- 500 Blocos de Concreto 14x19x39\n- 2 Postes de Concreto Circular, padrão CPFL, 9 metros\n\nEntrega em: Rua das Flores, 123 - São Paulo/SP\nPrazo: 15 dias úteis (entregas aos sábados pela manhã)\nForma de pagamento: 50% entrada e 50% na entrega (PIX/transferência)\n\nEste orçamento será enviado para o seu email joao.silva@exemplo.com e nossa equipe entrará em contato pelo telefone (11) 98765-4321 para confirmar os detalhes e os valores. Posso finalizar o orçamento assim?",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:03:05Z"
+      },
+      {
+        "id": "3q6r5s70-u33t-64w9-5s81-t6u7v8w9x0y1",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Sim, está perfeito. Pode finalizar e aguardo o contato de vocês. Obrigado!",
+        "role": "user",
+        "data_criacao": "2023-10-15T14:03:30Z"
+      },
+      {
+        "id": "4r7s6t80-v44u-65x0-6t92-u7v8w9x0y1z2",
+        "sessao_id": "8b1c0d20-f88e-49h4-0d36-e1f2g3h4i5j6",
+        "conteudo": "Ótimo! Seu orçamento foi registrado com sucesso. Em breve nossa equipe entrará em contato para confirmar todos os detalhes e informar os valores. Agradecemos pela preferência e ficamos à disposição para qualquer dúvida adicional. Tenha um excelente dia!",
+        "role": "assistant",
+        "data_criacao": "2023-10-15T14:03:35Z"
+      }
+    ]
+  }
+}
