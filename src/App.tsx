@@ -21,9 +21,10 @@ import ChatAssistant from './pages/ChatAssistant';
 import Vendedor from './pages/Vendedor';
 import './App.css';
 
-const queryClient = new QueryClient();
-
 function App() {
+  // Criando o queryClient dentro do componente funcional
+  const queryClient = new QueryClient();
+
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
