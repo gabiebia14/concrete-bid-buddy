@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  LogOut
+  LogOut,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,11 @@ export function ClientSidebar() {
       label: 'Catálogo',
       icon: <Package size={20} />,
       href: '/catalogo'
+    },
+    {
+      label: 'Vendedor',
+      icon: <MessageSquare size={20} />,
+      href: '/vendedor'
     },
     {
       label: 'Ajuda',
