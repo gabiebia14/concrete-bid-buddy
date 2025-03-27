@@ -1,14 +1,34 @@
+
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MessageSquare, FileText, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ProductSelector } from '@/components/ui/product-selector';
+import { QuoteItem } from '@/lib/database.types';
+import { ChatInterface } from '@/components/chat/ChatInterface';
+import { toast } from 'sonner';
 
 export default function CreateQuote() {
   const navigate = useNavigate();
   const [showOptions, setShowOptions] = useState(true);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  
+  // Estados para o formulário
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSelectManual = () => {
     setShowOptions(false);
@@ -26,6 +46,22 @@ export default function CreateQuote() {
     } else {
       navigate(-1);
     }
+  };
+
+  const handleProductsSelected = (products: QuoteItem[]) => {
+    setSelectedProducts(products);
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    // Simulação de envio
+    setTimeout(() => {
+      toast.success("Orçamento enviado com sucesso!");
+      setIsSubmitting(false);
+      navigate('/historico');
+    }, 1500);
   };
 
   return (
