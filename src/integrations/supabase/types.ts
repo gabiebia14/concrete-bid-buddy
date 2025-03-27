@@ -208,6 +208,70 @@ export type Database = {
         }
         Relationships: []
       }
+      vendedor_chat_messages: {
+        Row: {
+          conteudo: string
+          created_at: string | null
+          id: string
+          remetente: string
+          session_id: string | null
+        }
+        Insert: {
+          conteudo: string
+          created_at?: string | null
+          id?: string
+          remetente: string
+          session_id?: string | null
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string | null
+          id?: string
+          remetente?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendedor_chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vendedor_chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendedor_chat_sessions: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendedor_chat_sessions_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

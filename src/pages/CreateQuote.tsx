@@ -11,7 +11,7 @@ import { ProductSelector } from '@/components/ui/product-selector';
 import { QuoteItem } from '@/lib/types';
 import { toast } from 'sonner';
 import { createQuote, addClient } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 
@@ -95,10 +95,18 @@ export default function CreateQuote() {
                       Escolha os produtos que você deseja incluir no seu orçamento
                     </CardDescription>
                   </div>
-                  <Button variant="outline" onClick={() => setShowChat(!showChat)}>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    {showChat ? 'Fechar Chat' : 'Precisa de Ajuda?'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setShowChat(!showChat)}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      {showChat ? 'Fechar Chat' : 'Precisa de Ajuda?'}
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <Link to="/vendedor">
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Falar com Vendedor
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
