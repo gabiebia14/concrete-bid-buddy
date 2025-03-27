@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound';
 import Login from './pages/Login';
 import ManagerLogin from './pages/ManagerLogin';
 import Index from './pages/Index';
+import LandingPage from './pages/LandingPage';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
@@ -31,8 +32,11 @@ function App() {
             <div className="flex flex-col min-h-screen">
               <main className="flex-grow">
                 <Routes>
-                  {/* Página inicial */}
-                  <Route path="/" element={<Index />} />
+                  {/* Landing Page como página inicial */}
+                  <Route path="/" element={<LandingPage />} />
+                  
+                  {/* A antiga Index agora fica disponível em /area-cliente */}
+                  <Route path="/area-cliente" element={<Index />} />
                   
                   {/* Autenticação */}
                   <Route path="/login" element={<Login />} />
@@ -75,7 +79,7 @@ function App() {
                   {/* Nova página de chat com vendedor */}
                   <Route path="/vendedor" element={<Vendedor />} />
                   
-                  {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
+                  {/* Páginas para Gerentes */}
                   <Route path="/manager/login" element={<ManagerLogin />} />
                   <Route 
                     path="/manager/dashboard" 
