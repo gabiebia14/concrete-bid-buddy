@@ -34,7 +34,7 @@ export function AuthButtons() {
         </Link>
       </Button>
       <Button asChild variant="default" size="sm" className="hidden sm:flex">
-        <Link to="/login">Cadastrar</Link>
+        <Link to="/login?tab=cadastrar">Cadastrar</Link>
       </Button>
     </div>
   );

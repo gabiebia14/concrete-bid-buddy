@@ -133,6 +133,7 @@
     @apply border border-primary text-primary hover:bg-primary/10 font-medium rounded-md px-4 py-2;
   }
   
+  /* Badges de status */
   .status-badge-pending {
     @apply bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
   }
