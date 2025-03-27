@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { VendedorChatMessage } from '@/lib/vendedorTypes';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';

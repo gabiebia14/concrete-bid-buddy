@@ -1,5 +1,6 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -23,91 +24,93 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
-          <div className="flex flex-col min-h-screen">
-            <main className="flex-grow">
-              <Routes>
-                {/* Página inicial */}
-                <Route path="/" element={<Index />} />
-                
-                {/* Autenticação */}
-                <Route path="/login" element={<Login />} />
-                
-                {/* Páginas para Clientes */}
-                <Route 
-                  path="/dashboard" 
-                  element={
-                    <PrivateRoute>
-                      <Dashboard />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/criar-orcamento" 
-                  element={
-                    <PrivateRoute>
-                      <CreateQuote />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/historico" 
-                  element={
-                    <PrivateRoute>
-                      <QuoteHistory />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/catalogo" 
-                  element={
-                    <PrivateRoute>
-                      <Catalog />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route path="/chat-assistant" element={<ChatAssistant />} />
-                
-                {/* Nova página de chat com vendedor */}
-                <Route path="/vendedor" element={<Vendedor />} />
-                
-                {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
-                <Route path="/manager/login" element={<ManagerLogin />} />
-                <Route 
-                  path="/manager/dashboard" 
-                  element={
-                    <PrivateRoute requireManager>
-                      <ManagerDashboard />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/manager/quotes" 
-                  element={
-                    <PrivateRoute requireManager>
-                      <ManagerQuotes />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/manager/clients" 
-                  element={
-                    <PrivateRoute requireManager>
-                      <ManagerClients />
-                    </PrivateRoute>
-                  } 
-                />
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Toaster />
-          </div>
-        </Router>
-      </AuthProvider>
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Router>
+            <div className="flex flex-col min-h-screen">
+              <main className="flex-grow">
+                <Routes>
+                  {/* Página inicial */}
+                  <Route path="/" element={<Index />} />
+                  
+                  {/* Autenticação */}
+                  <Route path="/login" element={<Login />} />
+                  
+                  {/* Páginas para Clientes */}
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <PrivateRoute>
+                        <Dashboard />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/criar-orcamento" 
+                    element={
+                      <PrivateRoute>
+                        <CreateQuote />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/historico" 
+                    element={
+                      <PrivateRoute>
+                        <QuoteHistory />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/catalogo" 
+                    element={
+                      <PrivateRoute>
+                        <Catalog />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route path="/chat-assistant" element={<ChatAssistant />} />
+                  
+                  {/* Nova página de chat com vendedor */}
+                  <Route path="/vendedor" element={<Vendedor />} />
+                  
+                  {/* Páginas para Gerentes (ocultas, mas ainda funcionais) */}
+                  <Route path="/manager/login" element={<ManagerLogin />} />
+                  <Route 
+                    path="/manager/dashboard" 
+                    element={
+                      <PrivateRoute requireManager>
+                        <ManagerDashboard />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/manager/quotes" 
+                    element={
+                      <PrivateRoute requireManager>
+                        <ManagerQuotes />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/manager/clients" 
+                    element={
+                      <PrivateRoute requireManager>
+                        <ManagerClients />
+                      </PrivateRoute>
+                    } 
+                  />
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <Toaster />
+            </div>
+          </Router>
+        </AuthProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 }
 
