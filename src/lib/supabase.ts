@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database, Product, Quote, Client, ChatSession, ChatMessage, QuoteItem } from './database.types';
+import type { Database, Product, Quote, Client } from './database.types';
 
 // Estas variáveis viriam de variáveis de ambiente em um app real
 const supabaseUrl = 'https://ehrerbpblmensiodhgka.supabase.co';
@@ -137,40 +137,6 @@ export async function addClient(client: Database['public']['Tables']['clients'][
     .from('clients')
     .insert(client)
     .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-// Sessões de Chat
-export async function createChatSession(session: Database['public']['Tables']['chat_sessions']['Insert']) {
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .insert(session)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-export async function saveChatMessage(message: Database['public']['Tables']['chat_messages']['Insert']) {
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .insert(message)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
-export async function fetchChatSessionById(id: string) {
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .select('*, chat_messages(*)')
-    .eq('id', id)
     .single();
   
   if (error) throw error;

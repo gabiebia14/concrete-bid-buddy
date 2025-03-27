@@ -94,49 +94,6 @@ export interface Database {
           created_at?: string
         }
       }
-      chat_sessions: {
-        Row: {
-          id: string
-          client_id?: string
-          status: 'active' | 'completed'
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          client_id?: string
-          status?: 'active' | 'completed'
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          status?: 'active' | 'completed'
-          created_at?: string
-        }
-      }
-      chat_messages: {
-        Row: {
-          id: string
-          session_id: string
-          content: string
-          role: 'user' | 'assistant'
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          session_id: string
-          content: string
-          role: 'user' | 'assistant'
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          session_id?: string
-          content?: string
-          role?: 'user' | 'assistant'
-          created_at?: string
-        }
-      }
     }
     Views: {}
     Functions: {}
@@ -147,8 +104,6 @@ export interface Database {
 export type Product = Database['public']['Tables']['products']['Row']
 export type Client = Database['public']['Tables']['clients']['Row']
 export type Quote = Database['public']['Tables']['quotes']['Row']
-export type ChatSession = Database['public']['Tables']['chat_sessions']['Row']
-export type ChatMessage = Database['public']['Tables']['chat_messages']['Row']
 
 export type QuoteItem = {
   product_id: string

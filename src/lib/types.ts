@@ -2,19 +2,6 @@
 import { Database } from './database.types';
 
 // Reexportando os tipos da database para uso nos componentes
-export type ChatMessage = {
-  id: string;
-  session_id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  created_at: string;
-  timestamp?: string; // Adicionado para compatibilidade
-};
-
-export type ChatSession = Database['public']['Tables']['chat_sessions']['Row'] & {
-  chat_messages?: ChatMessage[];
-};
-
 export type QuoteItem = {
   product_id: string;
   product_name: string;
