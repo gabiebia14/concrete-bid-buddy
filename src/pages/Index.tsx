@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Layout } from "@/components/layout/Layout";
-import { FileText, ArrowRight, MessageSquare } from "lucide-react";
+import { FileText, ArrowRight, MessageSquare, Calculator, Clock, PieChart, CheckSquare, Truck } from "lucide-react";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { Link } from "react-router-dom";
 
@@ -25,12 +25,17 @@ const Index = () => {
           <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left bg-white/80 rounded-xl p-8 backdrop-blur-sm shadow-lg">
             <div className="mb-8">
               <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-32 mb-6 object-scale-down" />
+              <h1 className="text-3xl font-bold mb-4 text-gray-800">
+                Plataforma de Orçamentos de Concreto
+              </h1>
               <p className="text-xl text-muted-foreground max-w-lg">
                 Orçamentos de produtos de concreto com praticidade e rapidez
               </p>
             </div>
 
             <div className="space-y-6 max-w-lg">
+              <h2 className="text-2xl font-semibold text-primary">Crie sua conta e tenha acesso a:</h2>
+              
               <div className="flex items-start gap-4">
                 <div className="mt-1 bg-primary/10 p-2 rounded-full">
                   <FileText size={20} className="text-primary" />
@@ -39,6 +44,66 @@ const Index = () => {
                   <h3 className="font-medium mb-1">Orçamentos simplificados</h3>
                   <p className="text-muted-foreground text-sm">
                     Crie e gerencie orçamentos em poucos cliques, sem burocracia
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                  <Calculator size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Cálculos automáticos</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Preços calculados automaticamente com base nas suas especificações
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                  <Clock size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Histórico completo</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Acesso ao histórico de todos seus orçamentos e pedidos anteriores
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                  <PieChart size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Dashboard personalizado</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Visualize estatísticas e status dos seus pedidos em um painel intuitivo
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                  <CheckSquare size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Aprovação simplificada</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Aprove orçamentos diretamente pela plataforma, sem papelada
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                  <Truck size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Acompanhamento de entrega</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Acompanhe o status de produção e entrega dos seus pedidos
                   </p>
                 </div>
               </div>
