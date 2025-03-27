@@ -14,14 +14,198 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// URL do webhook do n8n corrigida
-const n8nWebhookUrl = "https://gbservin8n.sevirenostrinta.com.br/webhook-test/chat-assistant";
-// URL alternativa se a principal falhar
-const backupWebhookUrl = 'https://webhook.site/3fe88e76-a025-48ba-85fc-3a03b8be9d75'; // Substitua por um webhook real de backup
+// Carregar modelo de agente
+const modeloAgentePath = Deno.cwd() + '/src/data/modelo-agente.json';
+let modeloAgente;
+try {
+  modeloAgente = JSON.parse(Deno.readTextFileSync(modeloAgentePath));
+  console.log("Modelo de agente carregado com sucesso");
+} catch (error) {
+  console.error("Erro ao carregar modelo de agente:", error);
+  modeloAgente = {
+    "configuracao_agente": {
+      "respostas_padrao": {
+        "error": {
+          "sistema_indisponivel": "Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em alguns instantes."
+        }
+      }
+    }
+  };
+}
 
-console.log("Iniciando função chat-assistant com URL: " + supabaseUrl);
-console.log("URL do webhook n8n: " + n8nWebhookUrl);
-console.log("URL do webhook de backup: " + backupWebhookUrl);
+// Função para processar mensagem e gerar resposta baseada no modelo de agente
+async function processarMensagem(message, sessionId, clientInfo = null) {
+  try {
+    // Carregar histórico de mensagens para contexto
+    const { data: messageHistory, error: historyError } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+      
+    if (historyError) {
+      console.error('Erro ao carregar histórico de mensagens:', historyError);
+      return {
+        message: modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel
+      };
+    }
+    
+    // Carregar dados do cliente se tiver client_id
+    let clientData = null;
+    if (clientInfo && (clientInfo.clientId || clientInfo.email || clientInfo.phone)) {
+      let query = supabase.from('clients').select('*');
+      
+      if (clientInfo.clientId) {
+        query = query.eq('id', clientInfo.clientId);
+      } else if (clientInfo.email) {
+        query = query.eq('email', clientInfo.email);
+      } else if (clientInfo.phone) {
+        query = query.eq('phone', clientInfo.phone);
+      }
+      
+      const { data, error } = await query.maybeSingle();
+      
+      if (!error && data) {
+        clientData = data;
+      }
+    }
+    
+    // Determinar estado da conversa baseado no histórico
+    const messageContent = message.toLowerCase();
+    let resposta = "";
+    let quoteData = null;
+    
+    // Verificar se cliente existe
+    const isNewClient = !clientData;
+    
+    // Se for mensagem inicial ou cliente novo
+    if (messageHistory.length <= 1 || isNewClient) {
+      if (isNewClient && clientInfo && clientInfo.name) {
+        // Criar novo cliente
+        const { data: newClient, error: createError } = await supabase
+          .from('clients')
+          .insert({
+            name: clientInfo.name,
+            email: clientInfo.email || `cliente_${Date.now()}@temporario.com`,
+            phone: clientInfo.phone || null,
+            address: null,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+          
+        if (!createError && newClient) {
+          clientData = newClient;
+          
+          // Atualizar sessão com client_id
+          await supabase
+            .from('chat_sessions')
+            .update({ client_id: newClient.id })
+            .eq('id', sessionId);
+        }
+        
+        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.saudacao;
+      } else {
+        resposta = isNewClient ? 
+          modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_novo :
+          modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_existente.replace('{nome_cliente}', clientData.name);
+      }
+    } else {
+      // Verificar se a mensagem inclui palavras-chave de produtos
+      const categorias = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.categorias;
+      let categoriaEncontrada = null;
+      
+      for (const categoria of categorias) {
+        if (messageContent.includes(categoria.nome.toLowerCase())) {
+          categoriaEncontrada = categoria;
+          break;
+        }
+      }
+      
+      if (categoriaEncontrada) {
+        // Buscar produtos da categoria
+        const { data: produtos, error: produtosError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('category', categoriaEncontrada.nome)
+          .limit(5);
+          
+        if (produtosError) {
+          console.error('Erro ao buscar produtos:', produtosError);
+          resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
+        } else if (produtos && produtos.length > 0) {
+          resposta = `Temos os seguintes produtos na categoria ${categoriaEncontrada.nome}:\n\n`;
+          produtos.forEach((produto, index) => {
+            resposta += `${index + 1}. ${produto.name}: ${produto.description}\n`;
+          });
+          
+          // Adicionar perguntas específicas da categoria
+          resposta += "\nPara ajudar no seu orçamento, preciso das seguintes informações:\n";
+          categoriaEncontrada.perguntas_especificas.forEach((pergunta, index) => {
+            resposta += `${index + 1}. ${pergunta}\n`;
+          });
+        } else {
+          resposta = modeloAgente.configuracao_agente.respostas_padrao.error.produto_nao_encontrado;
+        }
+      } else if (messageContent.includes("orçamento") || 
+                messageContent.includes("cotação") || 
+                messageContent.includes("preço")) {
+        // Resposta para pedido de orçamento genérico
+        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.produtos.pergunta_inicial;
+      } else if (messageContent.includes("entrega") || messageContent.includes("enviar")) {
+        // Perguntas sobre entrega
+        resposta = modeloAgente.configuracao_agente.detalhes_entrega.perguntas[0].pergunta;
+      } else if (messageContent.includes("pagamento") || messageContent.includes("pagar")) {
+        // Perguntas sobre pagamento
+        resposta = modeloAgente.configuracao_agente.forma_pagamento.pergunta + "\nOpções:\n";
+        modeloAgente.configuracao_agente.forma_pagamento.opcoes.forEach((opcao, index) => {
+          resposta += `${index + 1}. ${opcao}\n`;
+        });
+      } else if (messageContent.includes("confirmar") || messageContent.includes("finalizar")) {
+        // Criar um orçamento de exemplo para demonstração
+        if (clientData) {
+          quoteData = {
+            cliente: {
+              nome: clientData.name,
+              email: clientData.email,
+              telefone: clientData.phone
+            },
+            produtos: [
+              {
+                nome: "Produto de exemplo",
+                especificacoes: "Dimensões padrão",
+                quantidade: 10
+              }
+            ],
+            entrega: {
+              local: clientData.address || "A definir",
+              prazo: "A definir com o cliente"
+            },
+            forma_pagamento: "A definir com o cliente"
+          };
+          
+          resposta = modeloAgente.configuracao_agente.confirmacao.confirmacao_final;
+        } else {
+          resposta = "Para finalizar seu orçamento, preciso de algumas informações adicionais. Poderia me informar seu nome completo e um email para contato?";
+        }
+      } else {
+        // Resposta genérica
+        resposta = modeloAgente.configuracao_agente.respostas_padrao.solicitar_complemento;
+      }
+    }
+    
+    return {
+      message: resposta,
+      quote_data: quoteData
+    };
+  } catch (error) {
+    console.error('Erro ao processar mensagem:', error);
+    return {
+      message: modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel,
+      error: error.message
+    };
+  }
+}
 
 // Função para salvar os dados de orçamento extraídos no Supabase
 async function saveQuoteData(quoteData, sessionId, clientId = null) {
@@ -126,53 +310,6 @@ async function saveQuoteData(quoteData, sessionId, clientId = null) {
   }
 }
 
-// Função para usar o webhook do n8n
-async function callN8nWebhook(payload: any) {
-  try {
-    console.log(`Chamando webhook n8n em: ${n8nWebhookUrl}`);
-    console.log(`Payload: ${JSON.stringify(payload)}`);
-    
-    // Enviar o payload no formato que o n8n está esperando
-    const response = await fetch(n8nWebhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Erro na resposta do webhook principal: ${response.status}`, errorText);
-      
-      // Tentar webhook de backup
-      console.log(`Tentando webhook de backup em: ${backupWebhookUrl}`);
-      const backupResponse = await fetch(backupWebhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (!backupResponse.ok) {
-        throw new Error(`Erro na resposta do webhook de backup: ${backupResponse.status}`);
-      }
-      
-      console.log("Webhook de backup respondeu com sucesso");
-      const backupData = await backupResponse.json();
-      return backupData;
-    }
-    
-    const data = await response.json();
-    console.log(`Resposta do webhook: ${JSON.stringify(data)}`);
-    return data;
-  } catch (error) {
-    console.error("Erro ao chamar webhooks:", error);
-    throw error;
-  }
-}
-
 // Função principal que processa as requisições
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -184,87 +321,65 @@ serve(async (req) => {
     // Extrair o corpo da requisição
     const requestData = await req.json();
     
-    // Extrair o payload correto para o formato esperado pelo n8n
-    let payload = requestData;
+    // Extrair parâmetros da requisição
+    const { message, sessionId, clientId, source = 'web', name, email, phone } = requestData;
     
-    // Verificar se estamos recebendo dados aninhados e corrigir
-    if (requestData.body && typeof requestData.body === 'object') {
-      payload = requestData.body;
-      console.log('Usando payload do body:', payload);
-    }
-    
-    const { message, sessionId, clientId, source = 'web', name, email, phone } = payload;
-    
-    console.log(`Processando requisição de chat para sessão ${sessionId} com a mensagem: "${message?.substring(0, 50)}..."`);
-    console.log(`Fonte: ${source}, ClientID: ${clientId || 'não fornecido'}`);
-    
-    try {
-      console.log("Chamando webhook do n8n...");
-      // Enviar o payload diretamente, sem aninhar em body
-      const n8nResponse = await callN8nWebhook(payload);
-      
-      console.log("Resposta do webhook obtida com sucesso:", n8nResponse);
-      
-      // Salvar a mensagem no banco de dados se necessário
-      if (n8nResponse.message) {
-        const { error: messageSaveError } = await supabase
-          .from('chat_messages')
-          .insert({
-            session_id: sessionId,
-            content: n8nResponse.message,
-            role: 'assistant',
-            created_at: new Date().toISOString()
-          });
-        
-        if (messageSaveError) {
-          console.error("Erro ao salvar mensagem:", messageSaveError);
-        }
-      }
-      
-      // Processar dados de orçamento se presentes
-      let quote = null;
-      if (n8nResponse.quote_data) {
-        console.log("Dados do orçamento detectados na resposta do webhook:", n8nResponse.quote_data);
-        quote = await saveQuoteData(n8nResponse.quote_data, sessionId, clientId);
-      }
-      
-      return new Response(
-        JSON.stringify({
-          message: n8nResponse.message || "Desculpe, não consegui processar sua mensagem.",
-          session_id: sessionId,
-          quote_data: n8nResponse.quote_data,
-          quote_id: quote?.id || n8nResponse.quote_id
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (n8nError) {
-      console.error("Falha ao usar webhooks:", n8nError);
-      
-      // Salvar mensagem de erro no banco de dados
-      const errorMessageContent = "Desculpe, estou enfrentando problemas técnicos no momento. Nossa equipe foi notificada. Por favor, tente novamente em alguns instantes.";
-      
-      try {
-        await supabase
-          .from('chat_messages')
-          .insert({
-            session_id: sessionId,
-            content: errorMessageContent,
-            role: 'assistant',
-            created_at: new Date().toISOString()
-          });
-      } catch (dbError) {
-        console.error("Erro ao salvar mensagem de erro:", dbError);
-      }
-      
-      // Retornar resposta de erro ao usuário
+    // Verificar se temos um sessionId válido
+    if (!sessionId) {
       return new Response(
         JSON.stringify({ 
-          message: errorMessageContent,
-          error: n8nError.message 
+          error: "session_id_required",
+          message: "É necessário fornecer um ID de sessão válido."
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Montar informações do cliente
+    const clientInfo = {
+      clientId: clientId,
+      name: name,
+      email: email,
+      phone: phone,
+      source: source
+    };
+    
+    // Processar a mensagem
+    const processedResponse = await processarMensagem(message, sessionId, clientInfo);
+    
+    // Salvar a mensagem no banco de dados
+    if (processedResponse.message) {
+      const { error: messageSaveError } = await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: sessionId,
+          content: processedResponse.message,
+          role: 'assistant',
+          created_at: new Date().toISOString()
+        });
+      
+      if (messageSaveError) {
+        console.error("Erro ao salvar mensagem:", messageSaveError);
+      }
+    }
+    
+    // Processar dados de orçamento se presentes
+    let quote = null;
+    if (processedResponse.quote_data) {
+      console.log("Dados de orçamento detectados:", processedResponse.quote_data);
+      quote = await saveQuoteData(processedResponse.quote_data, sessionId, clientId);
+    }
+    
+    return new Response(
+      JSON.stringify({
+        message: processedResponse.message,
+        session_id: sessionId,
+        quote_data: processedResponse.quote_data,
+        quote_id: quote?.id
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+    
   } catch (error) {
     console.error("Erro ao processar requisição:", error.message);
     return new Response(

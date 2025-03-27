@@ -19,6 +19,25 @@ const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') || '';
 // ID do número de telefone do WhatsApp
 const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
 
+// Carregar modelo de agente
+const modeloAgentePath = Deno.cwd() + '/src/data/modelo-agente.json';
+let modeloAgente;
+try {
+  modeloAgente = JSON.parse(Deno.readTextFileSync(modeloAgentePath));
+  console.log("Modelo de agente carregado com sucesso");
+} catch (error) {
+  console.error("Erro ao carregar modelo de agente:", error);
+  modeloAgente = {
+    "configuracao_agente": {
+      "respostas_padrao": {
+        "error": {
+          "sistema_indisponivel": "Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em alguns instantes."
+        }
+      }
+    }
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -80,6 +99,7 @@ serve(async (req) => {
                       .maybeSingle();
                       
                     let clientId = null;
+                    let isNewClient = false;
                       
                     if (clientError) {
                       console.error('Erro ao buscar cliente:', clientError);
@@ -90,6 +110,7 @@ serve(async (req) => {
                     } else {
                       // Cliente não encontrado, registrar como cliente potencial
                       console.log(`Cliente não encontrado para o número ${phoneNumber}, registrando como potencial.`);
+                      isNewClient = true;
                       
                       try {
                         // Criar cliente potencial com o número de telefone
@@ -122,7 +143,7 @@ serve(async (req) => {
                       .from('chat_sessions')
                       .select('*')
                       .eq('status', 'active')
-                      .eq('client_id', clientId || phoneNumber) // Usar ID do cliente se disponível
+                      .eq('client_id', clientId)
                       .order('created_at', { ascending: false })
                       .limit(1);
                       
@@ -137,7 +158,7 @@ serve(async (req) => {
                       const { data: newSession, error: createError } = await supabase
                         .from('chat_sessions')
                         .insert({
-                          client_id: clientId || phoneNumber,
+                          client_id: clientId,
                           status: 'active',
                           created_at: new Date().toISOString()
                         })
@@ -165,16 +186,76 @@ serve(async (req) => {
                       throw new Error(`Erro ao salvar mensagem: ${saveError.message}`);
                     }
                     
-                    // Chamar a função do chatbot para responder
-                    const { data: aiResponse, error: aiError } = await supabase.functions.invoke("chat-assistant", {
-                      body: {
-                        messages: [{ role: 'user', content: messageContent }],
-                        sessionId: chatSession.id
-                      }
-                    });
+                    // Processar a mensagem com o agente
+                    let resposta = "";
+                    let dadosOrcamento = null;
                     
-                    if (aiError) {
-                      throw new Error(`Erro ao chamar chatbot: ${aiError.message}`);
+                    // Carregar histórico de mensagens para contexto
+                    const { data: messageHistory, error: historyError } = await supabase
+                      .from('chat_messages')
+                      .select('*')
+                      .eq('session_id', chatSession.id)
+                      .order('created_at', { ascending: true });
+                      
+                    if (historyError) {
+                      console.error('Erro ao carregar histórico de mensagens:', historyError);
+                    }
+                    
+                    // Processar a resposta baseada no histórico e configuração do agente
+                    try {
+                      // Se for cliente novo, enviar mensagem de boas-vindas
+                      if (isNewClient) {
+                        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_novo;
+                      } else {
+                        // Verificar se a mensagem inclui palavras-chave de produtos
+                        const categorias = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.categorias;
+                        let categoriaEncontrada = null;
+                        
+                        for (const categoria of categorias) {
+                          if (messageContent.toLowerCase().includes(categoria.nome.toLowerCase())) {
+                            categoriaEncontrada = categoria;
+                            break;
+                          }
+                        }
+                        
+                        if (categoriaEncontrada) {
+                          // Buscar produtos da categoria
+                          const { data: produtos, error: produtosError } = await supabase
+                            .from('products')
+                            .select('*')
+                            .eq('category', categoriaEncontrada.nome)
+                            .limit(5);
+                            
+                          if (produtosError) {
+                            console.error('Erro ao buscar produtos:', produtosError);
+                            resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
+                          } else if (produtos && produtos.length > 0) {
+                            resposta = `Temos os seguintes produtos na categoria ${categoriaEncontrada.nome}:\n\n`;
+                            produtos.forEach((produto, index) => {
+                              resposta += `${index + 1}. ${produto.name}: ${produto.description}\n`;
+                            });
+                            
+                            // Adicionar perguntas específicas da categoria
+                            resposta += "\nPara ajudar no seu orçamento, preciso das seguintes informações:\n";
+                            categoriaEncontrada.perguntas_especificas.forEach((pergunta, index) => {
+                              resposta += `${index + 1}. ${pergunta}\n`;
+                            });
+                          } else {
+                            resposta = modeloAgente.configuracao_agente.respostas_padrao.error.produto_nao_encontrado;
+                          }
+                        } else if (messageContent.toLowerCase().includes("orçamento") || 
+                                  messageContent.toLowerCase().includes("cotação") || 
+                                  messageContent.toLowerCase().includes("preço")) {
+                          // Resposta para pedido de orçamento genérico
+                          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.produtos.pergunta_inicial;
+                        } else {
+                          // Resposta padrão
+                          resposta = modeloAgente.configuracao_agente.respostas_padrao.solicitar_complemento;
+                        }
+                      }
+                    } catch (processingError) {
+                      console.error('Erro ao processar mensagem:', processingError);
+                      resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
                     }
                     
                     // Salvar resposta do assistente
@@ -182,7 +263,7 @@ serve(async (req) => {
                       .from('chat_messages')
                       .insert({
                         session_id: chatSession.id,
-                        content: aiResponse.message,
+                        content: resposta,
                         role: 'assistant',
                         created_at: new Date().toISOString()
                       });
@@ -192,20 +273,7 @@ serve(async (req) => {
                     }
                     
                     // Enviar resposta para o WhatsApp usando a Cloud API
-                    await enviarMensagemWhatsApp(phoneNumber, aiResponse.message);
-                    
-                    // Se temos dados de orçamento, processar
-                    if (aiResponse.quote_data) {
-                      console.log("Orçamento gerado a partir do WhatsApp:", aiResponse.quote_id);
-                      
-                      // Atualizar a sessão com o ID do orçamento
-                      if (aiResponse.quote_id) {
-                        await supabase
-                          .from('chat_sessions')
-                          .update({ quote_id: aiResponse.quote_id })
-                          .eq('id', chatSession.id);
-                      }
-                    }
+                    await enviarMensagemWhatsApp(phoneNumber, resposta);
                   }
                 }
               }
