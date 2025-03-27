@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -48,13 +47,14 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 interface AuthFormProps {
   isManager?: boolean;
+  initialTab?: string;
 }
 
-export function AuthForm({ isManager = false }: AuthFormProps) {
+export function AuthForm({ isManager = false, initialTab = "entrar" }: AuthFormProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("entrar");
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -79,7 +79,6 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
     },
   });
 
-  // Observar mudanças no tipo de pessoa para ajustar a validação
   const tipoPessoa = registerForm.watch("tipoPessoa");
 
   async function onLoginSubmit(data: LoginFormValues) {
@@ -100,7 +99,6 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
         description: "Bem-vindo de volta.",
       });
 
-      // Redirecionar para o dashboard apropriado
       navigate(isManager ? '/manager/dashboard' : '/dashboard');
     } catch (error: any) {
       console.error('Erro de autenticação:', error);
@@ -128,7 +126,6 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
     try {
       console.log('Tentando cadastrar usuário:', data);
       
-      // 1. Registrar o usuário no Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -144,7 +141,6 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
 
       if (authError) throw authError;
 
-      // 2. Criar o perfil de cliente na tabela clients
       if (authData.user) {
         const clientData = {
           name: data.nome,
@@ -210,7 +206,7 @@ export function AuthForm({ isManager = false }: AuthFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="entrar" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue={initialTab} value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="entrar">Entrar</TabsTrigger>
             <TabsTrigger value="cadastrar">Cadastrar</TabsTrigger>

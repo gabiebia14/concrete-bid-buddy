@@ -5,12 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Layout } from "@/components/layout/Layout";
 import { FileText, ArrowRight, MessageSquare } from "lucide-react";
 import { AuthForm } from "@/components/auth/AuthForm";
-import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 
 const Index = () => {
-  const { user } = useAuth();
   const [showAuthForm, setShowAuthForm] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
 
   return (
     <Layout hideHeader={false} hideFooter={false} hideSidebar>
@@ -58,34 +57,48 @@ const Index = () => {
             </div>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              {!user && !showAuthForm && (
-                <Button onClick={() => setShowAuthForm(true)} size="lg">
-                  Fazer Login
-                </Button>
+              {!showAuthForm && (
+                <>
+                  <Button onClick={() => {
+                    setIsLoginMode(true);
+                    setShowAuthForm(true);
+                  }} size="lg">
+                    Fazer Login
+                  </Button>
+                  
+                  <Button onClick={() => {
+                    setIsLoginMode(false);
+                    setShowAuthForm(true);
+                  }} variant="outline" size="lg">
+                    Cadastrar
+                  </Button>
+                </>
               )}
               
-              <Button asChild variant="outline" size="lg">
+              <Button asChild variant={showAuthForm ? "default" : "outline"} size="lg">
                 <Link to="/chat-assistant">
                   <MessageSquare className="mr-2" size={18} />
                   Falar com Assistente
                 </Link>
               </Button>
-              
-              {user && (
-                <Button asChild size="lg">
-                  <Link to="/dashboard">
-                    Ir para o Dashboard
-                    <ArrowRight className="ml-2" size={18} />
-                  </Link>
-                </Button>
-              )}
             </div>
           </div>
 
           <div className="w-full lg:w-1/2 max-w-md">
-            {(showAuthForm || user === null) && !user && (
+            {showAuthForm && (
               <Card className="border-t-4 border-t-primary shadow-lg py-0 my-[4px] bg-white/90 backdrop-blur-sm">
-                <AuthForm isManager={false} />
+                <AuthForm 
+                  isManager={false} 
+                  initialTab={isLoginMode ? "entrar" : "cadastrar"}
+                />
+                <div className="p-4 text-center">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setShowAuthForm(false)}
+                  >
+                    Voltar
+                  </Button>
+                </div>
               </Card>
             )}
           </div>
