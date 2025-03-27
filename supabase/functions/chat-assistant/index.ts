@@ -14,6 +14,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Obter API key da OpenAI
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
 // Carregar modelo de agente
 const modeloAgentePath = Deno.cwd() + '/src/data/modelo-agente.json';
 let modeloAgente;
@@ -24,6 +27,10 @@ try {
   console.error("Erro ao carregar modelo de agente:", error);
   modeloAgente = {
     "configuracao_agente": {
+      "openai": {
+        "modelo_principal": "gpt-4o-mini",
+        "sistema_principal": "Você é um assistente de atendimento ao cliente."
+      },
       "respostas_padrao": {
         "error": {
           "sistema_indisponivel": "Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em alguns instantes."
@@ -31,6 +38,123 @@ try {
       }
     }
   };
+}
+
+// Função para processar mensagem com a OpenAI
+async function processarComOpenAI(mensagem, historico = [], sistema = "") {
+  if (!OPENAI_API_KEY) {
+    console.error("API key da OpenAI não configurada");
+    return "Erro de configuração do sistema. Por favor, contate o suporte.";
+  }
+
+  try {
+    const mensagens = [
+      { role: "system", content: sistema || modeloAgente.configuracao_agente.openai.sistema_principal },
+      ...historico.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: "user", content: mensagem }
+    ];
+
+    console.log("Enviando para OpenAI:", JSON.stringify(mensagens));
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: modeloAgente.configuracao_agente.openai.modelo_principal,
+        messages: mensagens,
+        temperature: 0.7,
+        max_tokens: 800
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro na API OpenAI: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Resposta da OpenAI:", data);
+    
+    return data.choices[0].message.content;
+    
+  } catch (error) {
+    console.error("Erro ao chamar a API OpenAI:", error);
+    return modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
+  }
+}
+
+// Função para identificar intenção e extrair dados de orçamento
+async function identificarIntencao(mensagem, historico = []) {
+  if (!OPENAI_API_KEY) {
+    console.error("API key da OpenAI não configurada");
+    return { intencao: "erro", dados: null };
+  }
+
+  try {
+    const prompt = `
+    Analise a mensagem do usuário e identifique a intenção principal. Responda apenas com um JSON no seguinte formato:
+    {
+      "intencao": "saudacao | informacao_produto | solicitar_orcamento | dados_cliente | confirmacao",
+      "categoria_produto": "blocos | postes | lajes | outro | null",
+      "dados": {
+        "nome": "nome do cliente (se mencionado)",
+        "email": "email do cliente (se mencionado)",
+        "telefone": "telefone do cliente (se mencionado)",
+        "endereco": "endereço de entrega (se mencionado)",
+        "produtos": [
+          {
+            "tipo": "tipo do produto mencionado",
+            "especificacoes": "especificações mencionadas",
+            "quantidade": "quantidade mencionada"
+          }
+        ]
+      }
+    }
+    `;
+
+    const mensagens = [
+      { role: "system", content: prompt },
+      ...historico.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: "user", content: mensagem }
+    ];
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: mensagens,
+        temperature: 0.2,
+        max_tokens: 500
+      })
+    });
+    
+    const data = await response.json();
+    console.log("Análise de intenção:", data.choices[0].message.content);
+    
+    try {
+      // Tente fazer o parse do JSON retornado pela OpenAI
+      return JSON.parse(data.choices[0].message.content);
+    } catch (parseError) {
+      console.error("Erro ao fazer parse da análise:", parseError);
+      return { intencao: "desconhecida", dados: null };
+    }
+    
+  } catch (error) {
+    console.error("Erro ao analisar intenção:", error);
+    return { intencao: "erro", dados: null };
+  }
 }
 
 // Função para processar mensagem e gerar resposta baseada no modelo de agente
@@ -70,17 +194,10 @@ async function processarMensagem(message, sessionId, clientInfo = null) {
       }
     }
     
-    // Determinar estado da conversa baseado no histórico
-    const messageContent = message.toLowerCase();
-    let resposta = "";
-    let quoteData = null;
-    
-    // Verificar se cliente existe
+    // Verificar se o cliente existe e lidar com cliente novo
     const isNewClient = !clientData;
-    
-    // Se for mensagem inicial ou cliente novo
-    if (messageHistory.length <= 1 || isNewClient) {
-      if (isNewClient && clientInfo && clientInfo.name) {
+    if (isNewClient && clientInfo && clientInfo.name) {
+      try {
         // Criar novo cliente
         const { data: newClient, error: createError } = await supabase
           .from('clients')
@@ -88,8 +205,7 @@ async function processarMensagem(message, sessionId, clientInfo = null) {
             name: clientInfo.name,
             email: clientInfo.email || `cliente_${Date.now()}@temporario.com`,
             phone: clientInfo.phone || null,
-            address: null,
-            created_at: new Date().toISOString()
+            address: null
           })
           .select()
           .single();
@@ -103,82 +219,116 @@ async function processarMensagem(message, sessionId, clientInfo = null) {
             .update({ client_id: newClient.id })
             .eq('id', sessionId);
         }
-        
-        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.saudacao;
-      } else {
-        resposta = isNewClient ? 
-          modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_novo :
-          modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_existente.replace('{nome_cliente}', clientData.name);
+      } catch (error) {
+        console.error("Erro ao criar cliente:", error);
       }
-    } else {
-      // Verificar se a mensagem inclui palavras-chave de produtos
-      const categorias = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.categorias;
-      let categoriaEncontrada = null;
-      
-      for (const categoria of categorias) {
-        if (messageContent.includes(categoria.nome.toLowerCase())) {
-          categoriaEncontrada = categoria;
-          break;
-        }
-      }
-      
-      if (categoriaEncontrada) {
-        // Buscar produtos da categoria
-        const { data: produtos, error: produtosError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('category', categoriaEncontrada.nome)
-          .limit(5);
-          
-        if (produtosError) {
-          console.error('Erro ao buscar produtos:', produtosError);
-          resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
-        } else if (produtos && produtos.length > 0) {
-          resposta = `Temos os seguintes produtos na categoria ${categoriaEncontrada.nome}:\n\n`;
-          produtos.forEach((produto, index) => {
-            resposta += `${index + 1}. ${produto.name}: ${produto.description}\n`;
-          });
-          
-          // Adicionar perguntas específicas da categoria
-          resposta += "\nPara ajudar no seu orçamento, preciso das seguintes informações:\n";
-          categoriaEncontrada.perguntas_especificas.forEach((pergunta, index) => {
-            resposta += `${index + 1}. ${pergunta}\n`;
-          });
+    }
+    
+    // Analisar a mensagem para identificar intenção e extrair dados
+    const analise = await identificarIntencao(message, messageHistory);
+    console.log("Análise da mensagem:", analise);
+    
+    // Gerar resposta com base na intenção e no histórico
+    let resposta = "";
+    let quoteData = null;
+    
+    // Determinar o tipo de resposta com base na intenção identificada
+    switch (analise.intencao) {
+      case "saudacao":
+        if (isNewClient) {
+          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_novo;
         } else {
-          resposta = modeloAgente.configuracao_agente.respostas_padrao.error.produto_nao_encontrado;
+          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_existente
+            .replace('{nome_cliente}', clientData.name);
         }
-      } else if (messageContent.includes("orçamento") || 
-                messageContent.includes("cotação") || 
-                messageContent.includes("preço")) {
-        // Resposta para pedido de orçamento genérico
-        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.produtos.pergunta_inicial;
-      } else if (messageContent.includes("entrega") || messageContent.includes("enviar")) {
-        // Perguntas sobre entrega
-        resposta = modeloAgente.configuracao_agente.detalhes_entrega.perguntas[0].pergunta;
-      } else if (messageContent.includes("pagamento") || messageContent.includes("pagar")) {
-        // Perguntas sobre pagamento
-        resposta = modeloAgente.configuracao_agente.forma_pagamento.pergunta + "\nOpções:\n";
-        modeloAgente.configuracao_agente.forma_pagamento.opcoes.forEach((opcao, index) => {
-          resposta += `${index + 1}. ${opcao}\n`;
-        });
-      } else if (messageContent.includes("confirmar") || messageContent.includes("finalizar")) {
-        // Criar um orçamento de exemplo para demonstração
-        if (clientData) {
+        break;
+        
+      case "informacao_produto":
+        // Usar o agente especialista para fornecer informações técnicas sobre produtos
+        const sistemaEspecialista = modeloAgente.configuracao_agente.openai.sistema_especialista;
+        const categoriaPrompt = `O cliente está perguntando sobre produtos da categoria: ${analise.categoria_produto || 'geral'}. 
+                                 Forneça informações detalhadas e técnicas sobre essa categoria.`;
+        
+        resposta = await processarComOpenAI(message, messageHistory, sistemaEspecialista + "\n\n" + categoriaPrompt);
+        break;
+        
+      case "solicitar_orcamento":
+        // Se estiver solicitando orçamento, verificar se temos todas as informações necessárias
+        if (!clientData || !clientData.name || !clientData.email) {
+          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.coleta_dados[0].pergunta;
+        } else if (analise.dados && analise.dados.produtos && analise.dados.produtos.length > 0) {
+          // Temos informações suficientes para sugerir um orçamento
           quoteData = {
             cliente: {
               nome: clientData.name,
               email: clientData.email,
               telefone: clientData.phone
             },
-            produtos: [
-              {
-                nome: "Produto de exemplo",
-                especificacoes: "Dimensões padrão",
-                quantidade: 10
-              }
-            ],
+            produtos: analise.dados.produtos.map(p => ({
+              nome: p.tipo,
+              especificacoes: p.especificacoes,
+              quantidade: parseInt(p.quantidade) || 1
+            })),
             entrega: {
-              local: clientData.address || "A definir",
+              local: analise.dados.endereco || clientData.address || "A definir",
+              prazo: "A definir com o cliente"
+            },
+            forma_pagamento: "A definir com o cliente"
+          };
+          
+          // Resposta personalizada baseada nos produtos solicitados
+          resposta = `Baseado nas informações que você forneceu, criarei um orçamento para ${analise.dados.produtos.length} item(ns). 
+                      Nossa equipe entrará em contato em breve para confirmar detalhes e valores. 
+                      Há mais algum item que gostaria de incluir?`;
+        } else {
+          // Perguntar sobre produtos específicos
+          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.produtos.pergunta_inicial;
+        }
+        break;
+        
+      case "dados_cliente":
+        // Atualizar dados do cliente se necessário
+        if (clientData && analise.dados) {
+          const updateData: any = {};
+          if (analise.dados.nome) updateData.name = analise.dados.nome;
+          if (analise.dados.email) updateData.email = analise.dados.email;
+          if (analise.dados.telefone) updateData.phone = analise.dados.telefone;
+          if (analise.dados.endereco) updateData.address = analise.dados.endereco;
+          
+          if (Object.keys(updateData).length > 0) {
+            try {
+              await supabase
+                .from('clients')
+                .update(updateData)
+                .eq('id', clientData.id);
+              
+              resposta = modeloAgente.configuracao_agente.respostas_padrao.agradecimento;
+            } catch (error) {
+              console.error("Erro ao atualizar cliente:", error);
+              resposta = "Obrigado pelas informações. Agora me conte sobre os produtos que você precisa.";
+            }
+          }
+        } else {
+          resposta = "Obrigado pelas informações. Como posso ajudá-lo com nossos produtos de concreto?";
+        }
+        break;
+        
+      case "confirmacao":
+        // Finalizar orçamento e preparar confirmação
+        if (analise.dados && analise.dados.produtos && analise.dados.produtos.length > 0) {
+          quoteData = {
+            cliente: {
+              nome: clientData ? clientData.name : analise.dados.nome,
+              email: clientData ? clientData.email : analise.dados.email,
+              telefone: clientData ? clientData.phone : analise.dados.telefone
+            },
+            produtos: analise.dados.produtos.map(p => ({
+              nome: p.tipo,
+              especificacoes: p.especificacoes,
+              quantidade: parseInt(p.quantidade) || 1
+            })),
+            entrega: {
+              local: analise.dados.endereco || (clientData ? clientData.address : "A definir"),
               prazo: "A definir com o cliente"
             },
             forma_pagamento: "A definir com o cliente"
@@ -186,17 +336,19 @@ async function processarMensagem(message, sessionId, clientInfo = null) {
           
           resposta = modeloAgente.configuracao_agente.confirmacao.confirmacao_final;
         } else {
-          resposta = "Para finalizar seu orçamento, preciso de algumas informações adicionais. Poderia me informar seu nome completo e um email para contato?";
+          resposta = "Ótimo! Preciso de mais alguns detalhes para finalizar seu orçamento. Quais produtos você deseja incluir?";
         }
-      } else {
-        // Resposta genérica
-        resposta = modeloAgente.configuracao_agente.respostas_padrao.solicitar_complemento;
-      }
+        break;
+        
+      default:
+        // Processar com o agente principal para mensagens gerais
+        resposta = await processarComOpenAI(message, messageHistory);
     }
     
     return {
       message: resposta,
-      quote_data: quoteData
+      quote_data: quoteData,
+      intent: analise.intencao
     };
   } catch (error) {
     console.error('Erro ao processar mensagem:', error);
@@ -266,7 +418,7 @@ async function saveQuoteData(quoteData, sessionId, clientId = null) {
       product_id: '', // Idealmente, deveríamos buscar o ID do produto pelo nome
       product_name: produto.nome,
       dimensions: produto.especificacoes || '',
-      quantity: produto.quantidade || 0,
+      quantity: produto.quantidade || 1,
       unit_price: null, // Preço será definido pela equipe de vendas
       total_price: null
     }));
@@ -290,16 +442,18 @@ async function saveQuoteData(quoteData, sessionId, clientId = null) {
     }
     
     // Atualizar a sessão de chat com o ID do orçamento criado
-    const { error: sessionError } = await supabase
-      .from('chat_sessions')
-      .update({ 
-        status: 'completed',
-        quote_id: quote.id 
-      })
-      .eq('id', sessionId);
+    if (sessionId) {
+      const { error: sessionError } = await supabase
+        .from('chat_sessions')
+        .update({ 
+          status: 'completed',
+          quote_id: quote.id 
+        })
+        .eq('id', sessionId);
 
-    if (sessionError) {
-      console.error("Erro ao atualizar sessão de chat:", sessionError);
+      if (sessionError) {
+        console.error("Erro ao atualizar sessão de chat:", sessionError);
+      }
     }
 
     console.log(`Orçamento criado com ID: ${quote.id}`);
@@ -375,7 +529,8 @@ serve(async (req) => {
         message: processedResponse.message,
         session_id: sessionId,
         quote_data: processedResponse.quote_data,
-        quote_id: quote?.id
+        quote_id: quote?.id,
+        intent: processedResponse.intent
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

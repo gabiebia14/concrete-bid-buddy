@@ -4,6 +4,12 @@
     "nome": "Assistente IPT Teixeira",
     "versao": "1.0.0",
     "descricao": "Agente especializado em atendimento e orçamentos de produtos de concreto",
+    "openai": {
+      "modelo_principal": "gpt-4o-mini",
+      "modelo_especialista": "gpt-4o-mini",
+      "sistema_principal": "Você é um assistente da IPT Teixeira, especializado em produtos de concreto. Sua missão é atender clientes, coletar informações e auxiliar na criação de orçamentos. Seja sempre cordial, objetivo e certifique-se de obter as informações necessárias dos clientes.",
+      "sistema_especialista": "Você é um especialista técnico em produtos de concreto, particularmente blocos, postes e lajes. Forneça informações precisas e técnicas sobre especificações, dimensões e aplicações dos produtos."
+    },
     "fluxo_de_conversacao": {
       "inicio": {
         "saudacao": "Olá! Seja bem-vindo à IPT Teixeira. Como posso ajudá-lo hoje?",
@@ -111,65 +117,6 @@
         "quotes": {
           "campos_obrigatorios": ["client_id", "status", "items"],
           "campos_opcionais": ["total_value"]
-        }
-      },
-      "acoes": {
-        "verificar_cliente": "SELECT * FROM clients WHERE email = ? OR phone = ?",
-        "criar_cliente": "INSERT INTO clients (name, email, phone, address) VALUES (?, ?, ?, ?)",
-        "iniciar_sessao": "INSERT INTO chat_sessions (client_id, status) VALUES (?, 'active')",
-        "salvar_mensagem": "INSERT INTO chat_messages (session_id, content, role) VALUES (?, ?, ?)",
-        "criar_orcamento": "INSERT INTO quotes (client_id, status, items) VALUES (?, 'pending', ?)",
-        "finalizar_sessao": "UPDATE chat_sessions SET status = 'completed', quote_id = ? WHERE id = ?"
-      }
-    },
-    "processos_n8n": {
-      "fluxo_atendimento": {
-        "webhook_entrada": {
-          "path": "/webhook-chat",
-          "metodo": "POST",
-          "parametros_esperados": ["message", "sessionId", "clientInfo"]
-        },
-        "verificacao_cliente": {
-          "tabela": "clients",
-          "campos_busca": ["email", "phone"],
-          "condicao": "OR"
-        },
-        "criacao_sessao": {
-          "campos": ["client_id", "status", "created_at"]
-        },
-        "analise_mensagem": {
-          "campos_contexto": [
-            "mensagem_atual",
-            "historico_mensagens",
-            "dados_cliente",
-            "sessao_id"
-          ],
-          "gatilhos_orcamento": [
-            "orçamento",
-            "orcar",
-            "cotação",
-            "valor",
-            "preço"
-          ]
-        },
-        "consulta_produtos": {
-          "tabela": "products",
-          "campos_pesquisa": ["name", "description", "category"],
-          "limite": 5
-        },
-        "formatacao_orcamento": {
-          "estrutura_item": {
-            "product_id": "string",
-            "product_name": "string",
-            "dimensions": "string",
-            "quantity": "number",
-            "unit_price": "number (opcional)",
-            "total_price": "number (calculado)"
-          }
-        },
-        "resposta_padrao": {
-          "formato": "json",
-          "campos": ["message", "quote_data", "session_id"]
         }
       }
     },

@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { v4 as uuidv4 } from 'https://esm.sh/uuid@9.0.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,30 +14,11 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Token de verificação para o webhook do WhatsApp Cloud API
-const VERIFY_TOKEN = Deno.env.get('WHATSAPP_VERIFY_TOKEN') || '';
+const VERIFY_TOKEN = Deno.env.get('WHATSAPP_VERIFY_TOKEN') || 'ipt-teixeira-webhook-token';
 // Token de acesso permanente do Facebook/WhatsApp
 const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') || '';
 // ID do número de telefone do WhatsApp
 const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
-
-// Carregar modelo de agente
-const modeloAgentePath = Deno.cwd() + '/src/data/modelo-agente.json';
-let modeloAgente;
-try {
-  modeloAgente = JSON.parse(Deno.readTextFileSync(modeloAgentePath));
-  console.log("Modelo de agente carregado com sucesso");
-} catch (error) {
-  console.error("Erro ao carregar modelo de agente:", error);
-  modeloAgente = {
-    "configuracao_agente": {
-      "respostas_padrao": {
-        "error": {
-          "sistema_indisponivel": "Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em alguns instantes."
-        }
-      }
-    }
-  };
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -186,94 +168,34 @@ serve(async (req) => {
                       throw new Error(`Erro ao salvar mensagem: ${saveError.message}`);
                     }
                     
-                    // Processar a mensagem com o agente
-                    let resposta = "";
-                    let dadosOrcamento = null;
-                    
-                    // Carregar histórico de mensagens para contexto
-                    const { data: messageHistory, error: historyError } = await supabase
-                      .from('chat_messages')
-                      .select('*')
-                      .eq('session_id', chatSession.id)
-                      .order('created_at', { ascending: true });
-                      
-                    if (historyError) {
-                      console.error('Erro ao carregar histórico de mensagens:', historyError);
-                    }
-                    
-                    // Processar a resposta baseada no histórico e configuração do agente
+                    // Chamar o endpoint do assistente de chat para processar a mensagem
                     try {
-                      // Se for cliente novo, enviar mensagem de boas-vindas
-                      if (isNewClient) {
-                        resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.inicio.identificacao_cliente.cliente_novo;
-                      } else {
-                        // Verificar se a mensagem inclui palavras-chave de produtos
-                        const categorias = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.categorias;
-                        let categoriaEncontrada = null;
-                        
-                        for (const categoria of categorias) {
-                          if (messageContent.toLowerCase().includes(categoria.nome.toLowerCase())) {
-                            categoriaEncontrada = categoria;
-                            break;
-                          }
+                      const response = await supabase.functions.invoke('chat-assistant', {
+                        body: {
+                          message: messageContent,
+                          sessionId: chatSession.id,
+                          clientId: clientId,
+                          source: 'whatsapp',
+                          name: clientData?.name || null,
+                          email: clientData?.email || null,
+                          phone: phoneNumber
                         }
-                        
-                        if (categoriaEncontrada) {
-                          // Buscar produtos da categoria
-                          const { data: produtos, error: produtosError } = await supabase
-                            .from('products')
-                            .select('*')
-                            .eq('category', categoriaEncontrada.nome)
-                            .limit(5);
-                            
-                          if (produtosError) {
-                            console.error('Erro ao buscar produtos:', produtosError);
-                            resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
-                          } else if (produtos && produtos.length > 0) {
-                            resposta = `Temos os seguintes produtos na categoria ${categoriaEncontrada.nome}:\n\n`;
-                            produtos.forEach((produto, index) => {
-                              resposta += `${index + 1}. ${produto.name}: ${produto.description}\n`;
-                            });
-                            
-                            // Adicionar perguntas específicas da categoria
-                            resposta += "\nPara ajudar no seu orçamento, preciso das seguintes informações:\n";
-                            categoriaEncontrada.perguntas_especificas.forEach((pergunta, index) => {
-                              resposta += `${index + 1}. ${pergunta}\n`;
-                            });
-                          } else {
-                            resposta = modeloAgente.configuracao_agente.respostas_padrao.error.produto_nao_encontrado;
-                          }
-                        } else if (messageContent.toLowerCase().includes("orçamento") || 
-                                  messageContent.toLowerCase().includes("cotação") || 
-                                  messageContent.toLowerCase().includes("preço")) {
-                          // Resposta para pedido de orçamento genérico
-                          resposta = modeloAgente.configuracao_agente.fluxo_de_conversacao.levantamento_necessidades.produtos.pergunta_inicial;
-                        } else {
-                          // Resposta padrão
-                          resposta = modeloAgente.configuracao_agente.respostas_padrao.solicitar_complemento;
-                        }
-                      }
-                    } catch (processingError) {
-                      console.error('Erro ao processar mensagem:', processingError);
-                      resposta = modeloAgente.configuracao_agente.respostas_padrao.error.sistema_indisponivel;
-                    }
-                    
-                    // Salvar resposta do assistente
-                    const { error: saveAiError } = await supabase
-                      .from('chat_messages')
-                      .insert({
-                        session_id: chatSession.id,
-                        content: resposta,
-                        role: 'assistant',
-                        created_at: new Date().toISOString()
                       });
                       
-                    if (saveAiError) {
-                      throw new Error(`Erro ao salvar resposta do assistente: ${saveAiError.message}`);
+                      if (response.error) {
+                        throw new Error(`Erro na resposta do assistente: ${response.error.message}`);
+                      }
+                      
+                      // Enviar resposta para o WhatsApp usando a Cloud API
+                      if (response.data && response.data.message) {
+                        await enviarMensagemWhatsApp(phoneNumber, response.data.message);
+                      }
+                    } catch (error) {
+                      console.error('Erro ao processar mensagem com o assistente:', error);
+                      // Em caso de erro, enviar resposta padrão
+                      await enviarMensagemWhatsApp(phoneNumber, 
+                        "Desculpe, estamos enfrentando problemas técnicos no momento. Por favor, tente novamente em instantes.");
                     }
-                    
-                    // Enviar resposta para o WhatsApp usando a Cloud API
-                    await enviarMensagemWhatsApp(phoneNumber, resposta);
                   }
                 }
               }
