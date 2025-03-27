@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,7 +9,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("empresa");
   
-  // Dados do banner para o carrossel
   const bannerSlides = [
     {
       image: "/lovable-uploads/cdce80b2-38fa-4d29-b1ea-c253d79cb9c2.png",
@@ -66,7 +64,6 @@ const LandingPage = () => {
   }];
   
   return <div className="flex flex-col min-h-screen">
-      {/* Topo com certificações */}
       <div className="bg-lime-600 text-white py-1">
         <div className="container mx-auto px-4 flex justify-between items-center text-xs">
           <div className="hidden md:flex items-center space-x-4">
@@ -92,7 +89,6 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* Cabeçalho */}
       <header className="bg-white py-4 shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
@@ -130,9 +126,8 @@ const LandingPage = () => {
         </div>
       </header>
 
-      {/* Banner Carrossel */}
       <section id="inicio" className="relative">
-        <Carousel className="w-full" autoplay={true} loop={true}>
+        <Carousel className="w-full" autoPlay={true} loop={true}>
           <CarouselContent>
             {bannerSlides.map((slide, index) => (
               <CarouselItem key={index}>
@@ -178,7 +173,6 @@ const LandingPage = () => {
         </Carousel>
       </section>
 
-      {/* Seção de Vantagens */}
       <section id="vantagens" className="py-16 bg-lime-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -202,7 +196,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Seção de Produtos com fundo texturizado */}
       <section id="produtos" className="py-16 relative">
         <div className="absolute inset-0 bg-concrete-texture opacity-10"></div>
         <div className="container mx-auto px-4 relative z-10">
@@ -239,7 +232,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Seção Sobre e Notícias */}
       <section id="sobre" className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -349,7 +341,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
       <section className="py-16 bg-lime-600 text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-6">Pronto para solicitar seu orçamento?</h2>
@@ -372,7 +363,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Rodapé */}
       <footer className="bg-gray-900 text-white py-10">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
