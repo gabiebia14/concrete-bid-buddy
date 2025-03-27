@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/layout/Layout";
-import { FileText, ArrowRight, MessageSquare, Calculator, Clock, PieChart, CheckSquare, Truck, Phone, Mail, MapPin, ArrowDown, Certificate, Shield } from "lucide-react";
+import { FileText, ArrowRight, MessageSquare, Calculator, Clock, PieChart, CheckSquare, Truck, Phone, Mail, MapPin, ArrowDown, Award, Shield } from "lucide-react";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -69,7 +68,7 @@ const Index = () => {
         <div className="bg-lime-600 text-white py-1">
           <div className="container mx-auto px-4 flex justify-end items-center text-xs">
             <div className="flex items-center mr-4">
-              <Certificate size={14} className="mr-1" />
+              <Award size={14} className="mr-1" />
               <span>ISO 13001</span>
             </div>
             <div className="flex items-center">
