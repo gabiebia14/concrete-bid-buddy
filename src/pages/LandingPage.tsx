@@ -1,11 +1,34 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { FileText, ArrowRight, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, ArrowDown, Award, Shield, User, Check, Truck, PieChart } from "lucide-react";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("empresa");
+  
+  // Dados do banner para o carrossel
+  const bannerSlides = [
+    {
+      image: "/lovable-uploads/cdce80b2-38fa-4d29-b1ea-c253d79cb9c2.png",
+      title: "Soluções em concreto para sua obra",
+      description: "Qualidade e resistência em produtos que fazem a diferença"
+    },
+    {
+      image: "/lovable-uploads/1d414f0e-f876-49aa-a541-4d4879b1ba06.png",
+      title: "Produtos certificados",
+      description: "Tecnologia e controle de qualidade em cada peça"
+    },
+    {
+      image: "/lovable-uploads/9ebb2850-3258-48aa-82a6-a586c7e2fa30.png",
+      title: "Concreto para infraestrutura",
+      description: "Tubos, postes e blocos de alta resistência"
+    }
+  ];
+  
   const products = [{
     title: "Postes",
     image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
@@ -23,6 +46,7 @@ const LandingPage = () => {
     image: "/lovable-uploads/0a6452e7-c06e-4b40-a69f-43ebfc9d7e28.png",
     description: "Soluções para pavimentação"
   }];
+  
   const vantagens = [{
     icon: <Check className="w-5 h-5 text-lime-600" />,
     title: "Qualidade Superior",
@@ -40,6 +64,7 @@ const LandingPage = () => {
     title: "Inovação Contínua",
     description: "Investimento constante em tecnologia e processos"
   }];
+  
   return <div className="flex flex-col min-h-screen">
       {/* Topo com certificações */}
       <div className="bg-lime-600 text-white py-1">
@@ -105,62 +130,52 @@ const LandingPage = () => {
         </div>
       </header>
 
-      {/* Seção Hero */}
-      <section id="inicio" className="relative bg-gradient-to-b from-gray-100 to-white py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="order-2 lg:order-1">
-              <div className="bg-white/80 backdrop-blur-sm p-8 rounded-xl shadow-lg border border-gray-100">
-                <h1 className="text-4xl md:text-5xl font-bold mb-6 text-gray-800 leading-tight">
-                  Produtos de concreto com <span className="text-lime-600">qualidade</span> e <span className="text-lime-600">resistência</span>
-                </h1>
-                
-                <p className="text-lg text-gray-600 mb-8">
-                  A IPT Teixeira representa há mais de 25 anos o compromisso com a excelência em soluções estruturais de concreto.
-                </p>
-                
-                <div className="flex flex-wrap gap-4 mb-8">
-                  <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 gap-2">
-                    <Link to="/login">
-                      Solicitar Orçamento
-                      <ArrowRight size={18} />
-                    </Link>
-                  </Button>
-                  
-                  <Button asChild variant="outline" size="lg">
-                    <a href="#produtos">
-                      Conhecer Produtos
-                    </a>
-                  </Button>
+      {/* Banner Carrossel */}
+      <section id="inicio" className="relative">
+        <Carousel className="w-full" autoplay={true} loop={true}>
+          <CarouselContent>
+            {bannerSlides.map((slide, index) => (
+              <CarouselItem key={index}>
+                <div className="relative h-[60vh] w-full">
+                  <img 
+                    src={slide.image} 
+                    alt={slide.title} 
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent flex items-center">
+                    <div className="container mx-auto px-6">
+                      <div className="max-w-lg p-6 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10">
+                        <h2 className="text-4xl font-bold text-white mb-4">
+                          {slide.title}
+                        </h2>
+                        <p className="text-xl text-white/90 mb-6">
+                          {slide.description}
+                        </p>
+                        <div className="flex gap-4">
+                          <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700">
+                            <Link to="/login">
+                              Solicitar Orçamento
+                              <ArrowRight className="ml-2" size={18} />
+                            </Link>
+                          </Button>
+                          <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20">
+                            <a href="#produtos">
+                              Ver Produtos
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="bg-lime-50 p-4 rounded-lg border border-lime-100">
-                  <h3 className="font-medium text-lime-800 flex items-center gap-2">
-                    <Award size={18} />
-                    Nossa Missão
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-2">
-                    "Atender às necessidades de nossos clientes e o mercado em geral com eficiência e transparência, para atender as necessidades do mercado."
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="order-1 lg:order-2 relative">
-              <div className="aspect-square bg-gradient-to-br from-lime-200 to-lime-50 rounded-full absolute -top-10 -right-10 w-48 h-48 blur-3xl opacity-50 z-0"></div>
-              
-            </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
+            <CarouselPrevious className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
+            <CarouselNext className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
           </div>
-        </div>
-        
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <a href="#vantagens">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowDown />
-              <span className="sr-only">Rolar para baixo</span>
-            </Button>
-          </a>
-        </div>
+        </Carousel>
       </section>
 
       {/* Seção de Vantagens */}
@@ -187,9 +202,10 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Seção de Produtos */}
-      <section id="produtos" className="py-16 bg-white">
-        <div className="container mx-auto px-4">
+      {/* Seção de Produtos com fundo texturizado */}
+      <section id="produtos" className="py-16 relative">
+        <div className="absolute inset-0 bg-concrete-texture opacity-10"></div>
+        <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-800">Conheça Nossos Produtos</h2>
             <p className="text-gray-600 mt-2 max-w-2xl mx-auto">
