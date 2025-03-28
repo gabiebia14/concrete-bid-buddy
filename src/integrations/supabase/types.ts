@@ -225,6 +225,7 @@ export type Database = {
           conteudo: string
           created_at: string | null
           id: string
+          orcamento: Json | null
           remetente: string
           session_id: string | null
         }
@@ -232,6 +233,7 @@ export type Database = {
           conteudo: string
           created_at?: string | null
           id?: string
+          orcamento?: Json | null
           remetente: string
           session_id?: string | null
         }
@@ -239,6 +241,7 @@ export type Database = {
           conteudo?: string
           created_at?: string | null
           id?: string
+          orcamento?: Json | null
           remetente?: string
           session_id?: string | null
         }

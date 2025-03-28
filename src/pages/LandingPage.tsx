@@ -66,7 +66,7 @@ const LandingPage = () => {
   return <div className="flex flex-col min-h-screen">
       <div className="bg-lime-600 text-white py-1">
         <div className="container mx-auto px-4 flex justify-between items-center text-xs">
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="md:flex items-center space-x-4 hidden">
             <div className="flex items-center">
               <Phone size={14} className="mr-1" />
               <span>(17) 3827-9100</span>
@@ -76,14 +76,14 @@ const LandingPage = () => {
               <span>contato@iptteixeira.com.br</span>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center">
               <Award size={14} className="mr-1" />
-              <span>ISO 13001</span>
+              <span className="hidden sm:inline">ISO</span> 13001
             </div>
             <div className="flex items-center">
               <Shield size={14} className="mr-1" />
-              <span>ISO 9001</span>
+              <span className="hidden sm:inline">ISO</span> 9001
             </div>
           </div>
         </div>
@@ -93,8 +93,12 @@ const LandingPage = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-16 mr-3" />
-              <div className="hidden md:block">
+              <img 
+                src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
+                alt="IPT Teixeira Logo" 
+                className="h-12 sm:h-16 mr-2 sm:mr-3" 
+              />
+              <div className="hidden sm:block">
                 <h1 className="font-bold text-lime-600 text-xl">IPT TEIXEIRA</h1>
                 <p className="text-sm text-gray-500">Produtos de Concreto</p>
               </div>
@@ -107,18 +111,18 @@ const LandingPage = () => {
               <a href="#contato" className="hover:text-lime-600 transition-colors">Contato</a>
             </nav>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
                 <a href="tel:1738279100" className="flex items-center gap-2">
                   <Phone size={16} />
-                  (17) 3827-9100
+                  <span className="hidden sm:inline">(17) 3827-9100</span>
                 </a>
               </Button>
               
               <Button asChild size="sm" className="bg-lime-600 hover:bg-lime-700">
                 <Link to="/login" className="flex items-center gap-2">
                   <User size={16} />
-                  Área do Cliente
+                  <span className="hidden sm:inline">Área do Cliente</span>
                 </Link>
               </Button>
             </div>
@@ -131,29 +135,29 @@ const LandingPage = () => {
           <CarouselContent>
             {bannerSlides.map((slide, index) => (
               <CarouselItem key={index}>
-                <div className="relative h-[60vh] w-full">
+                <div className="relative h-[40vh] sm:h-[60vh] w-full">
                   <img 
                     src={slide.image} 
                     alt={slide.title} 
                     className="h-full w-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent flex items-center">
-                    <div className="container mx-auto px-6">
-                      <div className="max-w-lg p-6 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10">
-                        <h2 className="text-4xl font-bold text-white mb-4">
+                    <div className="container mx-auto px-4">
+                      <div className="max-w-lg p-4 sm:p-6 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10">
+                        <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2 sm:mb-4">
                           {slide.title}
                         </h2>
-                        <p className="text-xl text-white/90 mb-6">
+                        <p className="text-lg sm:text-xl text-white/90 mb-4 sm:mb-6">
                           {slide.description}
                         </p>
-                        <div className="flex gap-4">
-                          <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                          <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 w-full sm:w-auto">
                             <Link to="/login">
                               Solicitar Orçamento
                               <ArrowRight className="ml-2" size={18} />
                             </Link>
                           </Button>
-                          <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20">
+                          <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20 w-full sm:w-auto">
                             <a href="#produtos">
                               Ver Produtos
                             </a>
@@ -196,33 +200,35 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section id="produtos" className="py-16 relative">
+      <section id="produtos" className="py-12 sm:py-16 relative">
         <div className="absolute inset-0 bg-concrete-texture opacity-10"></div>
         <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-800">Conheça Nossos Produtos</h2>
-            <p className="text-gray-600 mt-2 max-w-2xl mx-auto">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Conheça Nossos Produtos</h2>
+            <p className="text-gray-600 mt-2 max-w-2xl mx-auto px-4">
               Soluções em concreto para diversos segmentos da construção civil
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((product, index) => <div key={index} className="group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {products.map((product, index) => (
+              <div key={index} className="group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
                 <div className="aspect-video bg-gray-100 relative overflow-hidden">
                   <img src={product.image} alt={product.title} className="object-cover w-full h-full transition-transform group-hover:scale-105" />
                 </div>
-                <div className="p-5 border-t">
+                <div className="p-4 sm:p-5 border-t">
                   <h3 className="font-semibold text-lg mb-2 text-lime-700">{product.title}</h3>
                   <p className="text-gray-600 text-sm mb-4">{product.description}</p>
                   <Button asChild variant="outline" size="sm" className="w-full hover:bg-lime-50">
                     <Link to="/login">Solicitar Orçamento</Link>
                   </Button>
                 </div>
-              </div>)}
+              </div>
+            ))}
           </div>
           
-          <div className="text-center mt-10">
-            <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700">
+          <div className="text-center mt-8 sm:mt-10">
+            <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 w-full sm:w-auto">
               <Link to="/login" className="gap-2">
                 Ver catálogo completo
                 <ArrowRight size={16} />
@@ -232,7 +238,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section id="sobre" className="py-16 bg-gray-50">
+      <section id="sobre" className="py-12 sm:py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center mb-8">
@@ -341,13 +347,13 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section className="py-16 bg-lime-600 text-white">
+      <section className="py-12 sm:py-16 bg-lime-600 text-white">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-6">Pronto para solicitar seu orçamento?</h2>
-          <p className="text-lg mb-8 max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Pronto para solicitar seu orçamento?</h2>
+          <p className="text-lg mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
             Entre em contato conosco para obter um orçamento personalizado para seu projeto ou acesse nossa área do cliente.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <Button asChild size="lg" variant="secondary" className="bg-white text-lime-600 hover:bg-gray-100">
               <Link to="/login">
                 Acessar Área do Cliente
@@ -363,11 +369,11 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <footer className="bg-gray-900 text-white py-10">
+      <footer className="bg-gray-900 text-white py-8 sm:py-10">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
             <div>
-              <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-16 mb-4" />
+              <img src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" alt="IPT Teixeira Logo" className="h-12 sm:h-16 mb-4" />
               <p className="text-sm text-gray-400 mb-4">
                 Qualidade e resistência em produtos de concreto desde 1994.
               </p>
@@ -434,7 +440,7 @@ const LandingPage = () => {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-6 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               &copy; {new Date().getFullYear()} IPT Teixeira. Todos os direitos reservados.
             </p>
           </div>
