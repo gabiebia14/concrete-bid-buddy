@@ -177,6 +177,59 @@ const LandingPage = () => {
         </Carousel>
       </section>
 
+      <section id="produtos" className="py-12 sm:py-16 bg-gradient-to-b from-white to-lime-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <span className="inline-block px-3 py-1 bg-lime-100 text-lime-800 rounded-full text-xs font-medium mb-3">NOSSOS PRODUTOS</span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Soluções em Concreto</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Produtos de alta qualidade para diversos segmentos da construção civil e infraestrutura
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {products.map((product, index) => (
+              <Card key={index} className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-t-2 border-lime-500">
+                <div className="aspect-video bg-lime-50 relative overflow-hidden">
+                  <img 
+                    src={product.image} 
+                    alt={product.title} 
+                    className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
+                    <div className="p-4 text-white">
+                      <p className="text-sm font-medium">{product.description}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="font-semibold text-lg mb-3 text-lime-700 flex items-center gap-2">
+                    {product.title}
+                  </h3>
+                  <div className="mt-4">
+                    <Button asChild className="w-full bg-lime-600 hover:bg-lime-700">
+                      <Link to="/login">
+                        Solicitar Orçamento
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+          
+          <div className="flex justify-center mt-10">
+            <Button asChild variant="outline" size="lg" className="border-lime-600 text-lime-700 hover:bg-lime-50">
+              <Link to="/login" className="flex items-center gap-2">
+                Ver catálogo completo
+                <ArrowRight size={16} />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <section id="vantagens" className="py-16 bg-lime-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -196,44 +249,6 @@ const LandingPage = () => {
                   <p className="text-gray-600 text-sm">{vantagem.description}</p>
                 </div>
               </Card>)}
-          </div>
-        </div>
-      </section>
-
-      <section id="produtos" className="py-12 sm:py-16 relative">
-        <div className="absolute inset-0 bg-concrete-texture opacity-10"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Conheça Nossos Produtos</h2>
-            <p className="text-gray-600 mt-2 max-w-2xl mx-auto px-4">
-              Soluções em concreto para diversos segmentos da construção civil
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {products.map((product, index) => (
-              <div key={index} className="group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
-                <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                  <img src={product.image} alt={product.title} className="object-cover w-full h-full transition-transform group-hover:scale-105" />
-                </div>
-                <div className="p-4 sm:p-5 border-t">
-                  <h3 className="font-semibold text-lg mb-2 text-lime-700">{product.title}</h3>
-                  <p className="text-gray-600 text-sm mb-4">{product.description}</p>
-                  <Button asChild variant="outline" size="sm" className="w-full hover:bg-lime-50">
-                    <Link to="/login">Solicitar Orçamento</Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="text-center mt-8 sm:mt-10">
-            <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 w-full sm:w-auto">
-              <Link to="/login" className="gap-2">
-                Ver catálogo completo
-                <ArrowRight size={16} />
-              </Link>
-            </Button>
           </div>
         </div>
       </section>
