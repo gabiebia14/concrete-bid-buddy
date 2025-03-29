@@ -5,8 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
+import { useContext } from 'react';
+import { AuthContext } from '@/contexts/AuthContext';
 
 export default function Vendedor() {
+  const { user } = useContext(AuthContext);
+  const userPhone = user?.user_metadata?.phone || '';
+  
   return (
     <Layout>
       <div className="container mx-auto py-6 px-4 h-[calc(100vh-8rem)]">
@@ -27,7 +32,10 @@ export default function Vendedor() {
               </Button>
             </div>
             <div className="h-[calc(100%-4rem)]">
-              <VendedorChatInterface />
+              <VendedorChatInterface 
+                clienteId={user?.id}
+                telefone={userPhone}
+              />
             </div>
           </div>
           

@@ -1,31 +1,39 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { VendedorMessage } from './VendedorChatMessage';
 import { VendedorChatInput } from './VendedorChatInput';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useVendedorChat } from '@/hooks/useVendedorChat';
-import { MessageSquare, ArrowDown } from 'lucide-react';
+import { MessageSquare, ArrowDown, AlertCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ChatInterfaceProps {
   title?: string;
   description?: string;
   clienteId?: string;
+  telefone?: string;
 }
 
 export function VendedorChatInterface({ 
   title = "Chat com Vendedor", 
   description = "Tire suas dúvidas e solicite orçamentos",
-  clienteId
+  clienteId,
+  telefone
 }: ChatInterfaceProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const [phoneInput, setPhoneInput] = useState(telefone || '');
+  const [phoneError, setPhoneError] = useState('');
+  
   const { 
     messages, 
     isLoading, 
     error, 
     sessionId,
     enviarMensagem,
-    limparErro
+    limparErro,
+    iniciarChat
   } = useVendedorChat(clienteId);
 
   // Rolar para o final quando novas mensagens chegarem
@@ -37,13 +45,45 @@ export function VendedorChatInterface({
 
   const handleSendMessage = (message: string) => {
     if (error) limparErro();
-    enviarMensagem(message, 'cliente');
+    
+    // Verificar se temos telefone
+    if (!phoneInput.trim() && !telefone) {
+      setPhoneError('Por favor, informe seu telefone para iniciar o chat');
+      return;
+    }
+    
+    // Limpar qualquer erro de telefone
+    setPhoneError('');
+    
+    // Enviar mensagem usando o telefone fornecido
+    enviarMensagem(message, 'cliente', phoneInput);
   };
 
   const scrollToBottom = () => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
+  };
+
+  const handleStartChat = () => {
+    if (!phoneInput.trim()) {
+      setPhoneError('Por favor, informe seu telefone para iniciar o chat');
+      return;
+    }
+    
+    // Validar formato do telefone (básico)
+    if (!/^\d{10,11}$/.test(phoneInput.replace(/\D/g, ''))) {
+      setPhoneError('Por favor, informe um telefone válido com DDD');
+      return;
+    }
+    
+    setPhoneError('');
+    iniciarChat(phoneInput);
+    
+    toast({
+      title: "Chat iniciado",
+      description: "Agora você pode conversar com nosso vendedor.",
+    });
   };
 
   const renderMessages = () => {
@@ -53,7 +93,9 @@ export function VendedorChatInterface({
           <div className="text-center p-4">
             <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-2" />
             <p className="text-muted-foreground">
-              Envie uma mensagem para iniciar a conversa com nosso vendedor
+              {telefone || sessionId 
+                ? "Envie uma mensagem para iniciar a conversa com nosso vendedor"
+                : "Informe seu telefone para iniciar o chat com nosso vendedor"}
             </p>
           </div>
         </div>
@@ -73,6 +115,37 @@ export function VendedorChatInterface({
       </CardHeader>
       
       <CardContent className="flex-grow p-0 overflow-hidden flex flex-col">
+        {/* Formulário de telefone caso não tenha sessão */}
+        {!sessionId && !telefone && (
+          <div className="p-4 border-b">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Seu telefone com DDD</div>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="Ex: 11999999999"
+                  className="flex-1 px-3 py-2 border rounded-md"
+                />
+                <Button 
+                  onClick={handleStartChat} 
+                  disabled={isLoading || !phoneInput.trim()}
+                  className="bg-lime-600 hover:bg-lime-700"
+                >
+                  Iniciar
+                </Button>
+              </div>
+              {phoneError && (
+                <div className="text-destructive text-sm flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {phoneError}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         <div 
           ref={chatContainerRef}
           className="flex-grow overflow-y-auto p-2 space-y-4 relative"
@@ -94,7 +167,7 @@ export function VendedorChatInterface({
         
         <VendedorChatInput
           onSendMessage={handleSendMessage}
-          isDisabled={isLoading || !sessionId}
+          isDisabled={isLoading || (!sessionId && !telefone)}
         />
       </CardContent>
     </Card>

@@ -4,10 +4,11 @@ import { VendedorChatMessage, VendedorChatState } from '@/lib/vendedorTypes';
 import { 
   criarSessaoChat, 
   buscarMensagensPorSessao, 
-  enviarMensagem,
+  enviarMensagem as enviarMensagemService,
   configurarChatTempoReal
 } from '@/services/vendedorChatService';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 export function useVendedorChat(clienteId?: string) {
   const [state, setState] = useState<VendedorChatState>({
@@ -19,7 +20,7 @@ export function useVendedorChat(clienteId?: string) {
   const { toast } = useToast();
 
   // Iniciar uma nova sessão de chat
-  const iniciarChat = useCallback(async () => {
+  const iniciarChat = useCallback(async (telefone?: string) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       const session = await criarSessaoChat(clienteId);
@@ -28,6 +29,11 @@ export function useVendedorChat(clienteId?: string) {
         sessionId: session.id,
         isLoading: false 
       }));
+      
+      // Se temos telefone, enviar mensagem de boas-vindas via AI
+      if (telefone) {
+        await enviarMensagemAI("Olá", telefone, session.id);
+      }
       
       return session.id;
     } catch (error: any) {
@@ -72,16 +78,91 @@ export function useVendedorChat(clienteId?: string) {
     }
   }, [toast]);
 
+  // Enviar mensagem para a função edge com IA
+  const enviarMensagemAI = useCallback(async (conteudo: string, telefone: string, sessaoId: string | null = null) => {
+    if (!conteudo.trim() || !telefone) return null;
+    
+    try {
+      setState(prev => ({ ...prev, isLoading: true }));
+      
+      // Enviar para a função edge
+      const { data, error } = await supabase.functions.invoke('vendedor-ai-assistant', {
+        body: { 
+          message: conteudo,
+          phone: telefone,
+          sessionId: sessaoId || state.sessionId,
+          channel: 'website'
+        }
+      });
+      
+      if (error) {
+        console.error('Erro ao chamar função do vendedor AI:', error);
+        setState(prev => ({ 
+          ...prev, 
+          error: error.message, 
+          isLoading: false 
+        }));
+        return null;
+      }
+      
+      // Se não tínhamos sessão antes, vamos atualizar com a nova
+      if (!state.sessionId && data.sessionId) {
+        setState(prev => ({ ...prev, sessionId: data.sessionId }));
+        
+        // Carregar mensagens da nova sessão
+        const mensagens = await buscarMensagensPorSessao(data.sessionId);
+        setState(prev => ({ 
+          ...prev, 
+          messages: mensagens,
+          isLoading: false 
+        }));
+      } else {
+        setState(prev => ({ ...prev, isLoading: false }));
+      }
+      
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao enviar mensagem para IA:', error);
+      setState(prev => ({ 
+        ...prev, 
+        error: error.message || 'Erro ao enviar mensagem', 
+        isLoading: false 
+      }));
+      
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar mensagem',
+        description: error.message || 'Não foi possível processar sua mensagem.'
+      });
+      
+      return null;
+    }
+  }, [state.sessionId, toast]);
+
   // Enviar nova mensagem
-  const enviarMensagemChat = useCallback(async (conteudo: string, remetente: 'cliente' | 'vendedor' = 'cliente') => {
-    if (!state.sessionId || !conteudo.trim()) return;
+  const enviarMensagemChat = useCallback(async (
+    conteudo: string, 
+    remetente: 'cliente' | 'vendedor' = 'cliente',
+    telefone?: string
+  ) => {
+    if (!conteudo.trim()) return;
     
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const mensagem = await enviarMensagem(state.sessionId, remetente, conteudo);
+      
+      // Se temos telefone e é uma mensagem do cliente, usar a função de IA
+      if (telefone && remetente === 'cliente') {
+        return await enviarMensagemAI(conteudo, telefone, state.sessionId);
+      }
+      
+      // Caso contrário, usar o fluxo padrão
+      if (!state.sessionId) {
+        throw new Error('Sessão de chat não iniciada');
+      }
+      
+      const mensagem = await enviarMensagemService(state.sessionId, remetente, conteudo);
       
       // Atualizamos o estado imediatamente para uma experiência mais responsiva
-      // (A mensagem também virá pelo canal tempo real, mas evitamos atraso na UI)
       setState(prev => ({ 
         ...prev, 
         messages: [...prev.messages, mensagem],
@@ -103,29 +184,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return null;
     }
-  }, [state.sessionId, toast]);
-
-  // Auto-responder como vendedor (simulação)
-  const autoResponderComoVendedor = useCallback(async (mensagemCliente: string) => {
-    if (!state.sessionId) return;
-    
-    // Atraso artificial para simular resposta do vendedor
-    setTimeout(async () => {
-      let resposta = 'Olá! Como posso ajudar com seu orçamento hoje?';
-      
-      if (mensagemCliente.toLowerCase().includes('preço')) {
-        resposta = 'Os preços variam conforme as especificações. Pode me detalhar o que precisa?';
-      } else if (mensagemCliente.toLowerCase().includes('entrega')) {
-        resposta = 'Nosso prazo de entrega geralmente é de 5 a 10 dias úteis após a aprovação do orçamento.';
-      } else if (mensagemCliente.toLowerCase().includes('produto')) {
-        resposta = 'Temos uma variedade de produtos disponíveis. Qual categoria específica está procurando?';
-      } else if (mensagemCliente.toLowerCase().includes('pagamento')) {
-        resposta = 'Aceitamos pagamento à vista com 5% de desconto, ou parcelado em até 3x sem juros.';
-      }
-      
-      await enviarMensagem(state.sessionId, 'vendedor', resposta);
-    }, 1500);
-  }, [state.sessionId]);
+  }, [state.sessionId, toast, enviarMensagemAI]);
 
   // Inicializar chat e configurar escuta em tempo real
   useEffect(() => {
@@ -156,18 +215,13 @@ export function useVendedorChat(clienteId?: string) {
           ...prev,
           messages: [...prev.messages, novaMensagem]
         }));
-        
-        // Auto-responder se a mensagem for do cliente
-        if (novaMensagem.remetente === 'cliente') {
-          autoResponderComoVendedor(novaMensagem.conteudo);
-        }
       }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [state.sessionId, state.messages, autoResponderComoVendedor]);
+  }, [state.sessionId, state.messages]);
 
   return {
     ...state,
