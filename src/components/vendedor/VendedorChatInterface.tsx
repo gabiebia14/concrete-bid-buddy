@@ -66,9 +66,9 @@ export function VendedorChatInterface({
   };
 
   return (
-    <Card className="w-full h-full flex flex-col overflow-hidden">
-      <CardHeader className="pb-3 pt-6">
-        <CardTitle>{title}</CardTitle>
+    <Card className="w-full h-full flex flex-col overflow-hidden border-lime-200">
+      <CardHeader className="pb-3 pt-6 bg-gradient-to-r from-lime-50 to-white border-b border-lime-100">
+        <CardTitle className="text-lime-700">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       
@@ -84,7 +84,7 @@ export function VendedorChatInterface({
             <Button
               size="sm"
               variant="outline"
-              className="absolute bottom-4 right-4 rounded-full p-2 bg-white"
+              className="absolute bottom-4 right-4 rounded-full p-2 bg-white border-lime-200 text-lime-700 hover:bg-lime-50"
               onClick={scrollToBottom}
             >
               <ArrowDown className="h-4 w-4" />

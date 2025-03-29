@@ -74,24 +74,25 @@ export function ClientSidebar() {
             <img 
               src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
               alt="IPT Teixeira Logo" 
-              className="h-12 w-auto mb-2"
+              className="h-16 w-auto mb-3 drop-shadow-md"
             />
             <div className="text-center">
-              <div className="text-xs text-lime-500">Artefatos de Concreto</div>
+              <div className="text-sm font-bold text-white tracking-wider mb-1">IPT TEIXEIRA</div>
+              <div className="text-xs bg-lime-700/50 px-2 py-0.5 rounded-sm text-lime-400 font-medium">Artefatos de Concreto</div>
             </div>
           </div>
         ) : (
           <img 
             src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
             alt="IPT Teixeira Logo" 
-            className="h-8 w-auto" 
+            className="h-10 w-auto drop-shadow-md" 
           />
         )}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className="mt-2 text-white hover:bg-lime-600/20"
+          className="mt-3 text-white hover:bg-lime-600/20"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
@@ -99,7 +100,7 @@ export function ClientSidebar() {
       
       {!collapsed && (
         <div className="px-4 py-2">
-          <p className="text-xs uppercase font-semibold text-lime-500/70 mx-2 mt-2 mb-1">MENU</p>
+          <p className="text-xs uppercase font-semibold text-lime-500 mx-2 mt-2 mb-1">MENU</p>
         </div>
       )}
       
@@ -111,16 +112,20 @@ export function ClientSidebar() {
               to={item.href}
               className={`flex items-center px-3 py-2 rounded-md text-sm ${
                 isActive(item.href)
-                  ? 'bg-lime-500/20 text-lime-500 font-medium'
+                  ? 'bg-lime-500/20 text-white font-medium'
                   : 'text-white/90 hover:bg-sidebar-accent hover:text-lime-400'
               } transition-colors ${
                 collapsed ? 'justify-center' : ''
               }`}
             >
-              <span className="flex items-center">
+              <span className={`flex items-center ${isActive(item.href) ? 'text-lime-400' : ''}`}>
                 {item.icon}
               </span>
-              {!collapsed && <span className="ml-3">{item.label}</span>}
+              {!collapsed && (
+                <span className={`ml-3 ${isActive(item.href) ? 'drop-shadow-sm' : ''}`}>
+                  {item.label}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -130,19 +135,19 @@ export function ClientSidebar() {
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-white">
+              <div className="w-9 h-9 rounded-full bg-lime-700/60 flex items-center justify-center text-white shadow-inner">
                 <User size={16} />
               </div>
               <div className="ml-2">
                 <p className="text-sm font-medium text-white">{user?.email?.split('@')[0] || 'Cliente'}</p>
-                <p className="text-xs text-white/70">{user?.email || ''}</p>
+                <p className="text-xs text-lime-400">{user?.email || ''}</p>
               </div>
             </div>
           )}
           <Button 
             variant="ghost" 
             size="icon" 
-            className={`text-white hover:bg-sidebar-accent ${collapsed ? '' : 'ml-auto'}`}
+            className={`text-white hover:bg-lime-600/20 ${collapsed ? '' : 'ml-auto'}`}
             onClick={handleSignOut}
           >
             <LogOut size={18} />

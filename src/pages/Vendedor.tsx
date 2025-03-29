@@ -14,12 +14,12 @@ export default function Vendedor() {
           <div className="w-full md:w-2/3 h-full">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold">Chat com Vendedor</h1>
+                <h1 className="text-2xl font-bold text-lime-600">Chat com Vendedor</h1>
                 <p className="text-muted-foreground">
                   Tire dúvidas e solicite orçamentos diretamente com nossa equipe
                 </p>
               </div>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="border-lime-600 text-lime-600 hover:bg-lime-50 hover:text-lime-700">
                 <Link to="/criar-orcamento">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Voltar para Orçamento
@@ -32,7 +32,7 @@ export default function Vendedor() {
           </div>
           
           <div className="w-full md:w-1/3">
-            <Card>
+            <Card className="border-t-4 border-t-lime-600">
               <CardHeader>
                 <CardTitle>Guia Rápido</CardTitle>
                 <CardDescription>Como usar o chat com vendedor</CardDescription>
@@ -58,9 +58,9 @@ export default function Vendedor() {
                   </div>
                 </div>
                 
-                <div className="rounded-lg bg-gray-100 p-3 mt-6">
-                  <h3 className="font-medium mb-2">Dicas para orçamentos mais rápidos:</h3>
-                  <ul className="text-sm space-y-2 list-disc pl-5">
+                <div className="rounded-lg bg-lime-50 p-3 mt-6 border border-lime-100">
+                  <h3 className="font-medium mb-2 text-lime-800">Dicas para orçamentos mais rápidos:</h3>
+                  <ul className="text-sm space-y-2 list-disc pl-5 text-lime-700">
                     <li>Especifique a quantidade de produtos</li>
                     <li>Informe o local de entrega</li>
                     <li>Mencione o prazo desejado</li>

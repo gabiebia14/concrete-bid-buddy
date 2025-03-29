@@ -65,24 +65,25 @@ export function ManagerSidebar() {
             <img 
               src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
               alt="IPT Teixeira Logo" 
-              className="h-12 w-auto mb-2" 
+              className="h-16 w-auto mb-3 drop-shadow-md" 
             />
             <div className="text-center">
-              <div className="text-xs text-white/70">ADMINISTRAÇÃO</div>
+              <div className="text-sm font-bold text-white tracking-wider mb-1">IPT TEIXEIRA</div>
+              <div className="text-xs bg-white/20 px-2 py-0.5 rounded-sm text-white/70 font-medium">ADMINISTRAÇÃO</div>
             </div>
           </div>
         ) : (
           <img 
             src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
             alt="IPT Teixeira Logo" 
-            className="h-8 w-auto" 
+            className="h-10 w-auto drop-shadow-md" 
           />
         )}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className="mt-2 text-white hover:bg-sidebar-accent"
+          className="mt-3 text-white hover:bg-lime-600/20"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
@@ -90,7 +91,7 @@ export function ManagerSidebar() {
       
       {!collapsed && (
         <div className="px-4 py-2">
-          <p className="text-xs uppercase font-semibold text-white/70 mx-2 mt-2 mb-1">MENU</p>
+          <p className="text-xs uppercase font-semibold text-lime-500 mx-2 mt-2 mb-1">MENU</p>
         </div>
       )}
       
@@ -108,10 +109,14 @@ export function ManagerSidebar() {
                 collapsed ? 'justify-center' : ''
               }`}
             >
-              <span className="flex items-center">
+              <span className={`flex items-center ${isActive(item.href) ? 'text-lime-400' : ''}`}>
                 {item.icon}
               </span>
-              {!collapsed && <span className="ml-3">{item.label}</span>}
+              {!collapsed && (
+                <span className={`ml-3 ${isActive(item.href) ? 'text-white drop-shadow-sm' : ''}`}>
+                  {item.label}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -121,16 +126,16 @@ export function ManagerSidebar() {
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+              <div className="w-9 h-9 rounded-full bg-lime-700 flex items-center justify-center text-white shadow-inner">
                 <span className="font-medium text-sm">A</span>
               </div>
               <div className="ml-2">
                 <p className="text-sm font-medium text-white">Admin</p>
-                <p className="text-xs text-white/70">admin@ipteixeira.com</p>
+                <p className="text-xs text-lime-400">admin@ipteixeira.com</p>
               </div>
             </div>
           )}
-          <Button variant="ghost" size="icon" className={`text-white hover:bg-sidebar-accent ${collapsed ? '' : 'ml-auto'}`}>
+          <Button variant="ghost" size="icon" className={`text-white hover:bg-lime-600/20 ${collapsed ? '' : 'ml-auto'}`}>
             <LogOut size={18} />
           </Button>
         </div>
