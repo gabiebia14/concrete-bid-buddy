@@ -58,7 +58,7 @@ export function ManagerSidebar() {
   return (
     <div className={`h-screen flex flex-col transition-all duration-300 shadow-lg ${
       collapsed ? 'w-16' : 'w-64'
-    } bg-sidebar`}>
+    } bg-sidebar bg-concrete-texture bg-opacity-90`}>
       <div className="p-4 flex flex-col items-center justify-center border-b border-sidebar-border">
         {!collapsed ? (
           <div className="flex flex-col items-center">

@@ -67,8 +67,8 @@ export function ClientSidebar() {
   return (
     <div className={`h-screen flex flex-col transition-all duration-300 shadow-lg ${
       collapsed ? 'w-16' : 'w-64'
-    } bg-zinc-900`}>
-      <div className="p-4 flex flex-col items-center justify-center border-b border-zinc-800">
+    } bg-sidebar bg-concrete-texture bg-opacity-90`}>
+      <div className="p-4 flex flex-col items-center justify-center border-b border-sidebar-border">
         {!collapsed ? (
           <div className="flex flex-col items-center">
             <img 
@@ -112,7 +112,7 @@ export function ClientSidebar() {
               className={`flex items-center px-3 py-2 rounded-md text-sm ${
                 isActive(item.href)
                   ? 'bg-lime-500/20 text-lime-500 font-medium'
-                  : 'text-white/90 hover:bg-zinc-800 hover:text-lime-400'
+                  : 'text-white/90 hover:bg-sidebar-accent hover:text-lime-400'
               } transition-colors ${
                 collapsed ? 'justify-center' : ''
               }`}
@@ -126,11 +126,11 @@ export function ClientSidebar() {
         </nav>
       </div>
       
-      <div className="p-3 border-t border-zinc-800">
+      <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-white">
+              <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-white">
                 <User size={16} />
               </div>
               <div className="ml-2">
@@ -142,7 +142,7 @@ export function ClientSidebar() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className={`text-white hover:bg-zinc-800 ${collapsed ? '' : 'ml-auto'}`}
+            className={`text-white hover:bg-sidebar-accent ${collapsed ? '' : 'ml-auto'}`}
             onClick={handleSignOut}
           >
             <LogOut size={18} />

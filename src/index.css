@@ -35,13 +35,13 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 142 69% 25%;
+    --sidebar-background: 0 0% 24%; /* Cinza concreto */
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 142 69% 25%;
-    --sidebar-accent: 142 40% 35%;
+    --sidebar-accent: 0 0% 30%; /* Cinza concreto mais escuro */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 142 40% 30%;
+    --sidebar-border: 0 0% 18%; /* Cinza concreto mais escuro para bordas */
     --sidebar-ring: 0 0% 100%;
   }
 
@@ -74,13 +74,13 @@
     --input: 215 25% 18%;
     --ring: 142 69% 30%;
 
-    --sidebar-background: 142 30% 18%;
+    --sidebar-background: 0 0% 20%; /* Cinza concreto escuro */
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 142 69% 25%;
-    --sidebar-accent: 142 25% 25%;
+    --sidebar-accent: 0 0% 15%; /* Cinza concreto mais escuro */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 142 30% 15%;
+    --sidebar-border: 0 0% 12%; /* Cinza concreto mais escuro para bordas */
     --sidebar-ring: 0 0% 100%;
   }
 }
