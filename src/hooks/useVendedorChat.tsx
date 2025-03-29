@@ -78,15 +78,19 @@ export function useVendedorChat(clienteId?: string) {
     }
   }, [toast]);
 
-  // Enviar mensagem para a função edge com IA
+  // Enviar mensagem para a função edge com IA (agora com Gemini)
   const enviarMensagemAI = useCallback(async (conteudo: string, telefone: string, sessaoId: string | null = null) => {
     if (!conteudo.trim() || !telefone) return null;
     
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
+      // Determinar qual função edge chamar
+      // Podemos alternar entre OpenAI e Gemini aqui baseado em configuração
+      const endpointFunction = 'vendedor-gemini-assistant'; // ou 'vendedor-ai-assistant' para OpenAI
+      
       // Enviar para a função edge
-      const { data, error } = await supabase.functions.invoke('vendedor-ai-assistant', {
+      const { data, error } = await supabase.functions.invoke(endpointFunction, {
         body: { 
           message: conteudo,
           phone: telefone,
@@ -96,7 +100,7 @@ export function useVendedorChat(clienteId?: string) {
       });
       
       if (error) {
-        console.error('Erro ao chamar função do vendedor AI:', error);
+        console.error(`Erro ao chamar função ${endpointFunction}:`, error);
         setState(prev => ({ 
           ...prev, 
           error: error.message, 
