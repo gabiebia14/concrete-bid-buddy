@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
-import { useContext, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function Vendedor() {
@@ -13,7 +13,7 @@ export default function Vendedor() {
   const [userId, setUserId] = useState<string | null>(null);
   
   // Verificar usuário atual quando o componente é montado
-  useContext(() => {
+  useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
