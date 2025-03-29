@@ -1,261 +1,77 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { VendedorChatMessage, VendedorChatState } from '@/lib/vendedorTypes';
-import { 
-  criarSessaoChat, 
-  buscarMensagensPorSessao, 
-  enviarMensagem as enviarMensagemService,
-  configurarChatTempoReal
-} from '@/services/vendedorChatService';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabase';
+import { configurarChatTempoReal } from '@/services/vendedorChatService';
+import { useVendedorChatSession } from './useVendedorChatSession';
+import { useVendedorChatMessages } from './useVendedorChatMessages';
+import { enviarMensagemAI } from './vendedorChatUtils';
 
 export function useVendedorChat(clienteId?: string) {
-  const [state, setState] = useState<VendedorChatState>({
-    messages: [],
-    isLoading: false,
-    error: null,
-    sessionId: null,
-  });
-  const { toast } = useToast();
-
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionManager = useVendedorChatSession();
+  const messageManager = useVendedorChatMessages(sessionId);
+  
   // Iniciar uma nova sessão de chat
   const iniciarChat = useCallback(async (telefone?: string) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      const novaSessionId = await sessionManager.iniciarChat();
       
-      console.log('Tentando criar sessão de chat com telefone:', telefone);
-      const session = await criarSessaoChat(null); // Não usamos clienteId para evitar o erro de foreign key
-      
-      setState(prev => ({ 
-        ...prev, 
-        sessionId: session.id,
-        isLoading: false 
-      }));
-      
-      console.log('Sessão criada com sucesso:', session.id);
-      
-      // Se temos telefone, enviar mensagem inicial para o assistente
-      if (telefone) {
-        await enviarMensagemAI("Olá", telefone, session.id);
-      }
-      
-      return session.id;
-    } catch (error: any) {
-      console.error('Erro ao iniciar chat:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: error.message || 'Erro ao iniciar chat', 
-        isLoading: false 
-      }));
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao iniciar chat',
-        description: error.message || 'Não foi possível iniciar o chat. Tente novamente.'
-      });
-      
-      return null;
-    }
-  }, [toast]);
-
-  // Carregar mensagens por sessão
-  const carregarMensagens = useCallback(async (sessionId: string) => {
-    if (!sessionId) return;
-    
-    try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const mensagens = await buscarMensagensPorSessao(sessionId);
-      setState(prev => ({ 
-        ...prev, 
-        messages: mensagens,
-        isLoading: false 
-      }));
-    } catch (error: any) {
-      setState(prev => ({ 
-        ...prev, 
-        error: error.message || 'Erro ao carregar mensagens', 
-        isLoading: false 
-      }));
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao carregar mensagens',
-        description: error.message || 'Não foi possível carregar as mensagens.'
-      });
-    }
-  }, [toast]);
-
-  // Enviar mensagem para a função edge com IA
-  const enviarMensagemAI = useCallback(async (conteudo: string, telefone: string, sessaoId: string | null = null) => {
-    if (!conteudo.trim() || !telefone) return null;
-    
-    try {
-      setState(prev => ({ ...prev, isLoading: true }));
-      
-      console.log('Enviando mensagem para função edge com dados:', {
-        message: conteudo,
-        phone: telefone,
-        sessionId: sessaoId || state.sessionId,
-      });
-      
-      // Enviar para a função edge
-      const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
-        body: { 
-          message: conteudo,
-          phone: telefone,
-          sessionId: sessaoId || state.sessionId,
-          channel: 'website'
-        }
-      });
-      
-      if (error) {
-        console.error(`Erro ao chamar função vendedor-gemini-assistant:`, error);
-        setState(prev => ({ 
-          ...prev, 
-          error: error.message, 
-          isLoading: false 
-        }));
-        return null;
-      }
-      
-      console.log('Resposta da função edge:', data);
-      
-      // Se não tínhamos sessão antes, vamos atualizar com a nova
-      if (!state.sessionId && data.sessionId) {
-        setState(prev => ({ ...prev, sessionId: data.sessionId }));
+      if (novaSessionId) {
+        setSessionId(novaSessionId);
         
-        // Carregar mensagens da nova sessão
-        const mensagens = await buscarMensagensPorSessao(data.sessionId);
-        setState(prev => ({ 
-          ...prev, 
-          messages: mensagens,
-          isLoading: false 
-        }));
-      } else {
-        setState(prev => ({ ...prev, isLoading: false }));
-      }
-      
-      return data;
-    } catch (error: any) {
-      console.error('Erro ao enviar mensagem para IA:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: error.message || 'Erro ao enviar mensagem', 
-        isLoading: false 
-      }));
-      
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao enviar mensagem',
-        description: error.message || 'Não foi possível processar sua mensagem.'
-      });
-      
-      return null;
-    }
-  }, [state.sessionId, toast]);
-
-  // Enviar nova mensagem
-  const enviarMensagemChat = useCallback(async (
-    conteudo: string, 
-    remetente: 'cliente' | 'vendedor' = 'cliente',
-    telefone?: string
-  ) => {
-    if (!conteudo.trim()) return;
-    
-    try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      console.log('Enviando mensagem:', conteudo, 'Telefone:', telefone);
-      
-      // Se temos telefone e é uma mensagem do cliente, usar a função de IA
-      if (telefone && remetente === 'cliente') {
-        // Adicionar a mensagem do cliente imediatamente para feedback visual
-        const tempClientMessage: VendedorChatMessage = {
-          id: `temp-${Date.now()}`,
-          session_id: state.sessionId || undefined,
-          remetente: 'cliente',
-          conteudo: conteudo,
-          created_at: new Date().toISOString()
-        };
-        
-        setState(prev => ({
-          ...prev,
-          messages: [...prev.messages, tempClientMessage]
-        }));
-        
-        // Se não temos sessão criada ainda, criar uma agora
-        if (!state.sessionId) {
-          console.log('Criando nova sessão para mensagem...');
-          const sessionId = await iniciarChat(telefone);
+        // Se temos telefone, enviar mensagem inicial para o assistente
+        if (telefone) {
+          await enviarMensagemAI("Olá", telefone, novaSessionId);
           
-          if (!sessionId) {
-            throw new Error('Não foi possível criar a sessão de chat');
-          }
-          
-          // Enviar para a IA e processar resposta
-          await enviarMensagemAI(conteudo, telefone, sessionId);
-        } else {
-          // Enviar para a IA usando a sessão existente
-          await enviarMensagemAI(conteudo, telefone, state.sessionId);
+          // Carregar mensagens da nova sessão
+          const mensagens = await sessionManager.carregarMensagens(novaSessionId);
+          messageManager.atualizarMensagens(mensagens);
         }
-        
-        return;
       }
       
-      // Caso contrário, usar o fluxo padrão
-      if (!state.sessionId) {
-        throw new Error('Sessão de chat não iniciada');
-      }
-      
-      const mensagem = await enviarMensagemService(state.sessionId, remetente, conteudo);
-      
-      // Atualizamos o estado imediatamente para uma experiência mais responsiva
-      setState(prev => ({ 
-        ...prev, 
-        messages: [...prev.messages, mensagem],
-        isLoading: false 
-      }));
-      
-      return mensagem;
+      return novaSessionId;
     } catch (error: any) {
-      console.error('Erro ao enviar mensagem:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: error.message || 'Erro ao enviar mensagem', 
-        isLoading: false 
-      }));
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao enviar mensagem',
-        description: error.message || 'Não foi possível enviar a mensagem.'
-      });
-      
+      console.error('Erro em iniciarChat:', error);
       return null;
     }
-  }, [state.sessionId, state.messages, iniciarChat, enviarMensagemAI, toast]);
+  }, [sessionManager, messageManager]);
 
   // Inicializar escuta em tempo real quando sessionId estiver disponível
   useEffect(() => {
-    if (!state.sessionId) return;
+    if (!sessionId) return;
 
-    const unsubscribe = configurarChatTempoReal(state.sessionId, (novaMensagem) => {
-      // Verificar se a mensagem já existe para evitar duplicação
-      if (!state.messages.some(msg => msg.id === novaMensagem.id)) {
-        setState(prev => ({
-          ...prev,
-          messages: [...prev.messages, novaMensagem]
-        }));
-      }
+    // Carregar mensagens iniciais
+    sessionManager.carregarMensagens(sessionId).then(mensagens => {
+      messageManager.atualizarMensagens(mensagens);
+    });
+
+    const unsubscribe = configurarChatTempoReal(sessionId, (novaMensagem) => {
+      // Adicionar nova mensagem ao estado
+      messageManager.atualizarMensagens(prevMessages => {
+        // Verificar se a mensagem já existe para evitar duplicação
+        if (!prevMessages.some(msg => msg.id === novaMensagem.id)) {
+          return [...prevMessages, novaMensagem];
+        }
+        return prevMessages;
+      });
     });
 
     return () => {
       unsubscribe();
     };
-  }, [state.sessionId, state.messages]);
+  }, [sessionId, sessionManager, messageManager]);
 
   return {
-    ...state,
+    messages: messageManager.messages,
+    isLoading: sessionManager.isLoading || messageManager.isLoading,
+    error: sessionManager.error || messageManager.error,
+    sessionId,
     iniciarChat,
-    carregarMensagens,
-    enviarMensagem: enviarMensagemChat,
-    limparErro: () => setState(prev => ({ ...prev, error: null }))
+    carregarMensagens: sessionManager.carregarMensagens,
+    enviarMensagem: messageManager.enviarMensagem,
+    limparErro: () => {
+      sessionManager.limparErro();
+      messageManager.limparErro();
+    }
   };
 }
