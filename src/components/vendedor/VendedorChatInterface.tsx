@@ -62,6 +62,13 @@ export function VendedorChatInterface({
     try {
       // Enviar mensagem usando o telefone fornecido
       await enviarMensagem(message, 'cliente', phoneInput || telefone);
+      
+      // Indicador visual de que a mensagem foi enviada
+      toast({
+        title: "Mensagem enviada",
+        description: "Aguardando resposta do vendedor...",
+        duration: 2000,
+      });
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err);
       toast({
@@ -132,7 +139,7 @@ export function VendedorChatInterface({
     }
 
     return messages.map((message) => (
-      <VendedorMessage key={message.id} message={message} />
+      <VendedorMessage key={message.id || `temp-${message.created_at}`} message={message} />
     ));
   };
 
@@ -141,6 +148,20 @@ export function VendedorChatInterface({
       <CardHeader className="pb-3 pt-6 bg-gradient-to-r from-lime-50 to-white border-b border-lime-100">
         <CardTitle className="text-lime-700">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
+        {error && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>{error}</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="ml-auto h-6 px-2 text-xs hover:bg-red-100" 
+              onClick={limparErro}
+            >
+              Limpar
+            </Button>
+          </div>
+        )}
       </CardHeader>
       
       <CardContent className="flex-grow p-0 overflow-hidden flex flex-col">
@@ -185,7 +206,7 @@ export function VendedorChatInterface({
           {renderMessages()}
           
           {/* Indicador de carregamento */}
-          {(isLoading || isSending) && messages.length > 0 && (
+          {(isLoading || isSending) && (
             <div className="flex justify-center py-2">
               <Loader2 className="h-5 w-5 animate-spin text-lime-600" />
             </div>

@@ -38,31 +38,46 @@ export async function criarSessaoChat(clienteId?: string | null): Promise<Vended
 }
 
 export async function buscarSessaoPorId(sessionId: string): Promise<VendedorChatSession | null> {
-  const { data, error } = await supabase
-    .from('vendedor_chat_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .maybeSingle();
+  try {
+    console.log('Buscando sessão:', sessionId);
+    const { data, error } = await supabase
+      .from('vendedor_chat_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .maybeSingle();
 
-  if (error) {
-    console.error('Erro ao buscar sessão de chat:', error);
+    if (error) {
+      console.error('Erro ao buscar sessão de chat:', error);
+      throw error;
+    }
+
+    console.log('Resultado da busca de sessão:', data);
+    return data;
+  } catch (error) {
+    console.error('Erro em buscarSessaoPorId:', error);
     throw error;
   }
-
-  return data;
 }
 
 export async function atualizarStatusSessao(sessionId: string, status: 'ativo' | 'encerrado' | 'aguardando'): Promise<void> {
-  const { error } = await supabase
-    .from('vendedor_chat_sessions')
-    .update({ 
-      status, 
-      updated_at: new Date().toISOString() 
-    })
-    .eq('id', sessionId);
+  try {
+    console.log('Atualizando status da sessão:', sessionId, 'para:', status);
+    const { error } = await supabase
+      .from('vendedor_chat_sessions')
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', sessionId);
 
-  if (error) {
-    console.error('Erro ao atualizar status da sessão:', error);
+    if (error) {
+      console.error('Erro ao atualizar status da sessão:', error);
+      throw error;
+    }
+    
+    console.log('Status da sessão atualizado com sucesso');
+  } catch (error) {
+    console.error('Erro em atualizarStatusSessao:', error);
     throw error;
   }
 }

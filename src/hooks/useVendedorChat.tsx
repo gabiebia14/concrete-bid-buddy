@@ -167,15 +167,6 @@ export function useVendedorChat(clienteId?: string) {
       
       // Se temos telefone e é uma mensagem do cliente, usar a função de IA
       if (telefone && remetente === 'cliente') {
-        // Se não temos sessão criada ainda, criar uma agora
-        if (!state.sessionId) {
-          console.log('Criando nova sessão para mensagem...');
-          const sessionId = await iniciarChat(telefone);
-          if (!sessionId) {
-            throw new Error('Não foi possível criar a sessão de chat');
-          }
-        }
-        
         // Adicionar a mensagem do cliente imediatamente para feedback visual
         const tempClientMessage: VendedorChatMessage = {
           id: `temp-${Date.now()}`,
@@ -190,15 +181,23 @@ export function useVendedorChat(clienteId?: string) {
           messages: [...prev.messages, tempClientMessage]
         }));
         
-        // Enviar para a IA e processar resposta
-        const resposta = await enviarMensagemAI(conteudo, telefone, state.sessionId);
-        
-        if (resposta) {
-          // Atualizar mensagens completas após resposta da IA
-          await carregarMensagens(resposta.sessionId || state.sessionId!);
+        // Se não temos sessão criada ainda, criar uma agora
+        if (!state.sessionId) {
+          console.log('Criando nova sessão para mensagem...');
+          const sessionId = await iniciarChat(telefone);
+          
+          if (!sessionId) {
+            throw new Error('Não foi possível criar a sessão de chat');
+          }
+          
+          // Enviar para a IA e processar resposta
+          await enviarMensagemAI(conteudo, telefone, sessionId);
+        } else {
+          // Enviar para a IA usando a sessão existente
+          await enviarMensagemAI(conteudo, telefone, state.sessionId);
         }
         
-        return resposta;
+        return;
       }
       
       // Caso contrário, usar o fluxo padrão
@@ -231,7 +230,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return null;
     }
-  }, [state.sessionId, toast, enviarMensagemAI, iniciarChat, carregarMensagens]);
+  }, [state.sessionId, state.messages, iniciarChat, enviarMensagemAI, toast]);
 
   // Inicializar escuta em tempo real quando sessionId estiver disponível
   useEffect(() => {

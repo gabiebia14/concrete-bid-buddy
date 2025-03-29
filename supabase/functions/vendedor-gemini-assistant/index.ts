@@ -12,6 +12,11 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // GEMINI API KEY
 const geminiApiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
+// Verificar se a chave Gemini está configurada
+if (!geminiApiKey) {
+  console.error("GEMINI_API_KEY não está configurada nas variáveis de ambiente!");
+}
+
 // Cabeçalhos CORS
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +55,7 @@ async function salvarMensagem(sessionId: string, remetente: 'cliente' | 'vendedo
 async function processarMensagemComGemini(mensagem: string, historico: any[]) {
   try {
     console.log("Processando mensagem com Gemini:", mensagem);
+    console.log("API Key está configurada:", !!geminiApiKey);
     
     // Formatar histórico para contexto do Gemini
     const mensagensFormatadas = historico.map(msg => {
@@ -107,14 +113,14 @@ Regra 4: Não forneça valores diretamente - Registre as informações e encamin
     // Construir o corpo da solicitação para a API Gemini
     const requestBody = {
       contents: mensagensFormatadas,
-      model: "gemini-2.5-pro-exp-03-25",
+      model: "gemini-1.5-flash-latest",
       systemInstruction,
       temperature: 0.75,
-      maxOutputTokens: 5536,
+      maxOutputTokens: 2048,
     };
     
     // Fazer a chamada para a API Gemini
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=${geminiApiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
