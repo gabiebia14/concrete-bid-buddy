@@ -15,12 +15,20 @@ export default function Vendedor() {
   // Verificar usuário atual quando o componente é montado
   useEffect(() => {
     async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        // Tentar pegar o telefone dos metadados, se disponível
-        const phone = user.user_metadata?.phone || '';
-        setUserPhone(phone);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('Usuário atual:', user);
+        
+        if (user) {
+          setUserId(user.id);
+          // Tentar pegar o telefone dos metadados, se disponível
+          const phone = user.user_metadata?.phone || '';
+          setUserPhone(phone);
+        } else {
+          console.log('Nenhum usuário logado');
+        }
+      } catch (error) {
+        console.error('Erro ao obter usuário:', error);
       }
     }
     

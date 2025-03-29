@@ -55,8 +55,10 @@ export function VendedorChatInterface({
     // Limpar qualquer erro de telefone
     setPhoneError('');
     
+    console.log('Enviando mensagem:', message, 'Telefone:', phoneInput || telefone);
+    
     // Enviar mensagem usando o telefone fornecido
-    enviarMensagem(message, 'cliente', phoneInput);
+    enviarMensagem(message, 'cliente', phoneInput || telefone);
   };
 
   const scrollToBottom = () => {
@@ -78,11 +80,12 @@ export function VendedorChatInterface({
     }
     
     setPhoneError('');
+    console.log('Iniciando chat com telefone:', phoneInput);
     iniciarChat(phoneInput);
     
     toast({
       title: "Chat iniciado",
-      description: "Agora você pode conversar com nosso vendedor.",
+      description: "Agora você pode conversar com nosso vendedor."
     });
   };
 
@@ -93,7 +96,7 @@ export function VendedorChatInterface({
           <div className="text-center p-4">
             <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-2" />
             <p className="text-muted-foreground">
-              {telefone || sessionId 
+              {(telefone || phoneInput || sessionId) 
                 ? "Envie uma mensagem para iniciar a conversa com nosso vendedor"
                 : "Informe seu telefone para iniciar o chat com nosso vendedor"}
             </p>
@@ -115,7 +118,7 @@ export function VendedorChatInterface({
       </CardHeader>
       
       <CardContent className="flex-grow p-0 overflow-hidden flex flex-col">
-        {/* Formulário de telefone caso não tenha sessão */}
+        {/* Formulário de telefone caso não tenha sessão nem telefone */}
         {!sessionId && !telefone && (
           <div className="p-4 border-b">
             <div className="space-y-2">
@@ -167,7 +170,7 @@ export function VendedorChatInterface({
         
         <VendedorChatInput
           onSendMessage={handleSendMessage}
-          isDisabled={isLoading || (!sessionId && !telefone)}
+          isDisabled={isLoading || (!sessionId && !telefone && !phoneInput)}
         />
       </CardContent>
     </Card>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { VendedorChatMessage, VendedorChatState } from '@/lib/vendedorTypes';
 import { 
@@ -47,10 +46,17 @@ export function useVendedorChat(clienteId?: string) {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Verificar se o cliente existe antes de criar a sessão
-      const clienteVerificado = await verificarCliente(clienteId);
+      // Iniciar nova sessão sem verificar cliente para visitantes sem login
+      let clienteVerificado = null;
       
+      // Se temos clienteId, então verificamos se existe
+      if (clienteId) {
+        clienteVerificado = await verificarCliente(clienteId);
+      }
+      
+      console.log('Criando sessão com clienteId:', clienteVerificado);
       const session = await criarSessaoChat(clienteVerificado);
+      
       setState(prev => ({ 
         ...prev, 
         sessionId: session.id,
@@ -64,6 +70,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return session.id;
     } catch (error: any) {
+      console.error('Erro ao iniciar chat:', error);
       setState(prev => ({ 
         ...prev, 
         error: error.message || 'Erro ao iniciar chat', 
@@ -116,6 +123,13 @@ export function useVendedorChat(clienteId?: string) {
       // Podemos alternar entre OpenAI e Gemini aqui baseado em configuração
       const endpointFunction = 'vendedor-gemini-assistant'; // ou 'vendedor-ai-assistant' para OpenAI
       
+      console.log('Enviando para função edge:', endpointFunction, 'com dados:', {
+        message: conteudo,
+        phone: telefone,
+        sessionId: sessaoId || state.sessionId,
+        channel: 'website'
+      });
+      
       // Enviar para a função edge
       const { data, error } = await supabase.functions.invoke(endpointFunction, {
         body: { 
@@ -135,6 +149,8 @@ export function useVendedorChat(clienteId?: string) {
         }));
         return null;
       }
+      
+      console.log('Resposta da função edge:', data);
       
       // Se não tínhamos sessão antes, vamos atualizar com a nova
       if (!state.sessionId && data.sessionId) {
@@ -220,6 +236,9 @@ export function useVendedorChat(clienteId?: string) {
   // Inicializar chat e configurar escuta em tempo real
   useEffect(() => {
     const initChat = async () => {
+      // Não iniciar chat automaticamente para usuários sem telefone
+      if (!clienteId) return;
+      
       const sessionId = await iniciarChat();
       if (sessionId) {
         await carregarMensagens(sessionId);
@@ -233,7 +252,7 @@ export function useVendedorChat(clienteId?: string) {
     return () => {
       // Cleanup ocorre automaticamente quando o componente é desmontado
     };
-  }, [iniciarChat, carregarMensagens, state.sessionId]);
+  }, [iniciarChat, carregarMensagens, state.sessionId, clienteId]);
 
   // Configurar escuta em tempo real quando sessionId estiver disponível
   useEffect(() => {
