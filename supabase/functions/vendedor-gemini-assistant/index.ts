@@ -19,66 +19,18 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Verificar se cliente existe por telefone
-async function buscarClientePorTelefone(telefone: string) {
-  try {
-    console.log(`Buscando cliente pelo telefone: ${telefone}`);
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("phone", telefone)
-      .maybeSingle();
-    
-    if (error) {
-      console.error("Erro ao buscar cliente:", error);
-      return null;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error("Erro ao buscar cliente:", error);
-    return null;
-  }
-}
-
-// Criar novo cliente
-async function criarNovoCliente(clienteData: any) {
-  try {
-    const { data, error } = await supabase
-      .from("clients")
-      .insert(clienteData)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("Erro ao criar cliente:", error);
-      return null;
-    }
-    
-    console.log("Cliente criado com sucesso:", data);
-    return data;
-  } catch (error) {
-    console.error("Erro ao criar cliente:", error);
-    return null;
-  }
-}
-
 // Salvar mensagem no chat
-async function salvarMensagem(sessionId: string, remetente: 'cliente' | 'vendedor', conteudo: string, orcamentoData?: any) {
+async function salvarMensagem(sessionId: string, remetente: 'cliente' | 'vendedor', conteudo: string) {
   try {
-    const mensagemData: any = {
-      session_id: sessionId,
-      remetente,
-      conteudo
-    };
-    
-    if (orcamentoData) {
-      mensagemData.orcamento = orcamentoData;
-    }
+    console.log(`Salvando mensagem como ${remetente}: "${conteudo}" para sessão ${sessionId}`);
     
     const { data, error } = await supabase
       .from("vendedor_chat_messages")
-      .insert(mensagemData)
+      .insert({
+        session_id: sessionId,
+        remetente,
+        conteudo
+      })
       .select()
       .single();
     
@@ -97,6 +49,8 @@ async function salvarMensagem(sessionId: string, remetente: 'cliente' | 'vendedo
 // Processar mensagem com Gemini API
 async function processarMensagemComGemini(mensagem: string, historico: any[]) {
   try {
+    console.log("Processando mensagem com Gemini:", mensagem);
+    
     // Formatar histórico para contexto do Gemini
     const mensagensFormatadas = historico.map(msg => {
       return {
@@ -160,7 +114,7 @@ Regra 4: Não forneça valores diretamente - Registre as informações e encamin
     };
     
     // Fazer a chamada para a API Gemini
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=" + geminiApiKey, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=${geminiApiKey}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -169,6 +123,7 @@ Regra 4: Não forneça valores diretamente - Registre as informações e encamin
     });
     
     const responseData = await response.json();
+    console.log("Resposta bruta do Gemini:", JSON.stringify(responseData).substring(0, 200) + "...");
     
     if (responseData.error) {
       console.error("Erro na resposta do Gemini:", responseData.error);
@@ -184,165 +139,10 @@ Regra 4: Não forneça valores diretamente - Registre as informações e encamin
       return responseData.candidates[0].content.parts[0].text;
     }
     
-    return "Desculpe, não consegui processar sua mensagem. Como posso ajudar?";
-    
+    return "Olá! Sou o assistente de vendas da IPT Teixeira. Em que posso ajudar hoje? Qual tipo de produto você está precisando?";
   } catch (error) {
     console.error("Erro ao processar mensagem com Gemini:", error);
     return "Estou com dificuldades técnicas no momento. Por favor, tente novamente em instantes.";
-  }
-}
-
-// Extrair informações do cliente da mensagem
-async function extrairDadosCliente(mensagens: any[]) {
-  try {
-    // Concatenar todas as mensagens do chat para análise
-    const textoCompleto = mensagens.map(m => m.conteudo).join("\n");
-    
-    // Construir o prompt para extrair dados do cliente
-    const promptExtracaoDados = `
-    Analise a seguinte conversa com um cliente e extraia as informações de contato:
-    ---
-    ${textoCompleto}
-    ---
-    
-    Extraia apenas os seguintes campos em formato JSON:
-    {
-      "tipo_pessoa": "fisica" ou "juridica" (se identificado),
-      "nome": "Nome completo ou razão social",
-      "cpf_cnpj": "CPF ou CNPJ (apenas números)",
-      "email": "Email se mencionado",
-      "telefone": "Telefone com DDD (apenas números)",
-      "endereco": "Endereço se mencionado"
-    }
-    
-    Use null para campos não mencionados. Retorne APENAS o JSON, sem texto adicional.
-    `;
-    
-    // Fazer a chamada para a API Gemini
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: promptExtracaoDados }]
-        }
-      ],
-      model: "gemini-2.5-pro-exp-03-25",
-      temperature: 0.1,
-    };
-    
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=" + geminiApiKey, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const responseData = await response.json();
-    
-    let dadosExtraidos = {};
-    
-    if (responseData.candidates && 
-        responseData.candidates[0] && 
-        responseData.candidates[0].content && 
-        responseData.candidates[0].content.parts && 
-        responseData.candidates[0].content.parts[0]) {
-      
-      const respostaTexto = responseData.candidates[0].content.parts[0].text;
-      
-      try {
-        // Tentar fazer o parse do JSON da resposta
-        dadosExtraidos = JSON.parse(respostaTexto);
-      } catch (e) {
-        console.error("Erro ao fazer parse do JSON:", e);
-      }
-    }
-    
-    return dadosExtraidos;
-  } catch (error) {
-    console.error("Erro ao extrair dados do cliente:", error);
-    return {};
-  }
-}
-
-// Extrair detalhes do orçamento
-async function extrairDadosOrcamento(mensagens: any[]) {
-  try {
-    // Concatenar todas as mensagens do chat para análise
-    const textoCompleto = mensagens.map(m => m.conteudo).join("\n");
-    
-    // Construir o prompt para extrair dados do orçamento
-    const promptExtracaoOrcamento = `
-    Analise a seguinte conversa com um cliente e extraia as informações de orçamento:
-    ---
-    ${textoCompleto}
-    ---
-    
-    Extraia apenas os seguintes campos em formato JSON:
-    {
-      "produtos": [
-        {
-          "tipo": "tipo do produto (postes, tubos, blocos, etc)",
-          "subtipo": "subtipo ou modelo do produto (circular, duplo t, pa1, etc)",
-          "dimensoes": "dimensões mencionadas",
-          "quantidade": número extraído ou null,
-          "especificacoes": "especificações adicionais mencionadas"
-        }
-      ],
-      "entrega": {
-        "local": "local de entrega mencionado",
-        "prazo": "prazo mencionado"
-      },
-      "pagamento": "forma de pagamento mencionada"
-    }
-    
-    Use arrays vazios ou null para campos não identificados. Retorne APENAS o JSON, sem texto adicional.
-    `;
-    
-    // Fazer a chamada para a API Gemini
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: promptExtracaoOrcamento }]
-        }
-      ],
-      model: "gemini-2.5-pro-exp-03-25",
-      temperature: 0.1,
-    };
-    
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=" + geminiApiKey, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const responseData = await response.json();
-    
-    let dadosExtraidos = { produtos: [], entrega: {}, pagamento: null };
-    
-    if (responseData.candidates && 
-        responseData.candidates[0] && 
-        responseData.candidates[0].content && 
-        responseData.candidates[0].content.parts && 
-        responseData.candidates[0].content.parts[0]) {
-      
-      const respostaTexto = responseData.candidates[0].content.parts[0].text;
-      
-      try {
-        // Tentar fazer o parse do JSON da resposta
-        dadosExtraidos = JSON.parse(respostaTexto);
-      } catch (e) {
-        console.error("Erro ao fazer parse do JSON de orçamento:", e);
-      }
-    }
-    
-    return dadosExtraidos;
-  } catch (error) {
-    console.error("Erro ao extrair dados do orçamento:", error);
-    return { produtos: [], entrega: {}, pagamento: null };
   }
 }
 
@@ -350,11 +150,6 @@ async function extrairDadosOrcamento(mensagens: any[]) {
 async function processarMensagem(mensagemUsuario: string, telefone: string, sessionId: string | null = null) {
   try {
     console.log(`Processando mensagem: "${mensagemUsuario}" para telefone: ${telefone}, sessão: ${sessionId}`);
-    
-    // Verificar se cliente existe
-    let cliente = await buscarClientePorTelefone(telefone);
-    let clienteId = cliente?.id;
-    console.log("Cliente encontrado:", cliente ? "Sim" : "Não");
     
     // Buscar ou criar sessão
     let sessao;
@@ -368,11 +163,10 @@ async function processarMensagem(mensagemUsuario: string, telefone: string, sess
       
       if (error) {
         console.error("Erro ao buscar sessão:", error);
-        // Criar nova sessão
+        // Criar nova sessão sem cliente_id
         const { data: novaData, error: novoErro } = await supabase
           .from("vendedor_chat_sessions")
           .insert({
-            cliente_id: clienteId,
             status: 'ativo',
             updated_at: new Date().toISOString()
           })
@@ -388,11 +182,10 @@ async function processarMensagem(mensagemUsuario: string, telefone: string, sess
         sessao = data;
       }
     } else {
-      // Criar nova sessão
+      // Criar nova sessão sem cliente_id
       const { data, error } = await supabase
         .from("vendedor_chat_sessions")
         .insert({
-          cliente_id: clienteId,
           status: 'ativo',
           updated_at: new Date().toISOString()
         })
@@ -406,6 +199,8 @@ async function processarMensagem(mensagemUsuario: string, telefone: string, sess
       sessao = data;
     }
     
+    console.log("Sessão usada:", sessao.id);
+    
     // Buscar histórico de mensagens
     const { data: historicoMensagens, error: errorHistorico } = await supabase
       .from("vendedor_chat_messages")
@@ -418,6 +213,7 @@ async function processarMensagem(mensagemUsuario: string, telefone: string, sess
     }
     
     const historico = historicoMensagens || [];
+    console.log(`Encontradas ${historico.length} mensagens no histórico`);
     
     // Salvar mensagem do usuário
     await salvarMensagem(sessao.id, 'cliente', mensagemUsuario);
@@ -428,78 +224,14 @@ async function processarMensagem(mensagemUsuario: string, telefone: string, sess
       [...historico, { remetente: 'cliente', conteudo: mensagemUsuario }]
     );
     
+    console.log("Resposta do agente:", respostaAgente);
+    
     // Salvar resposta do agente
     await salvarMensagem(sessao.id, 'vendedor', respostaAgente);
     
-    // Se não temos um cliente ainda, tentar extrair informações das mensagens
-    if (!cliente) {
-      const todasMensagens = [
-        ...historico, 
-        { remetente: 'cliente', conteudo: mensagemUsuario },
-        { remetente: 'vendedor', conteudo: respostaAgente }
-      ];
-      
-      const dadosExtraidos = await extrairDadosCliente(todasMensagens);
-      console.log("Dados extraídos:", dadosExtraidos);
-      
-      // Se temos dados suficientes, criar cliente
-      if (dadosExtraidos.nome && dadosExtraidos.tipo_pessoa) {
-        const novoCliente = {
-          name: dadosExtraidos.nome,
-          tipo_pessoa: dadosExtraidos.tipo_pessoa || 'fisica',
-          cpf_cnpj: dadosExtraidos.cpf_cnpj || null,
-          email: dadosExtraidos.email || `${telefone.replace(/\D/g, '')}@placeholder.com`,
-          phone: telefone,
-          address: dadosExtraidos.endereco || null
-        };
-        
-        cliente = await criarNovoCliente(novoCliente);
-        
-        if (cliente) {
-          // Atualizar sessão com ID do cliente
-          await supabase
-            .from("vendedor_chat_sessions")
-            .update({ cliente_id: cliente.id })
-            .eq("id", sessao.id);
-        }
-      }
-    }
-    
-    // Verificar se tem informações de orçamento para salvar
-    const dadosOrcamento = await extrairDadosOrcamento([
-      ...historico, 
-      { remetente: 'cliente', conteudo: mensagemUsuario },
-      { remetente: 'vendedor', conteudo: respostaAgente }
-    ]);
-    
-    console.log("Dados orçamento extraídos:", dadosOrcamento);
-    
-    // Se temos produtos no orçamento, atualizar a última mensagem do vendedor
-    if (dadosOrcamento.produtos && dadosOrcamento.produtos.length > 0) {
-      // Buscar a última mensagem do vendedor
-      const { data: ultimaMensagem } = await supabase
-        .from("vendedor_chat_messages")
-        .select("*")
-        .eq("session_id", sessao.id)
-        .eq("remetente", "vendedor")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (ultimaMensagem) {
-        // Atualizar a mensagem com os dados do orçamento
-        await supabase
-          .from("vendedor_chat_messages")
-          .update({ orcamento: dadosOrcamento })
-          .eq("id", ultimaMensagem.id);
-      }
-    }
-    
     return {
       sessionId: sessao.id,
-      message: respostaAgente,
-      cliente: cliente,
-      orcamento: dadosOrcamento.produtos && dadosOrcamento.produtos.length > 0 ? dadosOrcamento : null
+      message: respostaAgente
     };
   } catch (error) {
     console.error("Erro ao processar mensagem:", error);
@@ -521,10 +253,24 @@ serve(async (req) => {
     // Extrair dados da requisição
     const { message, phone, sessionId, channel = "website" } = await req.json();
     
-    if (!message || !phone) {
+    console.log("Requisição recebida:", { message, phone, sessionId, channel });
+    
+    if (!message) {
       return new Response(
         JSON.stringify({ 
-          error: "Parâmetros inválidos. Mensagem e telefone são obrigatórios." 
+          error: "Mensagem é obrigatória." 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    if (!phone) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Telefone é obrigatório." 
         }),
         {
           status: 400,

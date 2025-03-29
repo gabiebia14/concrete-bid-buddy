@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { VendedorChatMessage, VendedorChatState } from '@/lib/vendedorTypes';
 import { 
@@ -18,44 +19,13 @@ export function useVendedorChat(clienteId?: string) {
   });
   const { toast } = useToast();
 
-  // Verificar se o cliente existe antes de criar uma sessão
-  const verificarCliente = useCallback(async (id?: string) => {
-    if (!id) return null;
-    
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id', id)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Erro ao verificar cliente:', error);
-        return null;
-      }
-      
-      return data ? id : null;
-    } catch (error) {
-      console.error('Erro ao verificar cliente:', error);
-      return null;
-    }
-  }, []);
-
   // Iniciar uma nova sessão de chat
   const iniciarChat = useCallback(async (telefone?: string) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Iniciar nova sessão sem verificar cliente para visitantes sem login
-      let clienteVerificado = null;
-      
-      // Se temos clienteId, então verificamos se existe
-      if (clienteId) {
-        clienteVerificado = await verificarCliente(clienteId);
-      }
-      
-      console.log('Criando sessão com clienteId:', clienteVerificado);
-      const session = await criarSessaoChat(clienteVerificado);
+      console.log('Tentando criar sessão de chat com telefone:', telefone);
+      const session = await criarSessaoChat(null); // Não usamos clienteId para evitar o erro de foreign key
       
       setState(prev => ({ 
         ...prev, 
@@ -63,7 +33,9 @@ export function useVendedorChat(clienteId?: string) {
         isLoading: false 
       }));
       
-      // Se temos telefone, enviar mensagem de boas-vindas via AI
+      console.log('Sessão criada com sucesso:', session.id);
+      
+      // Se temos telefone, enviar mensagem inicial para o assistente
       if (telefone) {
         await enviarMensagemAI("Olá", telefone, session.id);
       }
@@ -84,7 +56,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return null;
     }
-  }, [clienteId, toast, verificarCliente]);
+  }, [toast]);
 
   // Carregar mensagens por sessão
   const carregarMensagens = useCallback(async (sessionId: string) => {
@@ -112,26 +84,21 @@ export function useVendedorChat(clienteId?: string) {
     }
   }, [toast]);
 
-  // Enviar mensagem para a função edge com IA (agora com Gemini)
+  // Enviar mensagem para a função edge com IA
   const enviarMensagemAI = useCallback(async (conteudo: string, telefone: string, sessaoId: string | null = null) => {
     if (!conteudo.trim() || !telefone) return null;
     
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
-      // Determinar qual função edge chamar
-      // Podemos alternar entre OpenAI e Gemini aqui baseado em configuração
-      const endpointFunction = 'vendedor-gemini-assistant'; // ou 'vendedor-ai-assistant' para OpenAI
-      
-      console.log('Enviando para função edge:', endpointFunction, 'com dados:', {
+      console.log('Enviando mensagem para função edge com dados:', {
         message: conteudo,
         phone: telefone,
         sessionId: sessaoId || state.sessionId,
-        channel: 'website'
       });
       
       // Enviar para a função edge
-      const { data, error } = await supabase.functions.invoke(endpointFunction, {
+      const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
         body: { 
           message: conteudo,
           phone: telefone,
@@ -141,7 +108,7 @@ export function useVendedorChat(clienteId?: string) {
       });
       
       if (error) {
-        console.error(`Erro ao chamar função ${endpointFunction}:`, error);
+        console.error(`Erro ao chamar função vendedor-gemini-assistant:`, error);
         setState(prev => ({ 
           ...prev, 
           error: error.message, 
@@ -196,10 +163,42 @@ export function useVendedorChat(clienteId?: string) {
     
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
+      console.log('Enviando mensagem:', conteudo, 'Telefone:', telefone);
       
       // Se temos telefone e é uma mensagem do cliente, usar a função de IA
       if (telefone && remetente === 'cliente') {
-        return await enviarMensagemAI(conteudo, telefone, state.sessionId);
+        // Se não temos sessão criada ainda, criar uma agora
+        if (!state.sessionId) {
+          console.log('Criando nova sessão para mensagem...');
+          const sessionId = await iniciarChat(telefone);
+          if (!sessionId) {
+            throw new Error('Não foi possível criar a sessão de chat');
+          }
+        }
+        
+        // Adicionar a mensagem do cliente imediatamente para feedback visual
+        const tempClientMessage: VendedorChatMessage = {
+          id: `temp-${Date.now()}`,
+          session_id: state.sessionId || undefined,
+          remetente: 'cliente',
+          conteudo: conteudo,
+          created_at: new Date().toISOString()
+        };
+        
+        setState(prev => ({
+          ...prev,
+          messages: [...prev.messages, tempClientMessage]
+        }));
+        
+        // Enviar para a IA e processar resposta
+        const resposta = await enviarMensagemAI(conteudo, telefone, state.sessionId);
+        
+        if (resposta) {
+          // Atualizar mensagens completas após resposta da IA
+          await carregarMensagens(resposta.sessionId || state.sessionId!);
+        }
+        
+        return resposta;
       }
       
       // Caso contrário, usar o fluxo padrão
@@ -218,6 +217,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return mensagem;
     } catch (error: any) {
+      console.error('Erro ao enviar mensagem:', error);
       setState(prev => ({ 
         ...prev, 
         error: error.message || 'Erro ao enviar mensagem', 
@@ -231,30 +231,9 @@ export function useVendedorChat(clienteId?: string) {
       
       return null;
     }
-  }, [state.sessionId, toast, enviarMensagemAI]);
+  }, [state.sessionId, toast, enviarMensagemAI, iniciarChat, carregarMensagens]);
 
-  // Inicializar chat e configurar escuta em tempo real
-  useEffect(() => {
-    const initChat = async () => {
-      // Não iniciar chat automaticamente para usuários sem telefone
-      if (!clienteId) return;
-      
-      const sessionId = await iniciarChat();
-      if (sessionId) {
-        await carregarMensagens(sessionId);
-      }
-    };
-
-    if (!state.sessionId) {
-      initChat();
-    }
-
-    return () => {
-      // Cleanup ocorre automaticamente quando o componente é desmontado
-    };
-  }, [iniciarChat, carregarMensagens, state.sessionId, clienteId]);
-
-  // Configurar escuta em tempo real quando sessionId estiver disponível
+  // Inicializar escuta em tempo real quando sessionId estiver disponível
   useEffect(() => {
     if (!state.sessionId) return;
 

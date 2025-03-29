@@ -1,13 +1,22 @@
+
 import { supabase } from '@/lib/supabase';
 import { VendedorChatMessage, VendedorChatSession } from '@/lib/vendedorTypes';
 
 // Funções para gerenciar sessões de chat
 export async function criarSessaoChat(clienteId?: string | null): Promise<VendedorChatSession> {
   try {
-    // Se clienteId for undefined ou null, não incluímos no objeto de inserção
-    const insertData = clienteId 
-      ? { cliente_id: clienteId, status: 'ativo', updated_at: new Date().toISOString() }
-      : { status: 'ativo', updated_at: new Date().toISOString() };
+    console.log('Criando sessão de chat, clienteId:', clienteId);
+    
+    // Dados para inserção na tabela
+    const insertData: any = { 
+      status: 'ativo', 
+      updated_at: new Date().toISOString() 
+    };
+    
+    // Só adicionamos cliente_id se for fornecido um valor válido
+    if (clienteId) {
+      insertData.cliente_id = clienteId;
+    }
 
     const { data, error } = await supabase
       .from('vendedor_chat_sessions')
@@ -20,6 +29,7 @@ export async function criarSessaoChat(clienteId?: string | null): Promise<Vended
       throw error;
     }
 
+    console.log('Sessão criada com sucesso:', data);
     return data;
   } catch (error) {
     console.error('Erro no criarSessaoChat:', error);
@@ -60,6 +70,8 @@ export async function atualizarStatusSessao(sessionId: string, status: 'ativo' |
 // Funções para gerenciar mensagens de chat
 export async function enviarMensagem(sessionId: string, remetente: 'cliente' | 'vendedor', conteudo: string): Promise<VendedorChatMessage> {
   try {
+    console.log(`Enviando mensagem como ${remetente}: "${conteudo}" para sessão ${sessionId}`);
+    
     const { data, error } = await supabase
       .from('vendedor_chat_messages')
       .insert({
@@ -75,6 +87,7 @@ export async function enviarMensagem(sessionId: string, remetente: 'cliente' | '
       throw error;
     }
 
+    console.log('Mensagem enviada com sucesso:', data);
     return data;
   } catch (error) {
     console.error('Erro no enviarMensagem:', error);
@@ -83,23 +96,33 @@ export async function enviarMensagem(sessionId: string, remetente: 'cliente' | '
 }
 
 export async function buscarMensagensPorSessao(sessionId: string): Promise<VendedorChatMessage[]> {
-  const { data, error } = await supabase
-    .from('vendedor_chat_messages')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
+  try {
+    console.log('Buscando mensagens para sessão:', sessionId);
+    
+    const { data, error } = await supabase
+      .from('vendedor_chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error('Erro ao buscar mensagens:', error);
+    if (error) {
+      console.error('Erro ao buscar mensagens:', error);
+      throw error;
+    }
+
+    console.log(`Encontradas ${data?.length || 0} mensagens para a sessão`);
+    return data || [];
+  } catch (error) {
+    console.error('Erro em buscarMensagensPorSessao:', error);
     throw error;
   }
-
-  return data || [];
 }
 
 // Setup para tempo real usando canais do Supabase
 export function configurarChatTempoReal(sessionId: string, callback: (mensagem: VendedorChatMessage) => void) {
   try {
+    console.log('Configurando tempo real para sessão:', sessionId);
+    
     const channel = supabase
       .channel(`vendedor-chat-${sessionId}`)
       .on(
@@ -111,12 +134,18 @@ export function configurarChatTempoReal(sessionId: string, callback: (mensagem: 
           filter: `session_id=eq.${sessionId}`
         },
         (payload) => {
+          console.log('Nova mensagem recebida em tempo real:', payload.new);
           callback(payload.new as VendedorChatMessage);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Status da inscrição do canal:', status);
+      });
 
+    console.log('Canal configurado com sucesso');
+    
     return () => {
+      console.log('Removendo canal de tempo real');
       supabase.removeChannel(channel);
     };
   } catch (error) {

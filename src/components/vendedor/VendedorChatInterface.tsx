@@ -5,7 +5,7 @@ import { VendedorChatInput } from './VendedorChatInput';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useVendedorChat } from '@/hooks/useVendedorChat';
-import { MessageSquare, ArrowDown, AlertCircle } from 'lucide-react';
+import { MessageSquare, ArrowDown, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ChatInterfaceProps {
@@ -25,6 +25,7 @@ export function VendedorChatInterface({
   const { toast } = useToast();
   const [phoneInput, setPhoneInput] = useState(telefone || '');
   const [phoneError, setPhoneError] = useState('');
+  const [isSending, setIsSending] = useState(false);
   
   const { 
     messages, 
@@ -43,7 +44,7 @@ export function VendedorChatInterface({
     }
   }, [messages]);
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string) => {
     if (error) limparErro();
     
     // Verificar se temos telefone
@@ -56,9 +57,21 @@ export function VendedorChatInterface({
     setPhoneError('');
     
     console.log('Enviando mensagem:', message, 'Telefone:', phoneInput || telefone);
+    setIsSending(true);
     
-    // Enviar mensagem usando o telefone fornecido
-    enviarMensagem(message, 'cliente', phoneInput || telefone);
+    try {
+      // Enviar mensagem usando o telefone fornecido
+      await enviarMensagem(message, 'cliente', phoneInput || telefone);
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar mensagem',
+        description: 'Não foi possível enviar sua mensagem. Tente novamente.'
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const scrollToBottom = () => {
@@ -67,7 +80,7 @@ export function VendedorChatInterface({
     }
   };
 
-  const handleStartChat = () => {
+  const handleStartChat = async () => {
     if (!phoneInput.trim()) {
       setPhoneError('Por favor, informe seu telefone para iniciar o chat');
       return;
@@ -81,12 +94,25 @@ export function VendedorChatInterface({
     
     setPhoneError('');
     console.log('Iniciando chat com telefone:', phoneInput);
-    iniciarChat(phoneInput);
     
-    toast({
-      title: "Chat iniciado",
-      description: "Agora você pode conversar com nosso vendedor."
-    });
+    try {
+      setIsSending(true);
+      await iniciarChat(phoneInput);
+      
+      toast({
+        title: "Chat iniciado",
+        description: "Agora você pode conversar com nosso vendedor."
+      });
+    } catch (err) {
+      console.error('Erro ao iniciar chat:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao iniciar chat',
+        description: 'Não foi possível iniciar o chat. Tente novamente.'
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const renderMessages = () => {
@@ -133,9 +159,12 @@ export function VendedorChatInterface({
                 />
                 <Button 
                   onClick={handleStartChat} 
-                  disabled={isLoading || !phoneInput.trim()}
+                  disabled={isLoading || isSending || !phoneInput.trim()}
                   className="bg-lime-600 hover:bg-lime-700"
                 >
+                  {(isLoading || isSending) ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
                   Iniciar
                 </Button>
               </div>
@@ -155,6 +184,13 @@ export function VendedorChatInterface({
         >
           {renderMessages()}
           
+          {/* Indicador de carregamento */}
+          {(isLoading || isSending) && messages.length > 0 && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-5 w-5 animate-spin text-lime-600" />
+            </div>
+          )}
+          
           {/* Botão para rolar para o final */}
           {messages.length > 5 && (
             <Button
@@ -170,7 +206,7 @@ export function VendedorChatInterface({
         
         <VendedorChatInput
           onSendMessage={handleSendMessage}
-          isDisabled={isLoading || (!sessionId && !telefone && !phoneInput)}
+          isDisabled={isLoading || isSending || (!sessionId && !telefone && !phoneInput)}
         />
       </CardContent>
     </Card>
