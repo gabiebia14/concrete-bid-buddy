@@ -19,11 +19,38 @@ export function useVendedorChat(clienteId?: string) {
   });
   const { toast } = useToast();
 
+  // Verificar se o cliente existe antes de criar uma sessão
+  const verificarCliente = useCallback(async (id?: string) => {
+    if (!id) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Erro ao verificar cliente:', error);
+        return null;
+      }
+      
+      return data ? id : null;
+    } catch (error) {
+      console.error('Erro ao verificar cliente:', error);
+      return null;
+    }
+  }, []);
+
   // Iniciar uma nova sessão de chat
   const iniciarChat = useCallback(async (telefone?: string) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const session = await criarSessaoChat(clienteId);
+      
+      // Verificar se o cliente existe antes de criar a sessão
+      const clienteVerificado = await verificarCliente(clienteId);
+      
+      const session = await criarSessaoChat(clienteVerificado);
       setState(prev => ({ 
         ...prev, 
         sessionId: session.id,
@@ -50,7 +77,7 @@ export function useVendedorChat(clienteId?: string) {
       
       return null;
     }
-  }, [clienteId, toast]);
+  }, [clienteId, toast, verificarCliente]);
 
   // Carregar mensagens por sessão
   const carregarMensagens = useCallback(async (sessionId: string) => {

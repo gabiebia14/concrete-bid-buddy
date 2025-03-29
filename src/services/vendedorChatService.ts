@@ -3,14 +3,15 @@ import { supabase } from '@/lib/supabase';
 import { VendedorChatMessage, VendedorChatSession } from '@/lib/vendedorTypes';
 
 // Funções para gerenciar sessões de chat
-export async function criarSessaoChat(clienteId?: string): Promise<VendedorChatSession> {
+export async function criarSessaoChat(clienteId?: string | null): Promise<VendedorChatSession> {
+  // Se clienteId for undefined ou null, não incluímos no objeto de inserção
+  const insertData = clienteId 
+    ? { cliente_id: clienteId, status: 'ativo', updated_at: new Date().toISOString() }
+    : { status: 'ativo', updated_at: new Date().toISOString() };
+
   const { data, error } = await supabase
     .from('vendedor_chat_sessions')
-    .insert({
-      cliente_id: clienteId,
-      status: 'ativo',
-      updated_at: new Date().toISOString()
-    })
+    .insert(insertData)
     .select('*')
     .single();
 
