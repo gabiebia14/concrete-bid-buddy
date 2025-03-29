@@ -16,23 +16,28 @@ export async function enviarMensagemAI(
     sessionId: sessaoId,
   });
   
-  // Enviar para a função edge
-  const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
-    body: { 
-      message: conteudo,
-      phone: telefone,
-      sessionId: sessaoId,
-      channel: 'website'
+  try {
+    // Enviar para a função edge
+    const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
+      body: { 
+        message: conteudo,
+        phone: telefone,
+        sessionId: sessaoId,
+        channel: 'website'
+      }
+    });
+    
+    if (error) {
+      console.error(`Erro ao chamar função vendedor-gemini-assistant:`, error);
+      throw error;
     }
-  });
-  
-  if (error) {
-    console.error(`Erro ao chamar função vendedor-gemini-assistant:`, error);
+    
+    console.log('Resposta da função edge:', data);
+    return data;
+  } catch (error) {
+    console.error('Erro ao chamar função edge:', error);
     throw error;
   }
-  
-  console.log('Resposta da função edge:', data);
-  return data;
 }
 
 // Função auxiliar para criar uma mensagem temporária

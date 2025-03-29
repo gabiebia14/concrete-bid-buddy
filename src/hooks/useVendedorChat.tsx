@@ -8,16 +8,20 @@ import { enviarMensagemAI } from './vendedorChatUtils';
 
 export function useVendedorChat(clienteId?: string) {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [inicializado, setInicializado] = useState(false);
   const sessionManager = useVendedorChatSession();
   const messageManager = useVendedorChatMessages(sessionId);
   
   // Iniciar uma nova sessão de chat
   const iniciarChat = useCallback(async (telefone?: string) => {
     try {
+      console.log('Iniciando chat com telefone:', telefone);
       const novaSessionId = await sessionManager.iniciarChat();
       
       if (novaSessionId) {
         setSessionId(novaSessionId);
+        setInicializado(true);
+        console.log('Nova sessão criada:', novaSessionId);
         
         // Se temos telefone, enviar mensagem inicial para o assistente
         if (telefone) {
@@ -35,6 +39,32 @@ export function useVendedorChat(clienteId?: string) {
       return null;
     }
   }, [sessionManager, messageManager]);
+
+  // Enviar mensagem garantindo que a sessão esteja iniciada
+  const enviarMensagemSegura = useCallback(async (
+    conteudo: string,
+    remetente: 'cliente' | 'vendedor' = 'cliente',
+    telefone?: string
+  ) => {
+    // Se ainda não tivermos uma sessão, criar uma
+    if (!sessionId) {
+      console.log('Sessão não iniciada. Iniciando antes de enviar mensagem...');
+      const novaSessaoId = await iniciarChat(telefone);
+      
+      if (!novaSessaoId) {
+        throw new Error('Não foi possível iniciar a sessão de chat');
+      }
+      
+      // Aguardar um momento para garantir que a sessão esteja pronta
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Agora podemos enviar a mensagem
+      return messageManager.enviarMensagem(conteudo, remetente, telefone);
+    }
+    
+    // Se já temos uma sessão, enviar normalmente
+    return messageManager.enviarMensagem(conteudo, remetente, telefone);
+  }, [sessionId, iniciarChat, messageManager]);
 
   // Inicializar escuta em tempo real quando sessionId estiver disponível
   useEffect(() => {
@@ -66,9 +96,10 @@ export function useVendedorChat(clienteId?: string) {
     isLoading: sessionManager.isLoading || messageManager.isLoading,
     error: sessionManager.error || messageManager.error,
     sessionId,
+    inicializado,
     iniciarChat,
     carregarMensagens: sessionManager.carregarMensagens,
-    enviarMensagem: messageManager.enviarMensagem,
+    enviarMensagem: enviarMensagemSegura,
     limparErro: () => {
       sessionManager.limparErro();
       messageManager.limparErro();

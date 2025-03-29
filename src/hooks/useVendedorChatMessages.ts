@@ -44,6 +44,8 @@ export function useVendedorChatMessages(sessionId: string | null) {
           throw new Error('Sessão de chat não iniciada');
         }
         
+        console.log('Enviando mensagem para IA com sessão:', sessionId);
+        
         // Enviar para a IA usando a sessão existente
         const resultado = await enviarMensagemAI(conteudo, telefone, sessionId);
         setIsLoading(false);

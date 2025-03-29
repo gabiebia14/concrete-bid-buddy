@@ -39,13 +39,18 @@ export function useVendedorChatSession() {
 
   // Carregar mensagens por sessão
   const carregarMensagens = useCallback(async (sessionId: string) => {
-    if (!sessionId) return [];
+    if (!sessionId) {
+      console.warn('Tentando carregar mensagens sem ID de sessão');
+      return [];
+    }
     
     try {
       setIsLoading(true);
       setError(null);
       
+      console.log('Carregando mensagens para sessão:', sessionId);
       const mensagens = await buscarMensagensPorSessao(sessionId);
+      console.log(`Carregadas ${mensagens.length} mensagens`);
       setIsLoading(false);
       
       return mensagens;

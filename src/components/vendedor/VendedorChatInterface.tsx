@@ -32,6 +32,7 @@ export function VendedorChatInterface({
     isLoading, 
     error, 
     sessionId,
+    inicializado,
     enviarMensagem,
     limparErro,
     iniciarChat
@@ -56,7 +57,7 @@ export function VendedorChatInterface({
     // Limpar qualquer erro de telefone
     setPhoneError('');
     
-    console.log('Enviando mensagem:', message, 'Telefone:', phoneInput || telefone);
+    console.log('Enviando mensagem:', message, 'Telefone:', phoneInput || telefone, 'Sessão ID:', sessionId);
     setIsSending(true);
     
     try {
@@ -104,12 +105,20 @@ export function VendedorChatInterface({
     
     try {
       setIsSending(true);
-      await iniciarChat(phoneInput);
+      const novoSessionId = await iniciarChat(phoneInput);
       
-      toast({
-        title: "Chat iniciado",
-        description: "Agora você pode conversar com nosso vendedor."
-      });
+      if (novoSessionId) {
+        toast({
+          title: "Chat iniciado",
+          description: "Agora você pode conversar com nosso vendedor."
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao iniciar chat',
+          description: 'Não foi possível iniciar o chat. Tente novamente.'
+        });
+      }
     } catch (err) {
       console.error('Erro ao iniciar chat:', err);
       toast({
@@ -129,7 +138,7 @@ export function VendedorChatInterface({
           <div className="text-center p-4">
             <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-2" />
             <p className="text-muted-foreground">
-              {(telefone || phoneInput || sessionId) 
+              {sessionId || inicializado
                 ? "Envie uma mensagem para iniciar a conversa com nosso vendedor"
                 : "Informe seu telefone para iniciar o chat com nosso vendedor"}
             </p>
@@ -142,6 +151,13 @@ export function VendedorChatInterface({
       <VendedorMessage key={message.id || `temp-${message.created_at}`} message={message} />
     ));
   };
+
+  // Verificar se o usuário já tem número de telefone
+  const usuarioTemTelefone = !!telefone || !!phoneInput;
+  // Verificar se a sessão precisa ser iniciada
+  const precisaIniciarSessao = !sessionId && !inicializado;
+  // Verificar se o botão de envio deve estar desabilitado
+  const envioDesabilitado = isLoading || isSending || (!sessionId && !inicializado && !usuarioTemTelefone);
 
   return (
     <Card className="w-full h-full flex flex-col overflow-hidden border-lime-200">
@@ -166,7 +182,7 @@ export function VendedorChatInterface({
       
       <CardContent className="flex-grow p-0 overflow-hidden flex flex-col">
         {/* Formulário de telefone caso não tenha sessão nem telefone */}
-        {!sessionId && !telefone && (
+        {precisaIniciarSessao && !usuarioTemTelefone && (
           <div className="p-4 border-b">
             <div className="space-y-2">
               <div className="text-sm font-medium">Seu telefone com DDD</div>
@@ -227,7 +243,7 @@ export function VendedorChatInterface({
         
         <VendedorChatInput
           onSendMessage={handleSendMessage}
-          isDisabled={isLoading || isSending || (!sessionId && !telefone && !phoneInput)}
+          isDisabled={envioDesabilitado}
         />
       </CardContent>
     </Card>
