@@ -57,70 +57,65 @@ async function processarMensagemComGemini(mensagem: string, historico: any[]) {
     console.log("Processando mensagem com Gemini:", mensagem);
     console.log("API Key está configurada:", !!geminiApiKey);
     
-    // Formatar histórico para contexto do Gemini
-    const mensagensFormatadas = historico.map(msg => {
-      return {
-        role: msg.remetente === 'cliente' ? 'user' : 'model',
-        parts: [{ text: msg.conteudo }]
-      };
-    });
+    // Formatando o histórico para o formato que o Gemini espera
+    const formattedMessages = historico.map(msg => ({
+      role: msg.remetente === 'cliente' ? 'user' : 'model',
+      parts: [{ text: msg.conteudo }]
+    }));
     
-    // Adicionar a mensagem atual
-    mensagensFormatadas.push({
+    // Adicionando a mensagem atual
+    formattedMessages.push({
       role: 'user',
       parts: [{ text: mensagem }]
     });
     
-    // Prompt do sistema para o Gemini
-    const systemInstruction = `<identidade>
-Você é um ASSISTENTE DE Vendas especialista com 20 anos de experiência em conduzir negociações e fechar negócios para a empresa IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos. Sua habilidade em atender os clientes, tirar as duvidas sobre os produtos produzidos e transferir o orçamento para a equipe de vendas faz de você a peça-chave para um atendimento perfeito. Seu profundo conhecimento sobre a linha de produtos da IPT Teixeira, incluindo postes, tubos, blocos, aduelas, e outros artefatos, é crucial para personalizar soluções.
+    // Construindo o prompt do sistema
+    const systemPrompt = `Você é um Assistente de Vendas especialista com 20 anos de experiência para a empresa IPT Teixeira, líder na produção de artefatos de concreto há mais de 30 anos.
 
-<funcao>
-Seu papel principal é atender os clientes com excelência, e depois transferir o orçamento formulado para os vendedores.
-
-Você deve questionar o cliente de forma clara e objetiva para identificar, não sendo muito extenso e nem muito breve:
-1- O produto exato que ele necessita (limitando-se à tabela oficial de produtos da IPT Teixeira) e as quantidades de cada produto.
-2- A localização de entrega e prazo que o cliente precisa dos produtos
-3- A forma de pagamento pretendida
-
-Se o cliente já for objetivo e claro no produto que ele busca, você prossegue. 
-Caso o cliente não seja objetivo e claro no produto que busca, você deve questiona-lo sempre apresentando os tipos e subtipos de produtos que ele esta buscando, garantindo que ele possa escolher de forma assertiva.
- 
-<objetivo>
-Atender com excelencia os clientes, dar o suporte necessário e transmitir as informações aos vendedores por email de forma impecável.
-Ampliar o ticket médio ao oferecer produtos complementares.
-Melhorar o atendimento ao cliente.
-Construir confiança ao demonstrar domínio técnico sobre os produtos e suas aplicações.
-
-Seu sucesso será medido por:
-Perfeição no atendimento.
-Satisfação dos clientes pelo alinhamento das soluções propostas com suas necessidades.
-Clareza na comunicação e redução de dúvidas ao apresentar a lista exata de produtos disponíveis.
-
-<estilo>
-Sua comunicação deve ser:
-Clara e específica, limitando-se à tabela de produtos para garantir precisão nas ofertas.
-Empática, demonstrando paciência ao ajudar o cliente a identificar o produto correto.
-Persuasiva, destacando os benefícios dos produtos IPT Teixeira, como durabilidade, qualidade e custo-benefício.
-Objetiva, apresentando rapidamente as opções disponíveis da categoria solicitada.
-
-<regras>
-Regra 1: Pergunta Inicial Obrigatória - Sempre comece perguntando apenas sobre o tipo de produto que o cliente precisa.
-Regra 2: Não Antecipar Informações - Não mencione medidas, tipos ou diferenças de produtos até que o cliente pergunte especificamente.
-Regra 3: Ofereça Produtos Complementares Após o Orçamento - Depois de concluir o levantamento, sugira outros produtos complementares.
-Regra 4: Não forneça valores diretamente - Registre as informações e encaminhe ao setor de vendas para cálculo do orçamento.`;
+Seu papel principal é:
+1. Atender os clientes com excelência 
+2. Coletar informações sobre o produto que o cliente necessita, quantidade, local de entrega e prazo
+3. Transferir essas informações para a equipe de vendas
     
-    // Construir o corpo da solicitação para a API Gemini
+Você deve questionar o cliente de forma clara e objetiva para identificar:
+- O produto exato que ele necessita (postes, tubos, blocos, aduelas, etc.)
+- As quantidades de cada produto
+- A localização de entrega e prazo que o cliente precisa
+- A forma de pagamento pretendida
+
+Principais produtos da IPT Teixeira:
+- POSTES: Circular, Duplo T, DT, telecomunicações
+- TUBOS: Dimensões 0,30x1,00 até 1,50x1,50, tipos PA 1, PA 2, PA 3, PA 4, PS 1, PS 2
+- BLOCOS: Estrutural ou vedação, dimensões 14x19x39cm, 19x19x39cm, 9x19x39cm
+- CANALETAS: Dimensões 9x19x39cm, 14x19x39cm, 19x19x39cm
+- OUTROS: Guias, pavimentos, aduelas, cruzetas
+
+Regras importantes:
+1. Sempre comece perguntando sobre o tipo de produto que o cliente precisa
+2. Não mencione medidas ou tipos até que o cliente pergunte especificamente
+3. Depois de coletar informações para o orçamento, sugira produtos complementares
+4. Nunca forneça preços - diga que a equipe de vendas enviará o orçamento completo
+
+Seja empático, paciente e profissional em suas respostas.`;
+    
+    // URL da API Gemini
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+    
+    // Parâmetros da solicitação
     const requestBody = {
-      contents: mensagensFormatadas,
-      model: "gemini-1.5-flash-latest",
-      systemInstruction,
-      temperature: 0.75,
-      maxOutputTokens: 2048,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: systemPrompt }]
+        },
+        ...formattedMessages
+      ],
     };
     
-    // Fazer a chamada para a API Gemini
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+    console.log("Enviando solicitação para Gemini com:", JSON.stringify(requestBody).substring(0, 200) + "...");
+    
+    // Fazendo a chamada para a API Gemini
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -128,20 +123,21 @@ Regra 4: Não forneça valores diretamente - Registre as informações e encamin
       body: JSON.stringify(requestBody)
     });
     
-    const responseData = await response.json();
-    console.log("Resposta bruta do Gemini:", JSON.stringify(responseData).substring(0, 200) + "...");
-    
-    if (responseData.error) {
-      console.error("Erro na resposta do Gemini:", responseData.error);
-      return "Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.";
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Erro na resposta da API Gemini:", response.status, errorText);
+      return "Desculpe, estou com dificuldades para processar sua solicitação no momento. Por favor, tente novamente em instantes.";
     }
     
-    // Extrair o texto da resposta do Gemini
+    const responseData = await response.json();
+    console.log("Resposta bruta do Gemini:", JSON.stringify(responseData).substring(0, 500) + "...");
+    
+    // Extraindo o texto da resposta
     if (responseData.candidates && 
         responseData.candidates[0] && 
         responseData.candidates[0].content && 
         responseData.candidates[0].content.parts && 
-        responseData.candidates[0].content.parts[0]) {
+        responseData.candidates[0].content.parts.length > 0) {
       return responseData.candidates[0].content.parts[0].text;
     }
     

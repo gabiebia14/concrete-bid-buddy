@@ -1,7 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { VendedorChatMessage } from '@/lib/vendedorTypes';
-import { enviarMensagemService } from '@/services/vendedorChatService';
+import { enviarMensagem } from '@/services/vendedorChatService';
 import { useToast } from '@/components/ui/use-toast';
 import { enviarMensagemAI, criarMensagemTemporaria } from './vendedorChatUtils';
 
@@ -11,8 +11,12 @@ export function useVendedorChatMessages(sessionId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const atualizarMensagens = useCallback((novasMensagens: VendedorChatMessage[]) => {
-    setMessages(novasMensagens);
+  const atualizarMensagens = useCallback((novasMensagensOuFuncao: VendedorChatMessage[] | ((prev: VendedorChatMessage[]) => VendedorChatMessage[])) => {
+    if (typeof novasMensagensOuFuncao === 'function') {
+      setMessages(novasMensagensOuFuncao);
+    } else {
+      setMessages(novasMensagensOuFuncao);
+    }
   }, []);
 
   // Enviar nova mensagem
@@ -41,9 +45,9 @@ export function useVendedorChatMessages(sessionId: string | null) {
         }
         
         // Enviar para a IA usando a sessão existente
-        await enviarMensagemAI(conteudo, telefone, sessionId);
+        const resultado = await enviarMensagemAI(conteudo, telefone, sessionId);
         setIsLoading(false);
-        return;
+        return resultado;
       }
       
       // Caso contrário, usar o fluxo padrão
@@ -51,7 +55,7 @@ export function useVendedorChatMessages(sessionId: string | null) {
         throw new Error('Sessão de chat não iniciada');
       }
       
-      const mensagem = await enviarMensagemService(sessionId, remetente, conteudo);
+      const mensagem = await enviarMensagem(sessionId, remetente, conteudo);
       
       // Atualizamos o estado imediatamente para uma experiência mais responsiva
       setMessages(prev => [...prev, mensagem]);
