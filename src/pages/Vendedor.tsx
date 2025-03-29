@@ -5,12 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Package } from 'lucide-react';
-import { useContext } from 'react';
-import { AuthContext } from '@/contexts/AuthContext';
+import { useContext, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function Vendedor() {
-  const { user } = useContext(AuthContext);
-  const userPhone = user?.user_metadata?.phone || '';
+  const [userPhone, setUserPhone] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Verificar usuário atual quando o componente é montado
+  useContext(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        // Tentar pegar o telefone dos metadados, se disponível
+        const phone = user.user_metadata?.phone || '';
+        setUserPhone(phone);
+      }
+    }
+    
+    getUser();
+  }, []);
   
   return (
     <Layout>
@@ -33,7 +48,7 @@ export default function Vendedor() {
             </div>
             <div className="h-[calc(100%-4rem)]">
               <VendedorChatInterface 
-                clienteId={user?.id}
+                clienteId={userId}
                 telefone={userPhone}
               />
             </div>
