@@ -10,12 +10,14 @@ import { ArrowLeft, MessageSquare, FileText, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ProductSelector } from '@/components/ui/product-selector';
 import { QuoteItem } from '@/lib/database.types';
+import { ChatInterface } from '@/components/chat/ChatInterface';
 import { toast } from 'sonner';
 
 export default function CreateQuote() {
   const navigate = useNavigate();
   const [showOptions, setShowOptions] = useState(true);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   
   // Estados para o formulário
   const [name, setName] = useState('');
@@ -58,7 +60,7 @@ export default function CreateQuote() {
     setTimeout(() => {
       toast.success("Orçamento enviado com sucesso!");
       setIsSubmitting(false);
-      navigate('/historico');
+      navigate('/historico-orcamentos');
     }, 1500);
   };
 
@@ -110,9 +112,9 @@ export default function CreateQuote() {
                     <MessageSquare className="h-8 w-8 text-blue-600" />
                   </div>
                 </div>
-                <CardTitle className="text-center">Contato direto</CardTitle>
+                <CardTitle className="text-center">Falar com Vendedor</CardTitle>
                 <CardDescription className="text-center">
-                  Entre em contato direto com nossa equipe de vendas
+                  Converse com um de nossos vendedores especializados
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center text-sm text-muted-foreground">
@@ -124,7 +126,7 @@ export default function CreateQuote() {
                   variant="outline"
                   onClick={handleSelectVendedor}
                 >
-                  Entrar em contato <ArrowRight className="ml-2 h-4 w-4" />
+                  Iniciar Conversa <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
@@ -136,13 +138,39 @@ export default function CreateQuote() {
             <div className="lg:col-span-2">
               <Card className="bg-white border-gray-200">
                 <CardHeader>
-                  <CardTitle>Selecione os Produtos</CardTitle>
-                  <CardDescription>
-                    Escolha os produtos que você deseja incluir no seu orçamento
-                  </CardDescription>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Selecione os Produtos</CardTitle>
+                      <CardDescription>
+                        Escolha os produtos que você deseja incluir no seu orçamento
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setShowChat(!showChat)}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        {showChat ? 'Fechar Chat' : 'Precisa de Ajuda?'}
+                      </Button>
+                      <Button variant="outline" asChild>
+                        <Link to="/vendedor">
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Falar com Vendedor
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
+                  {showChat ? (
+                    <div className="mb-4">
+                      <ChatInterface
+                        title="Assistente de Orçamentos"
+                        description="Tire dúvidas sobre produtos e especificações"
+                        showReset={false}
+                      />
+                    </div>
+                  ) : (
+                    <ProductSelector onProductsSelected={handleProductsSelected} initialProducts={selectedProducts} />
+                  )}
                 </CardContent>
               </Card>
             </div>

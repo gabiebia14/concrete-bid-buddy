@@ -17,6 +17,7 @@ import LandingPage from './pages/LandingPage';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
+import Vendedor from './pages/Vendedor';
 import './App.css';
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
                   <Route path="/criar-orcamento" element={<PrivateRoute><CreateQuote /></PrivateRoute>} />
                   <Route path="/historico-orcamentos" element={<PrivateRoute><QuoteHistory /></PrivateRoute>} />
                   <Route path="/catalogo" element={<Catalog />} />
+                  <Route path="/vendedor" element={<PrivateRoute><Vendedor /></PrivateRoute>} />
                   
                   {/* Rotas do gestor */}
                   <Route path="/manager/dashboard" element={<PrivateRoute><ManagerDashboard /></PrivateRoute>} />
