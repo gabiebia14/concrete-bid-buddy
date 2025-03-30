@@ -17,8 +17,6 @@ import LandingPage from './pages/LandingPage';
 import ManagerDashboard from './pages/manager/Dashboard';
 import ManagerQuotes from './pages/manager/Quotes';
 import ManagerClients from './pages/manager/Clients';
-import ChatAssistant from './pages/ChatAssistant';
-import Vendedor from './pages/Vendedor';
 import './App.css';
 
 function App() {
@@ -39,74 +37,22 @@ function App() {
                   {/* A antiga Index agora fica disponível em /area-cliente */}
                   <Route path="/area-cliente" element={<Index />} />
                   
-                  {/* Autenticação */}
+                  {/* Rotas de autenticação */}
                   <Route path="/login" element={<Login />} />
-                  
-                  {/* Páginas para Clientes */}
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <PrivateRoute>
-                        <Dashboard />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/criar-orcamento" 
-                    element={
-                      <PrivateRoute>
-                        <CreateQuote />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/historico" 
-                    element={
-                      <PrivateRoute>
-                        <QuoteHistory />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/catalogo" 
-                    element={
-                      <PrivateRoute>
-                        <Catalog />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route path="/chat-assistant" element={<ChatAssistant />} />
-                  
-                  {/* Nova página de chat com vendedor */}
-                  <Route path="/vendedor" element={<Vendedor />} />
-                  
-                  {/* Páginas para Gerentes */}
                   <Route path="/manager/login" element={<ManagerLogin />} />
-                  <Route 
-                    path="/manager/dashboard" 
-                    element={
-                      <PrivateRoute requireManager>
-                        <ManagerDashboard />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/manager/quotes" 
-                    element={
-                      <PrivateRoute requireManager>
-                        <ManagerQuotes />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/manager/clients" 
-                    element={
-                      <PrivateRoute requireManager>
-                        <ManagerClients />
-                      </PrivateRoute>
-                    } 
-                  />
                   
+                  {/* Rotas protegidas - requerem autenticação */}
+                  <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                  <Route path="/criar-orcamento" element={<PrivateRoute><CreateQuote /></PrivateRoute>} />
+                  <Route path="/historico-orcamentos" element={<PrivateRoute><QuoteHistory /></PrivateRoute>} />
+                  <Route path="/catalogo" element={<Catalog />} />
+                  
+                  {/* Rotas do gestor */}
+                  <Route path="/manager/dashboard" element={<PrivateRoute><ManagerDashboard /></PrivateRoute>} />
+                  <Route path="/manager/orcamentos" element={<PrivateRoute><ManagerQuotes /></PrivateRoute>} />
+                  <Route path="/manager/clientes" element={<PrivateRoute><ManagerClients /></PrivateRoute>} />
+                  
+                  {/* Página não encontrada */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
