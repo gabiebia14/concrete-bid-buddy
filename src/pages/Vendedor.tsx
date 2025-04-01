@@ -16,6 +16,7 @@ export default function Vendedor() {
   const { user } = useAuth();
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [orcamentoConcluido, setOrcamentoConcluido] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -30,9 +31,10 @@ export default function Vendedor() {
     
     let produtos: any[] = [];
     
+    // Extração de tubos
     if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
-      const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:pa\s*(\d+)|pa(\d+))?/i;
-      const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex, 'gi'))];
+      const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:pa\s*(\d+)|pa(\d+))?/gi;
+      const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex))];
       
       tuboMatches.forEach(match => {
         const quantidade = parseInt(match[1] || '0');
@@ -52,9 +54,10 @@ export default function Vendedor() {
       });
     }
     
+    // Extração de postes
     if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
-      const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(?:circular)?\s*(?:(\d+)\s*[\/\\]?\s*(\d+))?\s*(?:padrão)?\s*(cpfl|elektro|telefônica)?/i;
-      const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex, 'gi'))];
+      const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(?:circular|duplo t)?\s*(?:(\d+(?:[.,]\d+)?)\s*[\/\\]?\s*(\d+(?:[.,]\d+)?))?\s*(?:padrão)?\s*(cpfl|elektro|telefônica)?/gi;
+      const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex))];
       
       posteMatches.forEach(match => {
         const quantidade = parseInt(match[1] || '0');
@@ -63,34 +66,66 @@ export default function Vendedor() {
         const padrao = match[4] || '';
         
         if (quantidade > 0) {
+          const tipoPoste = todasMensagens.includes("duplo t") ? "Poste Duplo T" : "Poste Circular";
           produtos.push({
             product_id: uuidv4(),
-            product_name: `Poste Circular`,
+            product_name: tipoPoste,
             dimensions: altura && capacidade ? `${altura}/${capacidade}` : '',
             quantity: quantidade,
-            padrao: padrao.toUpperCase()
+            padrao: padrao ? padrao.toUpperCase() : ''
           });
         }
       });
     }
     
+    // Extração de blocos
+    if (todasMensagens.includes('bloco') || todasMensagens.includes('blocos')) {
+      const blocoRegex = /(\d+)\s*(?:unidades de)?\s*blocos?\s*(?:estrutural|vedação|vedacao)?\s*(?:de)?\s*(?:(\d+)x(\d+)x(\d+))?/gi;
+      const blocoMatches = [...todasMensagens.matchAll(new RegExp(blocoRegex))];
+      
+      blocoMatches.forEach(match => {
+        const quantidade = parseInt(match[1] || '0');
+        const dim1 = match[2] || '';
+        const dim2 = match[3] || '';
+        const dim3 = match[4] || '';
+        const tipoBloco = todasMensagens.includes('estrutural') ? 'Estrutural' : 
+                         (todasMensagens.includes('vedação') || todasMensagens.includes('vedacao')) ? 'Vedação' : '';
+        
+        if (quantidade > 0) {
+          produtos.push({
+            product_id: uuidv4(),
+            product_name: `Bloco de Concreto ${tipoBloco}`,
+            dimensions: (dim1 && dim2 && dim3) ? `${dim1}x${dim2}x${dim3}` : '',
+            quantity: quantidade
+          });
+        }
+      });
+    }
+    
+    // Extração de local de entrega
     let localEntrega = '';
-    const localRegex = /(?:(?:cidade|local|entrega)\s+(?:em|para|:)?\s+)(\w+)/i;
+    const localRegex = /(?:(?:cidade|local|entrega|entregar)[:\s]+(?:em|para|no|de|na|ao)?\s+)([a-zà-ú\s]+)/i;
     const localMatch = todasMensagens.match(localRegex);
     if (localMatch && localMatch[1]) {
-      localEntrega = localMatch[1].charAt(0).toUpperCase() + localMatch[1].slice(1);
+      localEntrega = localMatch[1].trim().replace(/\s+/g, ' ');
+      localEntrega = localEntrega.charAt(0).toUpperCase() + localEntrega.slice(1);
     }
     
+    // Extração de prazo
     let prazo = '';
-    const prazoRegex = /(\d+)\s*dias/i;
+    const prazoRegex = /(?:prazo|entrega)[:\s]+(?:de)?\s*(\d+)\s*(?:dias|dia)/i;
     const prazoMatch = todasMensagens.match(prazoRegex);
     if (prazoMatch && prazoMatch[1]) {
-      prazo = `${prazoMatch[1]} dias`;
+      const dias = parseInt(prazoMatch[1]);
+      prazo = `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
     }
     
+    // Extração de forma de pagamento
     let formaPagamento = '';
     if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
       formaPagamento = 'À vista';
+    } else if (todasMensagens.includes('30 60 90') || todasMensagens.includes('30/60/90')) {
+      formaPagamento = 'Parcelado 30/60/90';
     } else if (todasMensagens.includes('boleto')) {
       formaPagamento = 'Boleto';
     } else if (todasMensagens.includes('cartão') || todasMensagens.includes('cartao')) {
@@ -98,6 +133,13 @@ export default function Vendedor() {
     } else if (todasMensagens.includes('pix')) {
       formaPagamento = 'PIX';
     }
+    
+    console.log("Dados extraídos do orçamento:", {
+      produtos,
+      localEntrega,
+      prazo,
+      formaPagamento
+    });
     
     return {
       produtos,
@@ -109,13 +151,22 @@ export default function Vendedor() {
 
   const criarOrcamentoSupabase = async (dadosOrcamento: any) => {
     try {
+      setIsSavingQuote(true);
+      
       if (!user) {
         toast.error("Você precisa estar logado para salvar um orçamento.");
         return false;
       }
       
+      // Verificar se temos dados suficientes para criar um orçamento
+      if (dadosOrcamento.produtos.length === 0) {
+        toast.error("Não foi possível identificar produtos para o orçamento");
+        return false;
+      }
+      
       let client_id = '';
       
+      // Buscar cliente existente ou criar novo
       const { data: clienteExistente } = await supabase
         .from('clients')
         .select('id')
@@ -144,26 +195,28 @@ export default function Vendedor() {
         client_id = novoCliente.id;
       }
       
+      // Preparar itens do orçamento
       const items = dadosOrcamento.produtos.map((produto: any) => ({
         product_id: produto.product_id,
         product_name: produto.product_name,
-        dimensions: produto.dimensions,
+        dimensions: produto.dimensions || '',
         quantity: produto.quantity,
-        unit_price: 0,
-        total_price: 0,
-        padrao: produto.padrao,
-        tipo: produto.tipo
+        unit_price: 0, // Será preenchido pelo vendedor
+        total_price: 0, // Será preenchido pelo vendedor
+        padrao: produto.padrao || '',
+        tipo: produto.tipo || ''
       }));
       
+      // Criar orçamento
       const { data, error: erroOrcamento } = await supabase
         .from('quotes')
         .insert({
           client_id,
           status: 'pending',
           items,
-          delivery_location: dadosOrcamento.localEntrega,
-          delivery_deadline: dadosOrcamento.prazo,
-          payment_method: dadosOrcamento.formaPagamento,
+          delivery_location: dadosOrcamento.localEntrega || '',
+          delivery_deadline: dadosOrcamento.prazo || '',
+          payment_method: dadosOrcamento.formaPagamento || '',
           created_from: 'chat_assistant',
           conversation_history: messages.map(m => ({
             content: m.content,
@@ -185,57 +238,68 @@ export default function Vendedor() {
       console.error("Erro ao processar orçamento:", error);
       toast.error("Ocorreu um erro ao processar seu orçamento");
       return false;
+    } finally {
+      setIsSavingQuote(false);
     }
   };
 
   const handleEnviarParaVendedor = async () => {
     const dadosOrcamento = extrairDadosOrcamento(messages);
     
+    // Verificar se temos dados mínimos para criar um orçamento
     if (dadosOrcamento.produtos.length === 0) {
-      toast.error("Não foi possível identificar os produtos para o orçamento");
+      toast.error("Não foi possível identificar os produtos para o orçamento. Por favor, forneça detalhes específicos sobre os produtos desejados.");
       return;
     }
     
     if (!dadosOrcamento.localEntrega) {
-      toast.error("Local de entrega não identificado");
+      toast.error("Local de entrega não identificado. Por favor, informe o local de entrega.");
       return;
     }
     
+    // Criar orçamento no Supabase
     const sucesso = await criarOrcamentoSupabase(dadosOrcamento);
     
     if (sucesso) {
       toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
       setOrcamentoConcluido(true);
+      
+      // Navegar para histórico após breve delay
+      setTimeout(() => {
+        navigate('/historico-orcamentos');
+      }, 3000);
     }
   };
 
   const verificarOrcamentoCompleto = (mensagens: ChatMessage[]) => {
+    const dadosOrcamento = extrairDadosOrcamento(mensagens);
+    
+    const temProdutos = dadosOrcamento.produtos.length > 0;
+    const temLocalEntrega = !!dadosOrcamento.localEntrega;
+    const temPrazo = !!dadosOrcamento.prazo;
+    const temPagamento = !!dadosOrcamento.formaPagamento;
+    
     const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
-    
-    const temProdutos = todasMensagens.includes('unidades') || 
-                        todasMensagens.includes('quantidade') || 
-                        todasMensagens.includes('tubos') || 
-                        todasMensagens.includes('postes') || 
-                        todasMensagens.includes('blocos');
-    
-    const temLocalEntrega = todasMensagens.includes('entrega') || 
-                           todasMensagens.includes('cidade') || 
-                           todasMensagens.includes('endereço');
-    
-    const temPrazo = todasMensagens.includes('prazo') || 
-                    todasMensagens.includes('dias') || 
-                    todasMensagens.includes('data');
-    
-    const temPagamento = todasMensagens.includes('pagamento') || 
-                        todasMensagens.includes('à vista') || 
-                        todasMensagens.includes('parcelado') || 
-                        todasMensagens.includes('boleto');
-    
     const clienteConfirmou = todasMensagens.includes('só isso') || 
                             todasMensagens.includes('apenas isso') || 
-                            todasMensagens.includes('nada mais');
+                            todasMensagens.includes('nada mais') ||
+                            todasMensagens.includes('está correto') ||
+                            todasMensagens.includes('esta correto') ||
+                            todasMensagens.includes('confirmo');
     
-    return temProdutos && temLocalEntrega && temPrazo && temPagamento && clienteConfirmou;
+    const isCompleto = temProdutos && temLocalEntrega && (temPrazo || temPagamento) && clienteConfirmou;
+    
+    if (isCompleto) {
+      console.log("Orçamento considerado completo:", {
+        temProdutos,
+        temLocalEntrega,
+        temPrazo,
+        temPagamento,
+        clienteConfirmou
+      });
+    }
+    
+    return isCompleto;
   };
 
   const handleSendMessage = async (message: string): Promise<string> => {
@@ -268,6 +332,7 @@ export default function Vendedor() {
       
       console.log("Resposta do assistente:", data);
       
+      // Mostrar confirmação em determinados casos
       if (
         !showConfirmation && 
         (message.toLowerCase().includes('preço') || 
@@ -288,9 +353,9 @@ export default function Vendedor() {
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       
+      // Verificar automaticamente se o orçamento está completo
       if (verificarOrcamentoCompleto(finalMessages)) {
         setTimeout(() => {
-          setOrcamentoConcluido(true);
           handleEnviarParaVendedor();
         }, 1500);
       }
@@ -337,10 +402,24 @@ export default function Vendedor() {
               <Button 
                 onClick={handleEnviarParaVendedor}
                 className="bg-lime-600 hover:bg-lime-700 px-6 py-2 flex items-center gap-2"
-                disabled={orcamentoConcluido}
+                disabled={orcamentoConcluido || isSavingQuote}
               >
-                <Send className="h-4 w-4" />
-                {orcamentoConcluido ? "Orçamento Registrado!" : "Solicitar Contato com Vendedor"}
+                {isSavingQuote ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processando Orçamento...
+                  </>
+                ) : orcamentoConcluido ? (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Orçamento Registrado!
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Solicitar Orçamento com Vendedor
+                  </>
+                )}
               </Button>
             </div>
           </div>

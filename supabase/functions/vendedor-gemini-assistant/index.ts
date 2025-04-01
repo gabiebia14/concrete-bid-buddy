@@ -29,14 +29,20 @@ serve(async (req) => {
       parts: [{ text: msg.content }]
     }));
     
-    // Adicionar instrução adicional para evitar verbosidade
+    // Adicionar instrução adicional para melhorar a extração de dados
     const additionalInstruction = `Além das instruções anteriores, lembre-se:
 1. Seja extremamente conciso e direto nas respostas. Evite qualquer repetição.
-2. Quando tiver as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme rapidamente e finalize.
+2. Quando tiver as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme rapidamente e pergunte se o cliente deseja adicionar mais algo ou se podemos finalizar o orçamento.
 3. Nunca repita informações já confirmadas.
 4. Limite suas respostas a no máximo 2 parágrafos curtos.
-5. Se o cliente já informou todos os dados necessários ou indicou que não precisa de mais nada, agradeça brevemente e encerre a conversa.
-6. Seu objetivo é coletar apenas: produto, quantidade, local, prazo e forma de pagamento.`;
+5. Se o cliente já informou todos os dados necessários ou indicou que não precisa de mais nada, agradeça brevemente e confirme que o orçamento será enviado.
+6. Seu objetivo é coletar com precisão: produto (com dimensões específicas), quantidade, local de entrega exato, prazo em dias e forma de pagamento.
+7. É muito importante que você entenda as seguintes formas comuns que os clientes usam para descrever os produtos e suas características:
+   - Para Tubos: "10 tubos de 80 por 1,50 PA1" significa 10 unidades de tubos com dimensão 0,80 x 1,50 metros do tipo PA1
+   - Para Postes: "5 postes circulares 11/200 CPFL" significa 5 unidades de postes circulares com altura/capacidade 11/200 do padrão CPFL
+   - Para Blocos: "500 blocos estruturais 14x19x39" significa 500 unidades de blocos estruturais com dimensões 14cm x 19cm x 39cm
+
+8. Antes de encerrar, pergunte claramente ao cliente se ele confirma o pedido para podermos enviar ao setor de vendas.`;
     
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
@@ -238,8 +244,8 @@ ${additionalInstruction}`;
     const requestBody = {
       contents: geminiHistory,
       generationConfig: {
-        temperature: 0.8, // Reduzido para respostas mais previsíveis
-        maxOutputTokens: 500, // Reduzido drasticamente para forçar respostas muito concisas
+        temperature: 0.7, // Reduzido para respostas mais precisas
+        maxOutputTokens: 500, // Limitado para forçar respostas concisas
         responseMimeType: "text/plain",
       },
       systemInstruction: {
