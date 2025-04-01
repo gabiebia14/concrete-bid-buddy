@@ -55,13 +55,51 @@ export async function fetchProductById(id: string) {
 
 // Orçamentos
 export async function fetchQuotes() {
-  const { data, error } = await supabase
-    .from('quotes')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
+  try {
+    const { data: clientData, error: clientError } = await supabase.auth.getUser();
+    
+    if (clientError || !clientData.user) {
+      console.error("Erro ao obter usuário autenticado:", clientError);
+      return null;
+    }
+    
+    const userId = clientData.user.id;
+    
+    // Primeiro, encontre o client_id do usuário na tabela clients
+    const { data: clientRecord, error: clientRecordError } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('email', clientData.user.email)
+      .maybeSingle();
+    
+    if (clientRecordError) {
+      console.error("Erro ao buscar cliente:", clientRecordError);
+      return null;
+    }
+    
+    if (!clientRecord) {
+      console.log("Cliente não encontrado para o usuário:", clientData.user.email);
+      return [];
+    }
+    
+    // Depois, busque todos os orçamentos para esse client_id
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('client_id', clientRecord.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error("Erro ao buscar orçamentos:", error);
+      throw error;
+    }
+    
+    console.log(`Encontrados ${data?.length || 0} orçamentos para o cliente ID:`, clientRecord.id);
+    return data;
+  } catch (error) {
+    console.error("Erro na função fetchQuotes:", error);
+    throw error;
+  }
 }
 
 export async function fetchQuoteById(id: string) {

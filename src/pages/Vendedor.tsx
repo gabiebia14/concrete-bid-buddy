@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,7 @@ export default function Vendedor() {
         tipo: produto.tipo
       }));
       
-      const { error: erroOrcamento } = await supabase
+      const { data, error: erroOrcamento } = await supabase
         .from('quotes')
         .insert({
           client_id,
@@ -169,7 +170,8 @@ export default function Vendedor() {
             role: m.role,
             timestamp: m.timestamp
           }))
-        });
+        })
+        .select();
       
       if (erroOrcamento) {
         console.error("Erro ao criar orçamento:", erroOrcamento);
@@ -177,6 +179,7 @@ export default function Vendedor() {
         return false;
       }
       
+      console.log("Orçamento criado com sucesso:", data);
       return true;
     } catch (error) {
       console.error("Erro ao processar orçamento:", error);

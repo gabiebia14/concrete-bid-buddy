@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { Quote } from '@/lib/types';
 import { fetchQuotes } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const getMockQuotes = (): Quote[] => {
   return [
@@ -94,15 +96,29 @@ const getMockQuotes = (): Quote[] => {
 export const useQuotes = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const loadQuotes = async () => {
       try {
         setIsLoading(true);
+        if (!user) {
+          setQuotes(getMockQuotes());
+          return;
+        }
+        
+        console.log("Buscando orçamentos para o usuário:", user.email);
         const quotesData = await fetchQuotes();
-        setQuotes(quotesData || getMockQuotes());
+        console.log("Orçamentos carregados:", quotesData);
+        
+        if (quotesData && quotesData.length > 0) {
+          setQuotes(quotesData);
+        } else {
+          console.log("Sem orçamentos encontrados, usando dados de exemplo");
+          setQuotes(getMockQuotes());
+        }
       } catch (error) {
-        console.error('Error loading quotes:', error);
+        console.error('Erro ao carregar orçamentos:', error);
         toast.error('Erro ao carregar orçamentos. Por favor, tente novamente.');
         setQuotes(getMockQuotes());
       } finally {
@@ -111,7 +127,7 @@ export const useQuotes = () => {
     };
     
     loadQuotes();
-  }, []);
+  }, [user]);
 
   return { quotes, isLoading };
 };
