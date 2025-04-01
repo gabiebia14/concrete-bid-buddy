@@ -22,17 +22,22 @@ serve(async (req) => {
     
     console.log("Recebendo mensagens:", JSON.stringify(messages));
     
-    // Extrair a mensagem mais recente do usuário para enviar para o Gemini
-    let userInput = "Olá, preciso de um orçamento.";
-    if (messages && messages.length > 0) {
-      // Obter a última mensagem do usuário
-      const userMessages = messages.filter(msg => msg.role === 'user');
-      if (userMessages.length > 0) {
-        userInput = userMessages[userMessages.length - 1].content;
-      }
-    }
+    // Preparar o histórico de mensagens para o Gemini
+    // Transformar as mensagens no formato esperado pelo Gemini
+    const geminiMessages = messages
+      .filter(msg => msg.role === 'user')
+      .map((msg, index) => ({
+        role: "user",
+        parts: [{ text: msg.content }]
+      }));
     
-    console.log("Enviando para Gemini:", userInput);
+    // Se não houver mensagens do usuário, adicionamos uma saudação padrão
+    if (geminiMessages.length === 0) {
+      geminiMessages.push({
+        role: "user",
+        parts: [{ text: "Olá" }]
+      });
+    }
     
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
@@ -228,18 +233,19 @@ pedido.
 Confirme com o cliente se ele está satisfeito
 com as opções apresentadas antes de encaminhar ao setor de vendas.`;
 
-    // Configurar a requisição como no código Python fornecido
-    // Fazer a requisição para a API do Gemini, seguindo exatamente o formato do modelo Python
-    const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
+    // Obter a última mensagem do usuário para enviar ao Gemini
+    const lastUserMessage = messages
+      .filter(msg => msg.role === 'user')
+      .pop()?.content || "Olá";
+
+    console.log("Enviando para Gemini:", lastUserMessage);
     
-    // Construir o corpo da requisição seguindo o formato exato do código Python
+    // Configuração para o modelo Gemini 2.5 Pro Exp
     const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: userInput }]
-        }
-      ],
+      contents: [{
+        role: "user",
+        parts: [{ text: lastUserMessage }]
+      }],
       generationConfig: {
         temperature: 0.9,
         maxOutputTokens: 5536,
@@ -270,6 +276,10 @@ com as opções apresentadas antes de encaminhar ao setor de vendas.`;
     
     console.log("Enviando para Gemini:", JSON.stringify(requestBody));
     
+    // Construir a URL com a chave API
+    const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
+    
+    // Fazer a requisição para a API do Gemini
     const response = await fetch(url, {
       method: 'POST',
       headers: {
