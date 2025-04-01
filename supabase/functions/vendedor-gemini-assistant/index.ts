@@ -22,22 +22,12 @@ serve(async (req) => {
     
     console.log("Recebendo mensagens:", JSON.stringify(messages));
     
-    // Preparar o histórico de mensagens para o Gemini
-    // Transformar as mensagens no formato esperado pelo Gemini
-    const geminiMessages = messages
-      .filter(msg => msg.role === 'user')
-      .map((msg, index) => ({
-        role: "user",
-        parts: [{ text: msg.content }]
-      }));
-    
-    // Se não houver mensagens do usuário, adicionamos uma saudação padrão
-    if (geminiMessages.length === 0) {
-      geminiMessages.push({
-        role: "user",
-        parts: [{ text: "Olá" }]
-      });
-    }
+    // Preparar o histórico de mensagens para o Gemini no formato correto
+    // Precisamos converter todo o histórico de mensagens para o formato do Gemini
+    const geminiHistory = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
     
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
@@ -233,19 +223,9 @@ pedido.
 Confirme com o cliente se ele está satisfeito
 com as opções apresentadas antes de encaminhar ao setor de vendas.`;
 
-    // Obter a última mensagem do usuário para enviar ao Gemini
-    const lastUserMessage = messages
-      .filter(msg => msg.role === 'user')
-      .pop()?.content || "Olá";
-
-    console.log("Enviando para Gemini:", lastUserMessage);
-    
-    // Configuração para o modelo Gemini 2.5 Pro Exp
+    // Configuração para o Gemini
     const requestBody = {
-      contents: [{
-        role: "user",
-        parts: [{ text: lastUserMessage }]
-      }],
+      contents: geminiHistory,
       generationConfig: {
         temperature: 0.9,
         maxOutputTokens: 5536,
@@ -274,7 +254,7 @@ com as opções apresentadas antes de encaminhar ao setor de vendas.`;
       ]
     };
     
-    console.log("Enviando para Gemini:", JSON.stringify(requestBody));
+    console.log("Enviando para Gemini (histórico completo):", JSON.stringify(requestBody));
     
     // Construir a URL com a chave API
     const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
