@@ -40,6 +40,7 @@ export function ChatInterface({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [confirmationAttempted, setConfirmationAttempted] = useState(false);
 
   // Rolar para o final da conversa quando novas mensagens forem adicionadas
   useEffect(() => {
@@ -53,26 +54,28 @@ export function ChatInterface({
 
   // Verificar se a última mensagem do assistente solicita confirmação
   useEffect(() => {
-    if (messages.length > 1) {
+    if (messages.length > 1 && onConfirmOrder && !confirmationAttempted) {
       const ultimaMensagem = messages[messages.length - 1];
       const penultimaMensagem = messages[messages.length - 2];
       
-      // Se a última mensagem é do usuário contendo "sim" e a penúltima é do assistente solicitando confirmação
+      // Verificar explicitamente a sequência de confirmação
       if (
         ultimaMensagem.role === 'user' && 
         (ultimaMensagem.content.toLowerCase().includes('sim') || 
          ultimaMensagem.content.toLowerCase().includes('confirmo')) &&
         penultimaMensagem.role === 'assistant' && 
-        penultimaMensagem.content.toLowerCase().includes('confirmar') &&
-        onConfirmOrder
+        penultimaMensagem.content.toLowerCase().includes('confirmar')
       ) {
-        // Chamar a função de confirmação do orçamento
+        console.log("Confirmação detectada, chamando onConfirmOrder");
+        setConfirmationAttempted(true);
+        
+        // Chamar a função de confirmação do orçamento com um pequeno delay
         setTimeout(() => {
           onConfirmOrder();
         }, 500);
       }
     }
-  }, [messages, onConfirmOrder]);
+  }, [messages, onConfirmOrder, confirmationAttempted]);
 
   // Manipulador para envio de mensagem
   const handleSendMessage = async () => {
@@ -121,25 +124,32 @@ export function ChatInterface({
       console.error("Erro ao processar mensagem:", error);
       
       // Verificar se a mensagem do usuário é uma confirmação de orçamento
-      if (
+      const isUserConfirming = 
         input.toLowerCase().includes('sim') || 
-        input.toLowerCase().includes('confirmo')
-      ) {
-        // Manter a mensagem simples do usuário
-        const errorMessage: ChatMessageProps = {
+        input.toLowerCase().includes('confirmo');
+      
+      // Verificar se a penúltima mensagem do assistente pedia confirmação
+      const isPendingConfirmation = messages.length >= 2 && 
+        messages[messages.length - 2].role === 'assistant' && 
+        messages[messages.length - 2].content.toLowerCase().includes('confirmar');
+      
+      if (isUserConfirming && isPendingConfirmation && onConfirmOrder && !confirmationAttempted) {
+        console.log("Confirmação detectada após erro, ainda assim processando orçamento");
+        setConfirmationAttempted(true);
+        
+        // Adicionar mensagem de sucesso
+        const confirmationMessage: ChatMessageProps = {
           content: "Pedido registrado. Nossa equipe entrará em contato em breve com o orçamento detalhado. Obrigado pela preferência!",
           role: 'assistant',
           timestamp: new Date()
         };
         
-        setMessages((prev) => [...prev, errorMessage]);
+        setMessages((prev) => [...prev, confirmationMessage]);
         
-        // Chamar a função de confirmação do orçamento se disponível
-        if (onConfirmOrder) {
-          setTimeout(() => {
-            onConfirmOrder();
-          }, 500);
-        }
+        // Chamar a função de confirmação do orçamento
+        setTimeout(() => {
+          onConfirmOrder();
+        }, 500);
       } else {
         // Mensagem genérica de erro para outras situações
         toast.error("Erro ao obter resposta do assistente");
@@ -162,6 +172,7 @@ export function ChatInterface({
     setMessages(initialMessages);
     setInput('');
     setIsTyping(false);
+    setConfirmationAttempted(false);
     inputRef.current?.focus();
   };
 
