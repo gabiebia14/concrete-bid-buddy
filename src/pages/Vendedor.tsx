@@ -9,7 +9,7 @@ import { ArrowLeft, Send, RefreshCw, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ChatInterface } from '@/components/chat/ChatInterface';
-import { ChatMessage, ChatMessageProps } from './ChatMessage';
+import { ChatMessage, ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
