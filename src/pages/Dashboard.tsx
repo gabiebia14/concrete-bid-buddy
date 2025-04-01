@@ -41,6 +41,13 @@ export default function Dashboard() {
                   <p className="text-gray-500">
                     Configure seu orçamento com facilidade, de acordo com suas necessidades específicas.
                   </p>
+                  <div className="mt-4 rounded-lg overflow-hidden shadow-md">
+                    <img 
+                      src="/lovable-uploads/9ebb2850-3258-48aa-82a6-a586c7e2fa30.png" 
+                      alt="Exemplo de orçamento" 
+                      className="w-full h-40 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
                 </CardContent>
                 <CardFooter className="relative z-10">
                   <Button className="w-full bg-lime-600 hover:bg-lime-700 group-hover:translate-x-1 transition-transform">
@@ -108,6 +115,13 @@ export default function Dashboard() {
                 <p className="text-gray-500">
                   Conheça todos os produtos que oferecemos, com especificações técnicas e informações detalhadas.
                 </p>
+                <div className="mt-4 rounded-lg overflow-hidden shadow-md">
+                  <img 
+                    src="/lovable-uploads/1d414f0e-f876-49aa-a541-4d4879b1ba06.png" 
+                    alt="Catálogo de produtos" 
+                    className="w-full h-40 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
               </CardContent>
               <CardFooter className="relative z-10">
                 <Button className="w-full bg-purple-600 hover:bg-purple-700 group-hover:translate-x-1 transition-transform" variant="outline">
