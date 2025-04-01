@@ -17,7 +17,7 @@ export default function Vendedor() {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      content: `Olá${user ? ', ' + user.email : ''}! Sou um assistente virtual da IPT Teixeira, alimentado por inteligência artificial. Estou aqui para ajudar com informações sobre nossos produtos de concreto. Como posso te ajudar hoje?`,
+      content: `Olá${user ? ', ' + user.email : ''}! Sou o assistente virtual especializado em vendas da IPT Teixeira, com amplo conhecimento sobre nossa linha de produtos de concreto. Como posso ajudar você hoje?`,
       role: "assistant",
       timestamp: new Date()
     }
@@ -34,6 +34,7 @@ export default function Vendedor() {
   // Função para enviar mensagem para o assistente Gemini
   const handleSendMessage = async (message: string): Promise<string> => {
     setIsLoading(true);
+    console.log("Enviando mensagem para o assistente:", message);
     
     try {
       // Preparar o contexto do usuário
@@ -52,8 +53,9 @@ export default function Vendedor() {
         throw new Error(error.message);
       }
       
+      console.log("Resposta do assistente:", data);
+      
       // Verificar se o algoritmo decide que é hora de sugerir um vendedor humano
-      // Podemos fazer isso baseado em palavras-chave ou em lógica na resposta
       if (
         !showConfirmation && 
         (message.toLowerCase().includes('preço') || 
@@ -65,7 +67,16 @@ export default function Vendedor() {
         setShowConfirmation(true);
       }
       
-      return data.response;
+      // Atualizar a lista de mensagens
+      const newMessage: ChatMessage = {
+        content: message,
+        role: 'user',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
+      
+      return data.response || "Desculpe, não consegui processar sua solicitação.";
     } catch (error) {
       console.error("Erro no processamento da mensagem:", error);
       return "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
@@ -84,15 +95,15 @@ export default function Vendedor() {
           </Button>
           <h1 className="text-2xl font-bold text-gray-900">Fale com um Vendedor</h1>
           <p className="text-muted-foreground">
-            Converse com nossa equipe especializada para tirar dúvidas e obter recomendações personalizadas
+            Converse com nossa equipe especializada para tirar dúvidas e obter recomendações personalizadas sobre nossos produtos de concreto
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6">
           <div>
             <ChatInterface 
-              title="Conversa com Assistente IA" 
-              description="Nosso assistente de IA está pronto para ajudar com suas dúvidas"
+              title="Assistente de Vendas IPT Teixeira" 
+              description="Nosso assistente especializado está pronto para ajudar com suas dúvidas sobre produtos de concreto"
               initialMessages={messages}
               onSendMessage={handleSendMessage}
             />
