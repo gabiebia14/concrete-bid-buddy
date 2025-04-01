@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -407,12 +408,15 @@ export function useVendedorChat() {
     console.log("Enviando mensagem para o assistente:", message);
     
     try {
+      // Aqui está a correção: não usar user_metadata que não existe no nosso objeto user
       const userContext = user ? {
         email: user.email,
-        name: user.user_metadata?.full_name || user.email?.split('@')[0]
+        name: user.email?.split('@')[0], // Usando email em vez de user_metadata
+        isManager: user.isManager // Passando a propriedade isManager que existe no objeto
       } : { 
         email: null, 
-        name: null 
+        name: null,
+        isManager: false
       };
       
       const updatedMessages = [...messages, {
