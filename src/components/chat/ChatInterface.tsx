@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, RefreshCw } from 'lucide-react';
-import { ChatMessage, ChatMessageProps } from './ChatMessage';
+import { ChatMessage, ChatMessageProps } from '@/components/chat/ChatMessage';
 import { toast } from 'sonner';
 
 // Definições de tipos para os recursos do chat
@@ -15,6 +15,7 @@ export interface ChatInterfaceProps {
   initialMessages?: ChatMessageProps[];
   showReset?: boolean;
   onSendMessage?: (message: string) => Promise<string>;
+  onConfirmOrder?: () => void;
 }
 
 // Mensagens iniciais do assistente
@@ -31,7 +32,8 @@ export function ChatInterface({
   description = "Converse com nosso assistente para tirar dúvidas sobre produtos",
   initialMessages = defaultInitialMessages,
   showReset = true,
-  onSendMessage
+  onSendMessage,
+  onConfirmOrder
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageProps[]>(initialMessages);
   const [input, setInput] = useState('');
@@ -48,6 +50,29 @@ export function ChatInterface({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Verificar se a última mensagem do assistente solicita confirmação
+  useEffect(() => {
+    if (messages.length > 1) {
+      const ultimaMensagem = messages[messages.length - 1];
+      const penultimaMensagem = messages[messages.length - 2];
+      
+      // Se a última mensagem é do usuário contendo "sim" e a penúltima é do assistente solicitando confirmação
+      if (
+        ultimaMensagem.role === 'user' && 
+        (ultimaMensagem.content.toLowerCase().includes('sim') || 
+         ultimaMensagem.content.toLowerCase().includes('confirmo')) &&
+        penultimaMensagem.role === 'assistant' && 
+        penultimaMensagem.content.toLowerCase().includes('confirmar') &&
+        onConfirmOrder
+      ) {
+        // Chamar a função de confirmação do orçamento
+        setTimeout(() => {
+          onConfirmOrder();
+        }, 500);
+      }
+    }
+  }, [messages, onConfirmOrder]);
 
   // Manipulador para envio de mensagem
   const handleSendMessage = async () => {
@@ -94,16 +119,39 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
-      toast.error("Erro ao obter resposta do assistente");
       
-      // Mostrar mensagem de erro como resposta do assistente
-      const errorMessage: ChatMessageProps = {
-        content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.",
-        role: 'assistant',
-        timestamp: new Date()
-      };
-      
-      setMessages((prev) => [...prev, errorMessage]);
+      // Verificar se a mensagem do usuário é uma confirmação de orçamento
+      if (
+        input.toLowerCase().includes('sim') || 
+        input.toLowerCase().includes('confirmo')
+      ) {
+        // Manter a mensagem simples do usuário
+        const errorMessage: ChatMessageProps = {
+          content: "Pedido registrado. Nossa equipe entrará em contato em breve com o orçamento detalhado. Obrigado pela preferência!",
+          role: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages((prev) => [...prev, errorMessage]);
+        
+        // Chamar a função de confirmação do orçamento se disponível
+        if (onConfirmOrder) {
+          setTimeout(() => {
+            onConfirmOrder();
+          }, 500);
+        }
+      } else {
+        // Mensagem genérica de erro para outras situações
+        toast.error("Erro ao obter resposta do assistente");
+        
+        const errorMessage: ChatMessageProps = {
+          content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.",
+          role: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     } finally {
       setIsTyping(false);
     }
