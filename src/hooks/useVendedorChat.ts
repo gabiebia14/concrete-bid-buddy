@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +19,7 @@ export function useVendedorChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [orcamentoConcluido, setOrcamentoConcluido] = useState(false);
+  const [quoteId, setQuoteId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessageProps[]>([
     {
       content: `Olá${user ? ', ' + user.email : ''}! Sou o assistente virtual especializado em vendas da IPT Teixeira, com amplo conhecimento sobre nossa linha de produtos de concreto. Como posso ajudar você hoje?`,
@@ -259,6 +259,9 @@ export function useVendedorChat() {
       }
       
       console.log("Orçamento criado com sucesso:", data);
+      if (data && data[0]) {
+        setQuoteId(data[0].id);
+      }
       toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
       return true;
     } catch (error) {
@@ -272,7 +275,17 @@ export function useVendedorChat() {
 
   const handleEnviarParaVendedor = async () => {
     try {
-      console.log("Iniciando criação de orçamento...");
+      if (quoteId) {
+        setOrcamentoConcluido(true);
+        toast.success("Orçamento #" + quoteId.substring(0, 8) + " criado com sucesso!");
+        
+        setTimeout(() => {
+          navigate('/historico-orcamentos');
+        }, 3000);
+        return;
+      }
+      
+      console.log("Iniciando criação de orçamento (método de backup)...");
       const dadosOrcamento = extrairDadosOrcamento(messages);
       
       // Log mais detalhado para depuração
@@ -394,7 +407,13 @@ export function useVendedorChat() {
     console.log("Enviando mensagem para o assistente:", message);
     
     try {
-      const userContext = user ? `Cliente logado: ${user.email}` : "Cliente não logado";
+      const userContext = user ? {
+        email: user.email,
+        name: user.user_metadata?.full_name || user.email?.split('@')[0]
+      } : { 
+        email: null, 
+        name: null 
+      };
       
       const updatedMessages = [...messages, {
         content: message,
@@ -406,18 +425,10 @@ export function useVendedorChat() {
       setMessages(updatedMessages);
       
       // Verificar se o usuário está confirmando antes de chamar API
-      // para não depender apenas da resposta do assistente
       const isConfirmationMessage = message.toLowerCase().includes('sim') || 
                                    message.toLowerCase().includes('confirmo');
       
       const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
-      
-      if (shouldCheckCompletion) {
-        console.log("Detectou confirmação de pedido, processando...");
-        setTimeout(() => {
-          handleEnviarParaVendedor();
-        }, 800);
-      }
       
       // Chamar a função da API
       const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
@@ -443,6 +454,21 @@ export function useVendedorChat() {
       
       console.log("Resposta do assistente:", data);
       
+      // Verificar se o orçamento foi criado automaticamente pela edge function
+      if (data.quoteCreated && data.quoteId) {
+        console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
+        setQuoteId(data.quoteId);
+        setOrcamentoConcluido(true);
+        
+        // Adicionar notificação de sucesso
+        toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+        
+        // Programar redirecionamento
+        setTimeout(() => {
+          navigate('/historico-orcamentos');
+        }, 3000);
+      }
+      
       // Adicionar resposta do assistente
       const assistantResponse = data.response || "Desculpe, não consegui processar sua solicitação.";
       
@@ -456,8 +482,8 @@ export function useVendedorChat() {
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       
-      // Verificar mais uma vez se o orçamento está completo
-      if (!shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
+      // Verificar mais uma vez se o orçamento está completo (se não foi criado automaticamente)
+      if (!data.quoteCreated && !shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
         console.log("Orçamento completo detectado após resposta do assistente");
         setTimeout(() => {
           handleEnviarParaVendedor();
@@ -495,6 +521,7 @@ export function useVendedorChat() {
     setOrcamentoConcluido,
     handleSendMessage,
     handleEnviarParaVendedor,
-    verificarOrcamentoCompleto
+    verificarOrcamentoCompleto,
+    quoteId
   };
 }

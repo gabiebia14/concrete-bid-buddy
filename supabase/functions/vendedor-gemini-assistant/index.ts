@@ -1,15 +1,202 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { v4 as uuidv4 } from 'https://deno.land/std@0.168.0/uuid/mod.ts';
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent";
 
-// Configuração de CORS para permitir requisições do frontend
+// Configuração Supabase
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("Supabase URL ou Service Role Key não definidas nas variáveis de ambiente.");
+}
+
+// Configuração de CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Estrutura para dados de orçamento extraídos
+interface ProdutoExtraido {
+  nome: string;
+  quantidade: number;
+  dimensoes: string;
+  tipo: string | null;
+  padrao: string | null;
+}
+
+interface DadosOrcamento {
+  isQuoteComplete: boolean;
+  quoteData: {
+    produtos: ProdutoExtraido[];
+    localEntrega: string;
+    prazo: string;
+    formaPagamento: string;
+  };
+}
+
+// Função auxiliar para criar cliente Supabase
+function getSupabaseAdminClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+// Função para buscar ou criar cliente
+async function getOrCreateClient(supabase: SupabaseClient, userEmail: string | null, userName?: string): Promise<string | null> {
+  if (!userEmail) return null;
+
+  try {
+    // Tentar buscar cliente existente
+    const { data: existingClient, error: findError } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('email', userEmail)
+      .maybeSingle();
+
+    if (findError && findError.code !== 'PGRST116') {
+      console.error("Erro ao buscar cliente:", findError);
+      return null;
+    }
+
+    if (existingClient) {
+      console.log("Cliente encontrado:", existingClient.id);
+      return existingClient.id;
+    }
+
+    // Criar novo cliente se não existir
+    console.log("Cliente não encontrado, criando novo para:", userEmail);
+    const { data: newClient, error: insertError } = await supabase
+      .from('clients')
+      .insert({
+        name: userName || userEmail.split('@')[0],
+        email: userEmail,
+        phone: '',
+        tipo_pessoa: 'juridica' // Valor padrão
+      })
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error("Erro ao criar novo cliente:", insertError);
+      return null;
+    }
+
+    console.log("Novo cliente criado:", newClient.id);
+    return newClient.id;
+  } catch (error) {
+    console.error("Erro ao processar cliente:", error);
+    return null;
+  }
+}
+
+// Função para criar orçamento no Supabase
+async function createQuoteInDatabase(
+  supabase: SupabaseClient, 
+  clientId: string, 
+  quoteData: DadosOrcamento["quoteData"],
+  messages: any[]
+): Promise<string | null> {
+  if (!clientId || !quoteData.produtos || quoteData.produtos.length === 0) {
+    console.error("Dados insuficientes para criar orçamento");
+    return null;
+  }
+
+  try {
+    // Preparar os itens no formato esperado pela tabela quotes
+    const items = quoteData.produtos.map(produto => ({
+      product_id: uuidv4(),
+      product_name: produto.nome,
+      dimensions: produto.dimensoes,
+      quantity: produto.quantidade,
+      tipo: produto.tipo,
+      padrao: produto.padrao,
+      unit_price: 0, // Será preenchido pelo setor de vendas
+      total_price: 0  // Será preenchido pelo setor de vendas
+    }));
+
+    const { data: quote, error } = await supabase
+      .from('quotes')
+      .insert({
+        client_id: clientId,
+        status: 'pending',
+        items: items,
+        delivery_location: quoteData.localEntrega,
+        delivery_deadline: quoteData.prazo,
+        payment_method: quoteData.formaPagamento,
+        created_from: 'chat_assistant',
+        conversation_history: messages.map(m => ({
+          content: m.content,
+          role: m.role,
+          timestamp: m.timestamp
+        })),
+        total_value: 0 // Será atualizado pelo setor de vendas
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error("Erro ao criar orçamento:", error);
+      return null;
+    }
+
+    console.log("Orçamento criado com sucesso:", quote.id);
+    return quote.id;
+  } catch (error) {
+    console.error("Erro ao processar criação de orçamento:", error);
+    return null;
+  }
+}
+
+// Tenta extrair dados JSON de uma resposta que pode conter texto e JSON
+function extractJsonFromText(text: string): { json: DadosOrcamento | null, message: string } {
+  try {
+    // Busca por blocos de código JSON
+    const jsonMatch = text.match(/```json\s*({[\s\S]*?})\s*```/);
+    
+    if (jsonMatch && jsonMatch[1]) {
+      const jsonStr = jsonMatch[1].trim();
+      const json = JSON.parse(jsonStr) as DadosOrcamento;
+      
+      // Extrai a mensagem de texto após o JSON
+      const remainingText = text.replace(/```json\s*{[\s\S]*?}\s*```/, '').trim();
+      
+      return { json, message: remainingText };
+    }
+    
+    // Tenta buscar por JSON sem os marcadores de código
+    const objectMatch = text.match(/{[\s\S]*"isQuoteComplete"[\s\S]*?}/);
+    if (objectMatch) {
+      try {
+        const json = JSON.parse(objectMatch[0]) as DadosOrcamento;
+        
+        // Extrai a mensagem de texto após o JSON
+        const remainingText = text.replace(objectMatch[0], '').trim();
+        
+        return { json, message: remainingText };
+      } catch (e) {
+        console.error("Erro ao fazer parse do JSON sem marcadores:", e);
+      }
+    }
+    
+    // Nenhum JSON válido encontrado
+    return { json: null, message: text };
+  } catch (error) {
+    console.error("Erro ao extrair JSON:", error);
+    return { json: null, message: text };
+  }
+}
 
 serve(async (req) => {
   // Lidar com requisições preflight de CORS
@@ -17,13 +204,26 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Inicializa cliente Supabase
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) {
+    return new Response(JSON.stringify({ 
+      error: "Configuração do Supabase incompleta no servidor.",
+      response: "Desculpe, ocorreu um erro interno. Por favor, tente novamente mais tarde."
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
+  }
+
   try {
     const { messages, userContext } = await req.json();
+    const userEmail = userContext?.email;
+    const userName = userContext?.name;
     
     console.log("Recebendo mensagens:", JSON.stringify(messages));
     
-    // Preparar o histórico de mensagens para o Gemini no formato correto
-    // Precisamos converter todo o histórico de mensagens para o formato do Gemini
+    // Preparar o histórico de mensagens para o Gemini
     const geminiHistory = messages.map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
@@ -43,9 +243,25 @@ serve(async (req) => {
    - Para Blocos: "500 blocos estruturais 14x19x39" significa 500 unidades de blocos estruturais com dimensões 14cm x 19cm x 39cm
 
 8. Antes de encerrar, você DEVE OBRIGATORIAMENTE perguntar claramente ao cliente: "Posso confirmar este pedido e encaminhar para nossa equipe de vendas preparar o orçamento?"
-9. E quando o cliente responder afirmativamente, você DEVE confirmar que o pedido foi registrado e será encaminhado à equipe de vendas.`;
+9. E quando o cliente responder afirmativamente, você DEVE gerar um objeto JSON com os dados extraídos, neste formato:
+\`\`\`json
+{
+  "isQuoteComplete": true,
+  "quoteData": {
+    "produtos": [
+      { "nome": "Nome do Produto Exato", "quantidade": 10, "dimensoes": "0.80x1.50", "tipo": "PA1", "padrao": null },
+      { "nome": "Poste Circular", "quantidade": 5, "dimensoes": "11/200", "tipo": null, "padrao": "CPFL" }
+    ],
+    "localEntrega": "São José do Rio Preto, SP",
+    "prazo": "15 dias",
+    "formaPagamento": "Boleto 30/60/90"
+  }
+}
+\`\`\`
+Após o JSON, adicione: "Ok, pedido confirmado! Seu orçamento foi registrado e será encaminhado para nossa equipe de vendas."
+10. Se você NÃO conseguiu extrair TODOS os dados necessários, NÃO gere o JSON e continue coletando informações.`;
     
-    // System prompt exatamente como fornecido
+    // System prompt completo
     const systemPrompt = `<identidade>
 Você é um ASSISTENTE
 DE Vendas especialista com 20 anos de experiência em conduzir negociações e
@@ -245,8 +461,8 @@ ${additionalInstruction}`;
     const requestBody = {
       contents: geminiHistory,
       generationConfig: {
-        temperature: 0.7, // Reduzido para respostas mais precisas
-        maxOutputTokens: 500, // Limitado para forçar respostas concisas
+        temperature: 0.7,
+        maxOutputTokens: 800,
         responseMimeType: "text/plain",
       },
       systemInstruction: {
@@ -272,7 +488,7 @@ ${additionalInstruction}`;
       ]
     };
     
-    console.log("Enviando para Gemini (histórico completo):", JSON.stringify(requestBody));
+    console.log("Enviando para Gemini...");
     
     // Construir a URL com a chave API
     const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
@@ -287,21 +503,62 @@ ${additionalInstruction}`;
     });
     
     const data = await response.json();
-    console.log("Resposta do Gemini:", JSON.stringify(data));
     
-    if (data.error) {
-      throw new Error(`Erro na API do Gemini: ${data.error.message}`);
+    if (!response.ok || data.error) {
+      console.error("Erro na API do Gemini:", data.error || `Status ${response.status}`);
+      throw new Error(`Erro na API do Gemini: ${data.error?.message || response.statusText}`);
     }
     
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Desculpe, não consegui processar sua solicitação. Por favor, tente novamente.";
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                          "Desculpe, não consegui processar sua solicitação. Por favor, tente novamente.";
     
+    console.log("Resposta do Gemini:", generatedText.substring(0, 200) + "...");
+    
+    // Extrair dados de orçamento em formato JSON, se existirem
+    const { json: quoteData, message: cleanedResponse } = extractJsonFromText(generatedText);
+    
+    // Se for encontrado JSON de conclusão de orçamento, criar no banco de dados
+    if (quoteData && quoteData.isQuoteComplete && userEmail) {
+      console.log("Orçamento completo detectado, processando...");
+      
+      // Buscar ou criar cliente
+      const clientId = await getOrCreateClient(supabase, userEmail, userName);
+      
+      if (clientId) {
+        // Criar orçamento no banco de dados
+        const quoteId = await createQuoteInDatabase(
+          supabase, 
+          clientId, 
+          quoteData.quoteData,
+          messages
+        );
+        
+        if (quoteId) {
+          console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
+          // Retorna resposta com flag de orçamento criado
+          return new Response(JSON.stringify({ 
+            response: cleanedResponse,
+            quoteCreated: true,
+            quoteId: quoteId
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          });
+        }
+      }
+    }
+    
+    // Resposta normal (sem criação de orçamento)
     return new Response(JSON.stringify({ response: generatedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
   } catch (error) {
     console.error("Erro na função Edge:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      response: "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde."
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     });
