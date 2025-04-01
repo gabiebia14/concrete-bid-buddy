@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,21 +7,14 @@ import { QuoteHeader } from '@/components/quotes/QuoteHeader';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { EmptyState } from '@/components/quotes/EmptyState';
 import { useQuotes } from '@/hooks/useQuotes';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function QuoteHistory() {
-  const { user } = useAuth();
   const { quotes, isLoading } = useQuotes();
   const [activeTab, setActiveTab] = useState<string>('all');
 
   const filteredQuotes = activeTab === 'all' 
     ? quotes 
     : quotes.filter(quote => quote.status === activeTab);
-
-  useEffect(() => {
-    console.log("QuoteHistory - Status de autenticação:", user ? "Autenticado" : "Não autenticado");
-    console.log("QuoteHistory - Orçamentos carregados:", quotes);
-  }, [quotes, user]);
 
   return (
     <Layout>
