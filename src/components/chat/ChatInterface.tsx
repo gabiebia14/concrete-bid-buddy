@@ -71,6 +71,8 @@ export function ChatInterface({
       if (onSendMessage) {
         const response = await onSendMessage(input);
         
+        console.log("Resposta recebida:", response);
+        
         // Adicionar mensagem do assistente após a resposta
         const assistantMessage: ChatMessageProps = {
           content: response,

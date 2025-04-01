@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
@@ -40,6 +40,15 @@ export default function Vendedor() {
       // Preparar o contexto do usuário
       const userContext = user ? `Cliente logado: ${user.email}` : "Cliente não logado";
       
+      // Adicionar a mensagem do usuário à lista
+      const newMessage: ChatMessage = {
+        content: message,
+        role: 'user',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
+      
       // Chamar a função edge do Gemini
       const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
         body: { 
@@ -66,15 +75,6 @@ export default function Vendedor() {
       ) {
         setShowConfirmation(true);
       }
-      
-      // Atualizar a lista de mensagens
-      const newMessage: ChatMessage = {
-        content: message,
-        role: 'user',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, newMessage]);
       
       return data.response || "Desculpe, não consegui processar sua solicitação.";
     } catch (error) {
