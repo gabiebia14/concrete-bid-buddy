@@ -36,7 +36,7 @@ export function ClientSidebar() {
     {
       label: 'Histórico',
       icon: <History size={20} />,
-      href: '/historico'
+      href: '/historico-orcamentos'
     },
     {
       label: 'Catálogo',
