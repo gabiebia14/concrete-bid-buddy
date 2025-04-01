@@ -32,28 +32,36 @@ export default function Vendedor() {
     }, 2000);
   };
 
-  // Função que verifica se o orçamento está completo
+  // Função melhorada para verificar se o orçamento está completo
   const verificarOrcamentoCompleto = (mensagens: ChatMessage[]) => {
-    // Pegar apenas as mensagens do assistente
-    const mensagensAssistente = mensagens.filter(msg => msg.role === 'assistant').map(msg => msg.content.toLowerCase());
+    // Unir todas as mensagens em um único texto para facilitar a busca
+    const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
     
-    // Verifica se nas últimas 3 mensagens do assistente há confirmação de produtos, local e pagamento
-    const ultimasMensagens = mensagensAssistente.slice(-3).join(' ');
+    // Verificar componentes essenciais do orçamento
+    const temProdutos = todasMensagens.includes('unidades') || 
+                        todasMensagens.includes('quantidade') || 
+                        todasMensagens.includes('tubos') || 
+                        todasMensagens.includes('postes') || 
+                        todasMensagens.includes('blocos');
     
-    // Verificar se já tem as informações básicas para um orçamento
-    const temProdutos = ultimasMensagens.includes('tubos') || ultimasMensagens.includes('postes') || 
-                        ultimasMensagens.includes('blocos') || ultimasMensagens.includes('produto');
-    const temLocal = ultimasMensagens.includes('entrega') || ultimasMensagens.includes('local');
-    const temPagamento = ultimasMensagens.includes('pagamento') || ultimasMensagens.includes('à vista') || 
-                          ultimasMensagens.includes('prazo');
+    const temLocalEntrega = todasMensagens.includes('entrega') || 
+                           todasMensagens.includes('cidade') || 
+                           todasMensagens.includes('endereço');
     
-    // Verifica se o assistente está perguntando se pode fazer mais alguma coisa
-    const perguntandoFinalizar = ultimasMensagens.includes('mais alguma coisa') || 
-                                 ultimasMensagens.includes('posso finalizar') ||
-                                 ultimasMensagens.includes('algo mais');
+    const temPrazo = todasMensagens.includes('prazo') || 
+                    todasMensagens.includes('dias') || 
+                    todasMensagens.includes('data');
     
-    // Se tem todas as informações básicas e está perguntando se pode finalizar
-    return (temProdutos && temLocal && temPagamento && perguntandoFinalizar);
+    const temPagamento = todasMensagens.includes('pagamento') || 
+                        todasMensagens.includes('à vista') || 
+                        todasMensagens.includes('parcelado') || 
+                        todasMensagens.includes('boleto');
+    
+    // Verificar confirmação do cliente
+    const clienteConfirmou = mensagens.length >= 6; // Garantir que houve uma conversa mínima
+    
+    // Se todas as informações estão presentes, considerar orçamento completo
+    return temProdutos && temLocalEntrega && temPrazo && temPagamento && clienteConfirmou;
   };
 
   // Função para enviar mensagem para o assistente Gemini
@@ -110,30 +118,22 @@ export default function Vendedor() {
         timestamp: new Date()
       };
       
-      // Verifica se o orçamento está pronto para ser finalizado
+      // Atualizar mensagens e verificar se o orçamento está completo
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       
-      // Verificar se nas últimas mensagens o cliente confirma que não precisa de mais nada
-      const ultimaMensagemUsuario = message.toLowerCase();
-      const respostaAssistente = data.response.toLowerCase();
-      
-      const clienteFinalizou = 
-        ultimaMensagemUsuario.includes('só isso') || 
-        ultimaMensagemUsuario.includes('não preciso de mais nada') ||
-        ultimaMensagemUsuario.includes('não, obrigado');
-      
-      const temInfoCompleta = 
-        respostaAssistente.includes('entrega') && 
-        respostaAssistente.includes('prazo') && 
-        respostaAssistente.includes('pagamento');
-      
-      if (clienteFinalizou && temInfoCompleta) {
-        setOrcamentoConcluido(true);
-        // Adiciona uma mensagem automática informando que o orçamento será enviado
+      // Verificar se temos todas as informações necessárias e se o cliente está satisfeito
+      if (verificarOrcamentoCompleto(finalMessages)) {
+        // Aguardar um momento para o usuário ler a última resposta do assistente
         setTimeout(() => {
-          handleEnviarParaVendedor();
-        }, 2000);
+          setOrcamentoConcluido(true);
+          toast.info("Informações completas para orçamento!");
+          
+          // Mais 1 segundo para mostrar a mensagem de orçamento encaminhado
+          setTimeout(() => {
+            handleEnviarParaVendedor();
+          }, 1000);
+        }, 1500);
       }
       
       return data.response || "Desculpe, não consegui processar sua solicitação.";
