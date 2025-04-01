@@ -35,6 +35,12 @@ export type QuoteData = {
   updated_at?: string;
 };
 
+export type ChatHistoryMessage = {
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp?: string;
+};
+
 export type Quote = QuoteData & {
   client_name?: string;
   client_email?: string;
@@ -44,6 +50,8 @@ export type Quote = QuoteData & {
   payment_method?: string;
   notes?: string;
   total_amount?: number;
+  conversation_history?: ChatHistoryMessage[];
+  created_from?: string;
 };
 
 // Tipos adicionais para dashboards

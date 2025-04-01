@@ -1,16 +1,32 @@
 
+import { useState } from 'react';
 import { Quote } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, CreditCard, RefreshCw, ArrowRight } from 'lucide-react';
+import { Calendar, MapPin, CreditCard, RefreshCw, ArrowRight, MessageSquare } from 'lucide-react';
 import { getStatusBadge, formatDate } from '@/utils/quoteUtils';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChatMessage } from '@/components/chat/ChatMessage';
 
 interface QuoteCardProps {
   quote: Quote;
 }
 
 export const QuoteCard = ({ quote }: QuoteCardProps) => {
+  const [conversationOpen, setConversationOpen] = useState(false);
+  
+  // Verifica se este orçamento tem histórico de conversa
+  const hasConversation = quote.conversation_history && quote.conversation_history.length > 0;
+  
   return (
     <Card className="bg-white border-gray-200 hover:shadow-md transition-shadow">
       <CardContent className="p-6">
@@ -18,7 +34,7 @@ export const QuoteCard = ({ quote }: QuoteCardProps) => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg font-semibold text-gray-900">
-                Orçamento #{quote.id.split('-')[1]}
+                Orçamento #{quote.id.split('-')[1] || quote.id.substring(0, 8)}
               </span>
               {getStatusBadge(quote.status)}
             </div>
@@ -88,7 +104,36 @@ export const QuoteCard = ({ quote }: QuoteCardProps) => {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-3">
+          {hasConversation && (
+            <Dialog open={conversationOpen} onOpenChange={setConversationOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="text-sm">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Ver Conversa
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Conversa com Vendedor</DialogTitle>
+                  <DialogDescription>
+                    Histórico da conversa que gerou este orçamento
+                  </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-[400px] pr-4">
+                  {quote.conversation_history?.map((message, index) => (
+                    <ChatMessage
+                      key={index}
+                      content={message.content}
+                      role={message.role}
+                      timestamp={message.timestamp ? new Date(message.timestamp) : undefined}
+                    />
+                  ))}
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+          )}
+          
           <Button variant="outline" className="text-sm">
             Ver Detalhes <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
