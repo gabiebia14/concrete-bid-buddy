@@ -1,17 +1,27 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { ChatMessage } from '@/lib/vendedorTypes';
 
 export default function Vendedor() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      content: `Olá${user ? ', ' + user.email : ''}! Sou um assistente virtual da IPT Teixeira, alimentado por inteligência artificial. Estou aqui para ajudar com informações sobre nossos produtos de concreto. Como posso te ajudar hoje?`,
+      role: "assistant",
+      timestamp: new Date()
+    }
+  ]);
 
   const handleEnviarParaVendedor = () => {
     toast.success("Contato encaminhado para um vendedor. Em breve entraremos em contato!");
@@ -19,6 +29,49 @@ export default function Vendedor() {
     setTimeout(() => {
       navigate('/historico-orcamentos');
     }, 2000);
+  };
+
+  // Função para enviar mensagem para o assistente Gemini
+  const handleSendMessage = async (message: string): Promise<string> => {
+    setIsLoading(true);
+    
+    try {
+      // Preparar o contexto do usuário
+      const userContext = user ? `Cliente logado: ${user.email}` : "Cliente não logado";
+      
+      // Chamar a função edge do Gemini
+      const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
+        body: { 
+          messages: [...messages, { role: 'user', content: message }],
+          userContext 
+        }
+      });
+      
+      if (error) {
+        console.error("Erro ao chamar o assistente:", error);
+        throw new Error(error.message);
+      }
+      
+      // Verificar se o algoritmo decide que é hora de sugerir um vendedor humano
+      // Podemos fazer isso baseado em palavras-chave ou em lógica na resposta
+      if (
+        !showConfirmation && 
+        (message.toLowerCase().includes('preço') || 
+         message.toLowerCase().includes('orçamento') ||
+         message.toLowerCase().includes('comprar') ||
+         message.toLowerCase().includes('vendedor') ||
+         Math.random() > 0.7) // Chance aleatória para demonstração
+      ) {
+        setShowConfirmation(true);
+      }
+      
+      return data.response;
+    } catch (error) {
+      console.error("Erro no processamento da mensagem:", error);
+      return "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,29 +89,19 @@ export default function Vendedor() {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {/* Chat ocupa agora toda a largura */}
           <div>
             <ChatInterface 
-              title="Conversa com Vendedor Especializado" 
-              description="Nossos vendedores estão disponíveis para auxiliar em sua compra"
-              initialMessages={[
-                {
-                  content: `Olá${user ? ', ' + user.email : ''}! Sou um assistente virtual da IPT Teixeira. Nossos vendedores estão ocupados no momento, mas eu posso te ajudar com informações sobre nossos produtos e serviços. Se precisar de atendimento especializado, clique no botão "Solicitar Contato" e um vendedor entrará em contato em breve.`,
-                  role: "assistant",
-                  timestamp: new Date()
-                }
-              ]}
-              onSendMessage={async (message) => {
-                // Após algumas mensagens, sugerir contato direto
-                if (!showConfirmation && Math.random() > 0.5) {
-                  setShowConfirmation(true);
-                  return "Para atendimento mais personalizado, recomendo solicitar contato direto com um vendedor. Posso fazer isso para você agora?";
-                }
-                
-                // Resposta padrão
-                return "Compreendo sua necessidade. Um vendedor especializado poderá te oferecer mais detalhes e condições especiais. Clique no botão 'Solicitar Contato' quando estiver pronto.";
-              }}
+              title="Conversa com Assistente IA" 
+              description="Nosso assistente de IA está pronto para ajudar com suas dúvidas"
+              initialMessages={messages}
+              onSendMessage={handleSendMessage}
             />
+            
+            {isLoading && (
+              <div className="flex justify-center mt-4">
+                <Loader2 className="h-6 w-6 animate-spin text-lime-600" />
+              </div>
+            )}
             
             {/* Botão para solicitar contato */}
             <div className="mt-6 flex justify-center">
