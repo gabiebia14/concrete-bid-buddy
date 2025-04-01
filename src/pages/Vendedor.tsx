@@ -103,15 +103,32 @@ export default function Vendedor() {
         setShowConfirmation(true);
       }
       
-      // Verificar se o orçamento está pronto para ser finalizado
-      // Adicione a resposta do assistente temporariamente para verificação
-      const checkMessages = [...updatedMessages, {
-        content: data.response || "",
+      // Adicionar a resposta do assistente ao estado das mensagens
+      const assistantMessage: ChatMessage = {
+        content: data.response || "Desculpe, não consegui processar sua solicitação.",
         role: 'assistant',
         timestamp: new Date()
-      }];
+      };
       
-      if (verificarOrcamentoCompleto(checkMessages)) {
+      // Verifica se o orçamento está pronto para ser finalizado
+      const finalMessages = [...updatedMessages, assistantMessage];
+      setMessages(finalMessages);
+      
+      // Verificar se nas últimas mensagens o cliente confirma que não precisa de mais nada
+      const ultimaMensagemUsuario = message.toLowerCase();
+      const respostaAssistente = data.response.toLowerCase();
+      
+      const clienteFinalizou = 
+        ultimaMensagemUsuario.includes('só isso') || 
+        ultimaMensagemUsuario.includes('não preciso de mais nada') ||
+        ultimaMensagemUsuario.includes('não, obrigado');
+      
+      const temInfoCompleta = 
+        respostaAssistente.includes('entrega') && 
+        respostaAssistente.includes('prazo') && 
+        respostaAssistente.includes('pagamento');
+      
+      if (clienteFinalizou && temInfoCompleta) {
         setOrcamentoConcluido(true);
         // Adiciona uma mensagem automática informando que o orçamento será enviado
         setTimeout(() => {

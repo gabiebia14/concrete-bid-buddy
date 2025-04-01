@@ -34,7 +34,8 @@ serve(async (req) => {
 1. Seja conciso e objetivo nas respostas. Evite repetições.
 2. Quando verificar que já obteve todas as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme os detalhes brevemente e finalize o orçamento.
 3. Não repita informações que já foram confirmadas anteriormente.
-4. Limite suas respostas a no máximo 3 parágrafos.`;
+4. Limite suas respostas a no máximo 3 parágrafos.
+5. Se o cliente disser "só isso" ou confirmar que não precisa de mais nada, agradeça e finalize a conversa imediatamente.`;
     
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
@@ -237,7 +238,7 @@ ${additionalInstruction}`;
       contents: geminiHistory,
       generationConfig: {
         temperature: 0.9,
-        maxOutputTokens: 2048, // Reduzido para forçar respostas mais concisas
+        maxOutputTokens: 800, // Reduzido significativamente para forçar respostas mais concisas
         responseMimeType: "text/plain",
       },
       systemInstruction: {
