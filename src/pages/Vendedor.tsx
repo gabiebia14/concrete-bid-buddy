@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -25,15 +24,11 @@ export default function Vendedor() {
     }
   ]);
 
-  // Função para extrair dados do orçamento com base nas mensagens
   const extrairDadosOrcamento = (mensagens: ChatMessage[]) => {
-    // Unir todas as mensagens em um único texto para facilitar a busca
     const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
     
-    // Extrair produtos
     let produtos: any[] = [];
     
-    // Verificar tubos
     if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
       const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:pa\s*(\d+)|pa(\d+))?/i;
       const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex, 'gi'))];
@@ -56,7 +51,6 @@ export default function Vendedor() {
       });
     }
     
-    // Verificar postes
     if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
       const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(?:circular)?\s*(?:(\d+)\s*[\/\\]?\s*(\d+))?\s*(?:padrão)?\s*(cpfl|elektro|telefônica)?/i;
       const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex, 'gi'))];
@@ -79,7 +73,6 @@ export default function Vendedor() {
       });
     }
     
-    // Extrair local de entrega
     let localEntrega = '';
     const localRegex = /(?:(?:cidade|local|entrega)\s+(?:em|para|:)?\s+)(\w+)/i;
     const localMatch = todasMensagens.match(localRegex);
@@ -87,7 +80,6 @@ export default function Vendedor() {
       localEntrega = localMatch[1].charAt(0).toUpperCase() + localMatch[1].slice(1);
     }
     
-    // Extrair prazo
     let prazo = '';
     const prazoRegex = /(\d+)\s*dias/i;
     const prazoMatch = todasMensagens.match(prazoRegex);
@@ -95,7 +87,6 @@ export default function Vendedor() {
       prazo = `${prazoMatch[1]} dias`;
     }
     
-    // Extrair forma de pagamento
     let formaPagamento = '';
     if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
       formaPagamento = 'À vista';
@@ -115,7 +106,6 @@ export default function Vendedor() {
     };
   };
 
-  // Função para criar o orçamento no Supabase
   const criarOrcamentoSupabase = async (dadosOrcamento: any) => {
     try {
       if (!user) {
@@ -123,7 +113,6 @@ export default function Vendedor() {
         return false;
       }
       
-      // Verificar se já tem um cliente cadastrado com esse e-mail
       let client_id = '';
       
       const { data: clienteExistente } = await supabase
@@ -135,13 +124,12 @@ export default function Vendedor() {
       if (clienteExistente) {
         client_id = clienteExistente.id;
       } else {
-        // Criar um novo cliente
         const { data: novoCliente, error: erroCliente } = await supabase
           .from('clients')
           .insert({
-            name: user.email.split('@')[0], // Nome provisório baseado no e-mail
+            name: user.email.split('@')[0],
             email: user.email,
-            phone: '', // Placeholder, podemos melhorar isso depois
+            phone: ''
           })
           .select('id')
           .single();
@@ -155,26 +143,23 @@ export default function Vendedor() {
         client_id = novoCliente.id;
       }
       
-      // Formatar os items para o orçamento
       const items = dadosOrcamento.produtos.map((produto: any) => ({
         product_id: produto.product_id,
         product_name: produto.product_name,
         dimensions: produto.dimensions,
         quantity: produto.quantity,
-        unit_price: 0, // Será definido pelo vendedor
-        total_price: 0, // Será calculado pelo vendedor
+        unit_price: 0,
+        total_price: 0,
         padrao: produto.padrao,
         tipo: produto.tipo
       }));
       
-      // Criar o orçamento
       const { error: erroOrcamento } = await supabase
         .from('quotes')
         .insert({
           client_id,
           status: 'pending',
           items,
-          // Adicionar metadados para o orçamento
           delivery_location: dadosOrcamento.localEntrega,
           delivery_deadline: dadosOrcamento.prazo,
           payment_method: dadosOrcamento.formaPagamento,
@@ -201,10 +186,8 @@ export default function Vendedor() {
   };
 
   const handleEnviarParaVendedor = async () => {
-    // Extrair dados do orçamento das mensagens
     const dadosOrcamento = extrairDadosOrcamento(messages);
     
-    // Verificar se temos dados suficientes
     if (dadosOrcamento.produtos.length === 0) {
       toast.error("Não foi possível identificar os produtos para o orçamento");
       return;
@@ -215,24 +198,17 @@ export default function Vendedor() {
       return;
     }
     
-    // Criar o orçamento no Supabase
     const sucesso = await criarOrcamentoSupabase(dadosOrcamento);
     
     if (sucesso) {
       toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
-      // Dar um tempo para o usuário ver a mensagem antes de redirecionar
-      setTimeout(() => {
-        navigate('/historico-orcamentos');
-      }, 2000);
+      setOrcamentoConcluido(true);
     }
   };
 
-  // Função melhorada para verificar se o orçamento está completo
   const verificarOrcamentoCompleto = (mensagens: ChatMessage[]) => {
-    // Unir todas as mensagens em um único texto para facilitar a busca
     const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
     
-    // Verificar componentes essenciais do orçamento
     const temProdutos = todasMensagens.includes('unidades') || 
                         todasMensagens.includes('quantidade') || 
                         todasMensagens.includes('tubos') || 
@@ -252,36 +228,29 @@ export default function Vendedor() {
                         todasMensagens.includes('parcelado') || 
                         todasMensagens.includes('boleto');
     
-    // Verificar confirmação do cliente
     const clienteConfirmou = todasMensagens.includes('só isso') || 
                             todasMensagens.includes('apenas isso') || 
                             todasMensagens.includes('nada mais');
     
-    // Se todas as informações estão presentes, considerar orçamento completo
     return temProdutos && temLocalEntrega && temPrazo && temPagamento && clienteConfirmou;
   };
 
-  // Função para enviar mensagem para o assistente Gemini
   const handleSendMessage = async (message: string): Promise<string> => {
     setIsLoading(true);
     console.log("Enviando mensagem para o assistente:", message);
     
     try {
-      // Preparar o contexto do usuário
       const userContext = user ? `Cliente logado: ${user.email}` : "Cliente não logado";
       
-      // Adicionar a mensagem do usuário à lista
       const newMessage: ChatMessage = {
         content: message,
         role: 'user',
         timestamp: new Date()
       };
       
-      // Atualiza o estado com a nova mensagem
       const updatedMessages = [...messages, newMessage];
       setMessages(updatedMessages);
       
-      // Chamar a função edge do Gemini
       const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
         body: { 
           messages: updatedMessages,
@@ -296,36 +265,29 @@ export default function Vendedor() {
       
       console.log("Resposta do assistente:", data);
       
-      // Verificar se o algoritmo decide que é hora de sugerir um vendedor humano
       if (
         !showConfirmation && 
         (message.toLowerCase().includes('preço') || 
          message.toLowerCase().includes('orçamento') ||
          message.toLowerCase().includes('comprar') ||
          message.toLowerCase().includes('vendedor') ||
-         Math.random() > 0.7) // Chance aleatória para demonstração
+         Math.random() > 0.7)
       ) {
         setShowConfirmation(true);
       }
       
-      // Adicionar a resposta do assistente ao estado das mensagens
       const assistantMessage: ChatMessage = {
         content: data.response || "Desculpe, não consegui processar sua solicitação.",
         role: 'assistant',
         timestamp: new Date()
       };
       
-      // Atualizar mensagens e verificar se o orçamento está completo
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       
-      // Verificar se temos todas as informações necessárias e se o cliente está satisfeito
       if (verificarOrcamentoCompleto(finalMessages)) {
-        // Aguardar um momento para o usuário ler a última resposta do assistente
         setTimeout(() => {
           setOrcamentoConcluido(true);
-          
-          // Criar o orçamento no Supabase
           handleEnviarParaVendedor();
         }, 1500);
       }
@@ -368,7 +330,6 @@ export default function Vendedor() {
               </div>
             )}
             
-            {/* Botão para solicitar contato */}
             <div className="mt-6 flex justify-center">
               <Button 
                 onClick={handleEnviarParaVendedor}
