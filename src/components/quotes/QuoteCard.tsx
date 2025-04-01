@@ -26,11 +26,7 @@ export const QuoteCard = ({ quote }: QuoteCardProps) => {
               Criado em {formatDate(quote.created_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-base font-semibold bg-green-50 text-green-700 border-green-200">
-              R$ {quote.total_amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </Badge>
-          </div>
+          {/* Removida a exibição do valor total do orçamento */}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -85,9 +81,7 @@ export const QuoteCard = ({ quote }: QuoteCardProps) => {
                       {item.dimensions} - {item.quantity} unidades
                     </p>
                   </div>
-                  <p className="text-sm font-medium text-gray-900">
-                    R$ {item.unit_price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /un
-                  </p>
+                  {/* Removida a exibição do valor unitário do produto */}
                 </div>
               </div>
             ))}
