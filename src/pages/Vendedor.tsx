@@ -15,6 +15,7 @@ export default function Vendedor() {
   const { user } = useAuth();
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [orcamentoConcluido, setOrcamentoConcluido] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       content: `Olá${user ? ', ' + user.email : ''}! Sou o assistente virtual especializado em vendas da IPT Teixeira, com amplo conhecimento sobre nossa linha de produtos de concreto. Como posso ajudar você hoje?`,
@@ -29,6 +30,30 @@ export default function Vendedor() {
     setTimeout(() => {
       navigate('/historico-orcamentos');
     }, 2000);
+  };
+
+  // Função que verifica se o orçamento está completo
+  const verificarOrcamentoCompleto = (mensagens: ChatMessage[]) => {
+    // Pegar apenas as mensagens do assistente
+    const mensagensAssistente = mensagens.filter(msg => msg.role === 'assistant').map(msg => msg.content.toLowerCase());
+    
+    // Verifica se nas últimas 3 mensagens do assistente há confirmação de produtos, local e pagamento
+    const ultimasMensagens = mensagensAssistente.slice(-3).join(' ');
+    
+    // Verificar se já tem as informações básicas para um orçamento
+    const temProdutos = ultimasMensagens.includes('tubos') || ultimasMensagens.includes('postes') || 
+                        ultimasMensagens.includes('blocos') || ultimasMensagens.includes('produto');
+    const temLocal = ultimasMensagens.includes('entrega') || ultimasMensagens.includes('local');
+    const temPagamento = ultimasMensagens.includes('pagamento') || ultimasMensagens.includes('à vista') || 
+                          ultimasMensagens.includes('prazo');
+    
+    // Verifica se o assistente está perguntando se pode fazer mais alguma coisa
+    const perguntandoFinalizar = ultimasMensagens.includes('mais alguma coisa') || 
+                                 ultimasMensagens.includes('posso finalizar') ||
+                                 ultimasMensagens.includes('algo mais');
+    
+    // Se tem todas as informações básicas e está perguntando se pode finalizar
+    return (temProdutos && temLocal && temPagamento && perguntandoFinalizar);
   };
 
   // Função para enviar mensagem para o assistente Gemini
@@ -47,12 +72,14 @@ export default function Vendedor() {
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, newMessage]);
+      // Atualiza o estado com a nova mensagem
+      const updatedMessages = [...messages, newMessage];
+      setMessages(updatedMessages);
       
       // Chamar a função edge do Gemini
       const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
         body: { 
-          messages: [...messages, { role: 'user', content: message }],
+          messages: updatedMessages,
           userContext 
         }
       });
@@ -74,6 +101,22 @@ export default function Vendedor() {
          Math.random() > 0.7) // Chance aleatória para demonstração
       ) {
         setShowConfirmation(true);
+      }
+      
+      // Verificar se o orçamento está pronto para ser finalizado
+      // Adicione a resposta do assistente temporariamente para verificação
+      const checkMessages = [...updatedMessages, {
+        content: data.response || "",
+        role: 'assistant',
+        timestamp: new Date()
+      }];
+      
+      if (verificarOrcamentoCompleto(checkMessages)) {
+        setOrcamentoConcluido(true);
+        // Adiciona uma mensagem automática informando que o orçamento será enviado
+        setTimeout(() => {
+          handleEnviarParaVendedor();
+        }, 2000);
       }
       
       return data.response || "Desculpe, não consegui processar sua solicitação.";
@@ -119,9 +162,10 @@ export default function Vendedor() {
               <Button 
                 onClick={handleEnviarParaVendedor}
                 className="bg-lime-600 hover:bg-lime-700 px-6 py-2 flex items-center gap-2"
+                disabled={orcamentoConcluido}
               >
                 <Send className="h-4 w-4" />
-                Solicitar Contato com Vendedor
+                {orcamentoConcluido ? "Orçamento Registrado!" : "Solicitar Contato com Vendedor"}
               </Button>
             </div>
           </div>

@@ -29,6 +29,13 @@ serve(async (req) => {
       parts: [{ text: msg.content }]
     }));
     
+    // Adicionar instrução adicional para evitar verbosidade
+    const additionalInstruction = `Além das instruções anteriores, lembre-se:
+1. Seja conciso e objetivo nas respostas. Evite repetições.
+2. Quando verificar que já obteve todas as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme os detalhes brevemente e finalize o orçamento.
+3. Não repita informações que já foram confirmadas anteriormente.
+4. Limite suas respostas a no máximo 3 parágrafos.`;
+    
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
 Você é um ASSISTENTE
@@ -221,14 +228,16 @@ conversa.
 Ofereça produtos complementares para agregar valor ao
 pedido.
 Confirme com o cliente se ele está satisfeito
-com as opções apresentadas antes de encaminhar ao setor de vendas.`;
+com as opções apresentadas antes de encaminhar ao setor de vendas.
+
+${additionalInstruction}`;
 
     // Configuração para o Gemini
     const requestBody = {
       contents: geminiHistory,
       generationConfig: {
         temperature: 0.9,
-        maxOutputTokens: 5536,
+        maxOutputTokens: 2048, // Reduzido para forçar respostas mais concisas
         responseMimeType: "text/plain",
       },
       systemInstruction: {
