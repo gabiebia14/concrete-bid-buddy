@@ -9,6 +9,7 @@ import { ChatInterface } from '@/components/chat/ChatInterface';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage } from '@/lib/vendedorTypes';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function Vendedor() {
   const navigate = useNavigate();
@@ -24,12 +25,206 @@ export default function Vendedor() {
     }
   ]);
 
-  const handleEnviarParaVendedor = () => {
-    toast.success("Contato encaminhado para um vendedor. Em breve entraremos em contato!");
-    // Dar um tempo para o usuário ver a mensagem antes de redirecionar
-    setTimeout(() => {
-      navigate('/historico-orcamentos');
-    }, 2000);
+  // Função para extrair dados do orçamento com base nas mensagens
+  const extrairDadosOrcamento = (mensagens: ChatMessage[]) => {
+    // Unir todas as mensagens em um único texto para facilitar a busca
+    const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
+    
+    // Extrair produtos
+    let produtos: any[] = [];
+    
+    // Verificar tubos
+    if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
+      const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:pa\s*(\d+)|pa(\d+))?/i;
+      const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex, 'gi'))];
+      
+      tuboMatches.forEach(match => {
+        const quantidade = parseInt(match[1] || '0');
+        const dimensao1 = match[2] || '';
+        const dimensao2 = match[3] || '';
+        const tipo = match[4] || match[5] || '1';
+        
+        if (quantidade > 0) {
+          produtos.push({
+            product_id: uuidv4(),
+            product_name: `Tubo de Concreto`,
+            dimensions: `${dimensao1}x${dimensao2}`,
+            quantity: quantidade,
+            tipo: `PA${tipo}`
+          });
+        }
+      });
+    }
+    
+    // Verificar postes
+    if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
+      const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(?:circular)?\s*(?:(\d+)\s*[\/\\]?\s*(\d+))?\s*(?:padrão)?\s*(cpfl|elektro|telefônica)?/i;
+      const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex, 'gi'))];
+      
+      posteMatches.forEach(match => {
+        const quantidade = parseInt(match[1] || '0');
+        const altura = match[2] || '';
+        const capacidade = match[3] || '';
+        const padrao = match[4] || '';
+        
+        if (quantidade > 0) {
+          produtos.push({
+            product_id: uuidv4(),
+            product_name: `Poste Circular`,
+            dimensions: altura && capacidade ? `${altura}/${capacidade}` : '',
+            quantity: quantidade,
+            padrao: padrao.toUpperCase()
+          });
+        }
+      });
+    }
+    
+    // Extrair local de entrega
+    let localEntrega = '';
+    const localRegex = /(?:(?:cidade|local|entrega)\s+(?:em|para|:)?\s+)(\w+)/i;
+    const localMatch = todasMensagens.match(localRegex);
+    if (localMatch && localMatch[1]) {
+      localEntrega = localMatch[1].charAt(0).toUpperCase() + localMatch[1].slice(1);
+    }
+    
+    // Extrair prazo
+    let prazo = '';
+    const prazoRegex = /(\d+)\s*dias/i;
+    const prazoMatch = todasMensagens.match(prazoRegex);
+    if (prazoMatch && prazoMatch[1]) {
+      prazo = `${prazoMatch[1]} dias`;
+    }
+    
+    // Extrair forma de pagamento
+    let formaPagamento = '';
+    if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
+      formaPagamento = 'À vista';
+    } else if (todasMensagens.includes('boleto')) {
+      formaPagamento = 'Boleto';
+    } else if (todasMensagens.includes('cartão') || todasMensagens.includes('cartao')) {
+      formaPagamento = 'Cartão';
+    } else if (todasMensagens.includes('pix')) {
+      formaPagamento = 'PIX';
+    }
+    
+    return {
+      produtos,
+      localEntrega,
+      prazo,
+      formaPagamento
+    };
+  };
+
+  // Função para criar o orçamento no Supabase
+  const criarOrcamentoSupabase = async (dadosOrcamento: any) => {
+    try {
+      if (!user) {
+        toast.error("Você precisa estar logado para salvar um orçamento.");
+        return false;
+      }
+      
+      // Verificar se já tem um cliente cadastrado com esse e-mail
+      let client_id = '';
+      
+      const { data: clienteExistente } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle();
+      
+      if (clienteExistente) {
+        client_id = clienteExistente.id;
+      } else {
+        // Criar um novo cliente
+        const { data: novoCliente, error: erroCliente } = await supabase
+          .from('clients')
+          .insert({
+            name: user.email.split('@')[0], // Nome provisório baseado no e-mail
+            email: user.email,
+            phone: '', // Placeholder, podemos melhorar isso depois
+          })
+          .select('id')
+          .single();
+        
+        if (erroCliente) {
+          console.error("Erro ao criar cliente:", erroCliente);
+          toast.error("Erro ao criar perfil de cliente");
+          return false;
+        }
+        
+        client_id = novoCliente.id;
+      }
+      
+      // Formatar os items para o orçamento
+      const items = dadosOrcamento.produtos.map((produto: any) => ({
+        product_id: produto.product_id,
+        product_name: produto.product_name,
+        dimensions: produto.dimensions,
+        quantity: produto.quantity,
+        unit_price: 0, // Será definido pelo vendedor
+        total_price: 0, // Será calculado pelo vendedor
+        padrao: produto.padrao,
+        tipo: produto.tipo
+      }));
+      
+      // Criar o orçamento
+      const { error: erroOrcamento } = await supabase
+        .from('quotes')
+        .insert({
+          client_id,
+          status: 'pending',
+          items,
+          // Adicionar metadados para o orçamento
+          delivery_location: dadosOrcamento.localEntrega,
+          delivery_deadline: dadosOrcamento.prazo,
+          payment_method: dadosOrcamento.formaPagamento,
+          created_from: 'chat_assistant',
+          conversation_history: messages.map(m => ({
+            content: m.content,
+            role: m.role,
+            timestamp: m.timestamp
+          }))
+        });
+      
+      if (erroOrcamento) {
+        console.error("Erro ao criar orçamento:", erroOrcamento);
+        toast.error("Erro ao salvar o orçamento");
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao processar orçamento:", error);
+      toast.error("Ocorreu um erro ao processar seu orçamento");
+      return false;
+    }
+  };
+
+  const handleEnviarParaVendedor = async () => {
+    // Extrair dados do orçamento das mensagens
+    const dadosOrcamento = extrairDadosOrcamento(messages);
+    
+    // Verificar se temos dados suficientes
+    if (dadosOrcamento.produtos.length === 0) {
+      toast.error("Não foi possível identificar os produtos para o orçamento");
+      return;
+    }
+    
+    if (!dadosOrcamento.localEntrega) {
+      toast.error("Local de entrega não identificado");
+      return;
+    }
+    
+    // Criar o orçamento no Supabase
+    const sucesso = await criarOrcamentoSupabase(dadosOrcamento);
+    
+    if (sucesso) {
+      toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+      // Dar um tempo para o usuário ver a mensagem antes de redirecionar
+      setTimeout(() => {
+        navigate('/historico-orcamentos');
+      }, 2000);
+    }
   };
 
   // Função melhorada para verificar se o orçamento está completo
@@ -58,7 +253,9 @@ export default function Vendedor() {
                         todasMensagens.includes('boleto');
     
     // Verificar confirmação do cliente
-    const clienteConfirmou = mensagens.length >= 6; // Garantir que houve uma conversa mínima
+    const clienteConfirmou = todasMensagens.includes('só isso') || 
+                            todasMensagens.includes('apenas isso') || 
+                            todasMensagens.includes('nada mais');
     
     // Se todas as informações estão presentes, considerar orçamento completo
     return temProdutos && temLocalEntrega && temPrazo && temPagamento && clienteConfirmou;
@@ -127,12 +324,9 @@ export default function Vendedor() {
         // Aguardar um momento para o usuário ler a última resposta do assistente
         setTimeout(() => {
           setOrcamentoConcluido(true);
-          toast.info("Informações completas para orçamento!");
           
-          // Mais 1 segundo para mostrar a mensagem de orçamento encaminhado
-          setTimeout(() => {
-            handleEnviarParaVendedor();
-          }, 1000);
+          // Criar o orçamento no Supabase
+          handleEnviarParaVendedor();
         }, 1500);
       }
       
