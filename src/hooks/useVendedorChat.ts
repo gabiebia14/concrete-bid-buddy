@@ -434,67 +434,108 @@ export function useVendedorChat() {
       
       const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
       
-      // Chamar a função da API
-      const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
-        body: { 
-          messages: updatedMessages,
-          userContext 
-        }
-      });
-      
-      if (error) {
-        console.error("Erro ao chamar o assistente:", error);
+      try {
+        // Tentar chamar a função da API com retry
+        const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
+          body: { 
+            messages: updatedMessages,
+            userContext 
+          }
+        });
         
-        // Se houver erro mas o usuário estava confirmando, tenta criar o orçamento mesmo assim
-        if (isConfirmationMessage && !shouldCheckCompletion) {
-          console.log("Erro na API, mas detectou confirmação. Tentando processar mesmo assim...");
+        if (error) {
+          console.error("Erro ao chamar o assistente:", error);
+          throw new Error(error.message);
+        }
+        
+        console.log("Resposta do assistente:", data);
+        
+        // Verificar se o orçamento foi criado automaticamente pela edge function
+        if (data.quoteCreated && data.quoteId) {
+          console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
+          setQuoteId(data.quoteId);
+          setOrcamentoConcluido(true);
+          
+          // Adicionar notificação de sucesso
+          toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+          
+          // Programar redirecionamento
+          setTimeout(() => {
+            navigate('/historico-orcamentos');
+          }, 3000);
+        }
+        
+        // Adicionar resposta do assistente
+        const assistantResponse = data.response || "Desculpe, não consegui processar sua solicitação.";
+        
+        const assistantMessage: ChatMessageProps = {
+          content: assistantResponse,
+          role: 'assistant',
+          timestamp: new Date()
+        };
+        
+        // Atualizar mensagens com a resposta do assistente
+        const finalMessages = [...updatedMessages, assistantMessage];
+        setMessages(finalMessages);
+        
+        // Verificar mais uma vez se o orçamento está completo (se não foi criado automaticamente)
+        if (!data.quoteCreated && !shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
+          console.log("Orçamento completo detectado após resposta do assistente");
           setTimeout(() => {
             handleEnviarParaVendedor();
-          }, 800);
+          }, 1000);
         }
         
-        throw new Error(error.message);
-      }
-      
-      console.log("Resposta do assistente:", data);
-      
-      // Verificar se o orçamento foi criado automaticamente pela edge function
-      if (data.quoteCreated && data.quoteId) {
-        console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
-        setQuoteId(data.quoteId);
-        setOrcamentoConcluido(true);
+        return assistantResponse;
+      } catch (apiError) {
+        console.error("Erro ao chamar API do assistente:", apiError);
         
-        // Adicionar notificação de sucesso
-        toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+        // Se for um erro da API, mas o usuário está confirmando um pedido completo
+        if (isConfirmationMessage) {
+          console.log("Erro na API, mas detectada mensagem de confirmação");
+          
+          // Verificar se temos dados suficientes para processar mesmo assim
+          const dadosOrcamento = extrairDadosOrcamento(updatedMessages);
+          const temDadosSuficientes = 
+            dadosOrcamento.produtos.length > 0 && 
+            !!dadosOrcamento.localEntrega &&
+            (!!dadosOrcamento.prazo || !!dadosOrcamento.formaPagamento);
+          
+          if (temDadosSuficientes) {
+            console.log("Erro na API, mas dados suficientes para tentar processar o orçamento");
+            
+            // Mensagem de confirmação para o cliente
+            const fallbackResponse = "Entendi seu pedido. Estamos processando seu orçamento com os dados fornecidos.";
+            
+            const assistantMessage: ChatMessageProps = {
+              content: fallbackResponse,
+              role: 'assistant',
+              timestamp: new Date()
+            };
+            
+            setMessages(prev => [...prev, assistantMessage]);
+            
+            // Tentar processar o orçamento mesmo com erro na API
+            setTimeout(() => {
+              handleEnviarParaVendedor();
+            }, 800);
+            
+            return fallbackResponse;
+          }
+        }
         
-        // Programar redirecionamento
-        setTimeout(() => {
-          navigate('/historico-orcamentos');
-        }, 3000);
+        // Resposta genérica para outros tipos de erro
+        const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou informe mais detalhes sobre seu pedido para que possamos ajudar.";
+        
+        const errorAssistantMessage: ChatMessageProps = {
+          content: fallbackErrorResponse,
+          role: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorAssistantMessage]);
+        return fallbackErrorResponse;
       }
-      
-      // Adicionar resposta do assistente
-      const assistantResponse = data.response || "Desculpe, não consegui processar sua solicitação.";
-      
-      const assistantMessage: ChatMessageProps = {
-        content: assistantResponse,
-        role: 'assistant',
-        timestamp: new Date()
-      };
-      
-      // Atualizar mensagens com a resposta do assistente
-      const finalMessages = [...updatedMessages, assistantMessage];
-      setMessages(finalMessages);
-      
-      // Verificar mais uma vez se o orçamento está completo (se não foi criado automaticamente)
-      if (!data.quoteCreated && !shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
-        console.log("Orçamento completo detectado após resposta do assistente");
-        setTimeout(() => {
-          handleEnviarParaVendedor();
-        }, 1000);
-      }
-      
-      return assistantResponse;
     } catch (error) {
       console.error("Erro no processamento da mensagem:", error);
       

@@ -457,102 +457,228 @@ com as opções apresentadas antes de encaminhar ao setor de vendas.
 
 ${additionalInstruction}`;
 
-    // Configuração para o Gemini
-    const requestBody = {
-      contents: geminiHistory,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 800,
-        responseMimeType: "text/plain",
-      },
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+    try {
+      // Configuração para o Gemini
+      const requestBody = {
+        contents: geminiHistory,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800,
+          responseMimeType: "text/plain",
         },
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
         },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        }
-      ]
-    };
-    
-    console.log("Enviando para Gemini...");
-    
-    // Construir a URL com a chave API
-    const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
-    
-    // Fazer a requisição para a API do Gemini
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok || data.error) {
-      console.error("Erro na API do Gemini:", data.error || `Status ${response.status}`);
-      throw new Error(`Erro na API do Gemini: ${data.error?.message || response.statusText}`);
-    }
-    
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                          "Desculpe, não consegui processar sua solicitação. Por favor, tente novamente.";
-    
-    console.log("Resposta do Gemini:", generatedText.substring(0, 200) + "...");
-    
-    // Extrair dados de orçamento em formato JSON, se existirem
-    const { json: quoteData, message: cleanedResponse } = extractJsonFromText(generatedText);
-    
-    // Se for encontrado JSON de conclusão de orçamento, criar no banco de dados
-    if (quoteData && quoteData.isQuoteComplete && userEmail) {
-      console.log("Orçamento completo detectado, processando...");
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
+      };
       
-      // Buscar ou criar cliente
-      const clientId = await getOrCreateClient(supabase, userEmail, userName);
+      console.log("Enviando para Gemini...");
       
-      if (clientId) {
-        // Criar orçamento no banco de dados
-        const quoteId = await createQuoteInDatabase(
-          supabase, 
-          clientId, 
-          quoteData.quoteData,
-          messages
-        );
+      // Construir a URL com a chave API
+      const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
+      
+      // Fazer a requisição para a API do Gemini com timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos de timeout
+      
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
         
-        if (quoteId) {
-          console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
-          // Retorna resposta com flag de orçamento criado
-          return new Response(JSON.stringify({ 
-            response: cleanedResponse,
-            quoteCreated: true,
-            quoteId: quoteId
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200
-          });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`Erro na API do Gemini: ${errorData}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(`Erro na API do Gemini: ${data.error.message}`);
+        }
+        
+        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                              "Desculpe, não consegui processar sua solicitação. Por favor, tente novamente.";
+        
+        console.log("Resposta do Gemini:", generatedText.substring(0, 200) + "...");
+        
+        // Extrair dados de orçamento em formato JSON, se existirem
+        const { json: quoteData, message: cleanedResponse } = extractJsonFromText(generatedText);
+        
+        // Se for encontrado JSON de conclusão de orçamento, criar no banco de dados
+        if (quoteData && quoteData.isQuoteComplete && userEmail) {
+          console.log("Orçamento completo detectado, processando...");
+          
+          // Buscar ou criar cliente
+          const clientId = await getOrCreateClient(supabase, userEmail, userName);
+          
+          if (clientId) {
+            // Criar orçamento no banco de dados
+            const quoteId = await createQuoteInDatabase(
+              supabase, 
+              clientId, 
+              quoteData.quoteData,
+              messages
+            );
+            
+            if (quoteId) {
+              console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
+              // Retorna resposta com flag de orçamento criado
+              return new Response(JSON.stringify({ 
+                response: cleanedResponse,
+                quoteCreated: true,
+                quoteId: quoteId
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200
+              });
+            }
+          }
+        }
+        
+        // Resposta normal (sem criação de orçamento)
+        return new Response(JSON.stringify({ response: generatedText }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('API do Gemini não respondeu no tempo esperado');
+        }
+        throw fetchError;
+      }
+    } catch (geminiError) {
+      console.error("Erro na API do Gemini:", geminiError);
+      
+      // Se for erro da API do Gemini, tentar extrair informações manualmente
+      // para criar uma resposta de fallback
+      
+      // Verificar se as mensagens contêm informações suficientes para criar um orçamento
+      let produtosIdentificados = [];
+      let localEntrega = '';
+      let prazo = '';
+      let formaPagamento = '';
+      
+      const todasMensagens = messages.map(msg => msg.content.toLowerCase()).join(' ');
+      
+      // Tentar identificar produtos (simplificado)
+      if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
+        const posteMatch = todasMensagens.match(/(\d+)\s*(?:unidades\s*de)?\s*postes?\s*(?:circular|duplo\s*t)?/i);
+        if (posteMatch && posteMatch[1]) {
+          const quantidade = parseInt(posteMatch[1]);
+          if (quantidade > 0) {
+            produtosIdentificados.push({
+              nome: 'Poste',
+              quantidade: quantidade,
+              dimensoes: '',
+              tipo: '',
+              padrao: ''
+            });
+          }
         }
       }
+      
+      if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
+        const tuboMatch = todasMensagens.match(/(\d+)\s*(?:unidades\s*de)?\s*tubos?/i);
+        if (tuboMatch && tuboMatch[1]) {
+          const quantidade = parseInt(tuboMatch[1]);
+          if (quantidade > 0) {
+            produtosIdentificados.push({
+              nome: 'Tubo de Concreto',
+              quantidade: quantidade,
+              dimensoes: '',
+              tipo: '',
+              padrao: ''
+            });
+          }
+        }
+      }
+      
+      // Tentar identificar local de entrega
+      const localMatch = todasMensagens.match(/(?:entregar|entrega|local)(?:\s+em)?\s+([a-zà-ú\s,]+)(?:,|\.|$)/i);
+      if (localMatch && localMatch[1]) {
+        localEntrega = localMatch[1].trim();
+      }
+      
+      // Tentar identificar prazo
+      const prazoMatch = todasMensagens.match(/(?:prazo|em|até)\s+(\d+)\s*dias/i);
+      if (prazoMatch && prazoMatch[1]) {
+        prazo = `${prazoMatch[1]} dias`;
+      }
+      
+      // Tentar identificar forma de pagamento
+      if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
+        formaPagamento = 'À vista';
+      } else if (todasMensagens.includes('pix')) {
+        formaPagamento = 'PIX';
+      } else if (todasMensagens.includes('boleto')) {
+        formaPagamento = 'Boleto';
+      }
+      
+      // Se temos produtos e local, podemos oferecer uma resposta simplificada
+      if (produtosIdentificados.length > 0 && localEntrega) {
+        const quoteData = {
+          produtos: produtosIdentificados,
+          localEntrega,
+          prazo,
+          formaPagamento
+        };
+        
+        // Resposta de fallback estruturada
+        const fallbackResponse = 
+          "Entendi seu pedido. " + 
+          "Identifiquei os seguintes produtos: " + 
+          produtosIdentificados.map(p => `${p.quantidade} ${p.nome}`).join(", ") + 
+          (localEntrega ? ` com entrega em ${localEntrega}` : "") + 
+          (prazo ? ` no prazo de ${prazo}` : "") + 
+          (formaPagamento ? ` e pagamento ${formaPagamento.toLowerCase()}` : "") + 
+          ". Posso encaminhar estas informações para nossa equipe de vendas preparar seu orçamento?";
+        
+        return new Response(JSON.stringify({ 
+          response: fallbackResponse,
+          extractedData: quoteData,
+          isGeminiError: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        });
+      }
+      
+      // Resposta genérica de erro
+      return new Response(JSON.stringify({ 
+        error: geminiError.message,
+        response: "Desculpe, estamos enfrentando problemas técnicos temporários com nosso assistente. Por favor, tente novamente em alguns instantes ou forneça mais detalhes sobre os produtos que você precisa."
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 // Retornar 200 mesmo com erro para que o cliente possa processar
+      });
     }
-    
-    // Resposta normal (sem criação de orçamento)
-    return new Response(JSON.stringify({ response: generatedText }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
   } catch (error) {
     console.error("Erro na função Edge:", error);
     return new Response(JSON.stringify({ 
