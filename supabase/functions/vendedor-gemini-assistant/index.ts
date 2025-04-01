@@ -32,17 +32,18 @@ serve(async (req) => {
     // Adicionar instrução adicional para melhorar a extração de dados
     const additionalInstruction = `Além das instruções anteriores, lembre-se:
 1. Seja extremamente conciso e direto nas respostas. Evite qualquer repetição.
-2. Quando tiver as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme rapidamente e pergunte se o cliente deseja adicionar mais algo ou se podemos finalizar o orçamento.
+2. Quando tiver as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme rapidamente e PERGUNTE EXPLICITAMENTE se o cliente confirma para finalizar o orçamento. É essencial que você pergunte claramente se o cliente confirma o pedido.
 3. Nunca repita informações já confirmadas.
 4. Limite suas respostas a no máximo 2 parágrafos curtos.
-5. Se o cliente já informou todos os dados necessários ou indicou que não precisa de mais nada, agradeça brevemente e confirme que o orçamento será enviado.
+5. Se o cliente já informou todos os dados necessários, SEMPRE CONFIRME com ele e AGRADEÇA quando ele confirmar.
 6. Seu objetivo é coletar com precisão: produto (com dimensões específicas), quantidade, local de entrega exato, prazo em dias e forma de pagamento.
 7. É muito importante que você entenda as seguintes formas comuns que os clientes usam para descrever os produtos e suas características:
    - Para Tubos: "10 tubos de 80 por 1,50 PA1" significa 10 unidades de tubos com dimensão 0,80 x 1,50 metros do tipo PA1
    - Para Postes: "5 postes circulares 11/200 CPFL" significa 5 unidades de postes circulares com altura/capacidade 11/200 do padrão CPFL
    - Para Blocos: "500 blocos estruturais 14x19x39" significa 500 unidades de blocos estruturais com dimensões 14cm x 19cm x 39cm
 
-8. Antes de encerrar, pergunte claramente ao cliente se ele confirma o pedido para podermos enviar ao setor de vendas.`;
+8. Antes de encerrar, você DEVE OBRIGATORIAMENTE perguntar claramente ao cliente: "Posso confirmar este pedido e encaminhar para nossa equipe de vendas preparar o orçamento?"
+9. E quando o cliente responder afirmativamente, você DEVE confirmar que o pedido foi registrado e será encaminhado à equipe de vendas.`;
     
     // System prompt exatamente como fornecido
     const systemPrompt = `<identidade>
