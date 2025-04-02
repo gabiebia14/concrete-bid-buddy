@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -269,7 +268,7 @@ async function createThread(): Promise<Thread> {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'assistants=v1'
+      'OpenAI-Beta': 'assistants=v2'
     },
     body: JSON.stringify({})
   });
@@ -288,7 +287,7 @@ async function addMessageToThread(threadId: string, content: string, role: "user
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'assistants=v1'
+      'OpenAI-Beta': 'assistants=v2'
     },
     body: JSON.stringify({
       role,
@@ -310,7 +309,7 @@ async function runThread(threadId: string): Promise<Run> {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'assistants=v1'
+      'OpenAI-Beta': 'assistants=v2'
     },
     body: JSON.stringify({
       assistant_id: ASSISTANT_ID
@@ -330,7 +329,7 @@ async function checkRunStatus(threadId: string, runId: string): Promise<Run> {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'assistants=v1'
+      'OpenAI-Beta': 'assistants=v2'
     }
   });
 
@@ -347,7 +346,7 @@ async function getMessages(threadId: string): Promise<{ data: Message[] }> {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'OpenAI-Beta': 'assistants=v1'
+      'OpenAI-Beta': 'assistants=v2'
     }
   });
 
