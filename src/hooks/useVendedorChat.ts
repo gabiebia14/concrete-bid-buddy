@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,7 @@ export function useVendedorChat() {
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [orcamentoConcluido, setOrcamentoConcluido] = useState(false);
   const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessageProps[]>([
     {
       content: `Olá${user ? ', ' + user.email : ''}! Sou o assistente virtual especializado em vendas da IPT Teixeira, com amplo conhecimento sobre nossa linha de produtos de concreto. Como posso ajudar você hoje?`,
@@ -445,10 +447,16 @@ export function useVendedorChat() {
       const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
       
       try {
-        const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
+        // Usar a nova edge function OpenAI
+        const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
           body: { 
-            messages: updatedMessages,
-            userContext 
+            messages: updatedMessages.map(msg => ({
+              content: msg.content,
+              role: msg.role,
+              timestamp: msg.timestamp
+            })),
+            userContext,
+            threadId // Enviar o threadId existente, se houver
           }
         });
         
@@ -458,6 +466,11 @@ export function useVendedorChat() {
         }
         
         console.log("Resposta do assistente:", data);
+        
+        // Salvar o threadId retornado para uso futuro
+        if (data.threadId) {
+          setThreadId(data.threadId);
+        }
         
         if (data.quoteCreated && data.quoteId) {
           console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
@@ -600,6 +613,7 @@ export function useVendedorChat() {
     handleSendMessage,
     handleEnviarParaVendedor,
     verificarOrcamentoCompleto,
-    quoteId
+    quoteId,
+    threadId
   };
 }

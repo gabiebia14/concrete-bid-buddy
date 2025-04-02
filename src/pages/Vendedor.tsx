@@ -25,7 +25,7 @@ export default function Vendedor() {
           <div>
             <ChatInterface 
               title="Assistente de Vendas IPT Teixeira" 
-              description="Nosso assistente especializado está pronto para ajudar com suas dúvidas sobre produtos de concreto"
+              description="Nosso assistente especializado OpenAI está pronto para ajudar com suas dúvidas sobre produtos de concreto"
               initialMessages={messages}
               onSendMessage={handleSendMessage}
               onConfirmOrder={handleEnviarParaVendedor}
