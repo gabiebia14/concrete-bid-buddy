@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -149,6 +148,33 @@ async function createQuoteInDatabase(
     if (error) {
       console.error("Erro ao criar orçamento:", error);
       return null;
+    }
+
+    // Após criar o orçamento com sucesso, salvar resposta completa do agente
+    if (quote && quote.id) {
+      // Salvar resposta do agente
+      const { error: agentResponseError } = await supabase
+        .from('agent_responses')
+        .insert({
+          client_id: clientId,
+          quote_id: quote.id,
+          response_json: {
+            extracted_data: quoteData,
+            conversation: messages.map(m => ({
+              content: m.content,
+              role: m.role,
+              timestamp: m.timestamp
+            }))
+          },
+          processed: true
+        });
+      
+      if (agentResponseError) {
+        console.error("Erro ao salvar resposta do agente:", agentResponseError);
+        // Não bloquear o fluxo principal se falhar o salvamento da resposta do agente
+      } else {
+        console.log("Resposta do agente salva com sucesso");
+      }
     }
 
     console.log("Orçamento criado com sucesso:", quote.id);
@@ -551,7 +577,8 @@ ${additionalInstruction}`;
               return new Response(JSON.stringify({ 
                 response: cleanedResponse,
                 quoteCreated: true,
-                quoteId: quoteId
+                quoteId: quoteId,
+                extractedData: quoteData.quoteData
               }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200

@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agent_responses: {
+        Row: {
+          client_id: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          processed: boolean | null
+          quote_id: string | null
+          response_json: Json
+        }
+        Insert: {
+          client_id: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          processed?: boolean | null
+          quote_id?: string | null
+          response_json: Json
+        }
+        Update: {
+          client_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          processed?: boolean | null
+          quote_id?: string | null
+          response_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_responses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_responses_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null

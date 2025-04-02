@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -262,7 +261,30 @@ export function useVendedorChat() {
       console.log("Orçamento criado com sucesso:", data);
       if (data && data[0]) {
         setQuoteId(data[0].id);
+
+        const { error: erroAgentResponse } = await supabase
+          .from('agent_responses')
+          .insert({
+            client_id: client_id,
+            quote_id: data[0].id,
+            response_json: {
+              extracted_data: dadosOrcamento,
+              conversation: messages.map(m => ({
+                content: m.content,
+                role: m.role,
+                timestamp: m.timestamp
+              }))
+            },
+            processed: true
+          });
+          
+        if (erroAgentResponse) {
+          console.error("Erro ao salvar resposta do agente:", erroAgentResponse);
+        } else {
+          console.log("Resposta do agente salva com sucesso");
+        }
       }
+      
       toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
       return true;
     } catch (error) {
@@ -289,7 +311,6 @@ export function useVendedorChat() {
       console.log("Iniciando criação de orçamento (método de backup)...");
       const dadosOrcamento = extrairDadosOrcamento(messages);
       
-      // Log mais detalhado para depuração
       console.log("Produtos encontrados:", dadosOrcamento.produtos.length);
       console.log("Local de entrega:", dadosOrcamento.localEntrega);
       console.log("Prazo:", dadosOrcamento.prazo);
@@ -310,7 +331,6 @@ export function useVendedorChat() {
       if (sucesso) {
         setOrcamentoConcluido(true);
         
-        // Adicionar mensagem de confirmação do assistente se não houver uma
         const ultimaMensagem = messages[messages.length - 1];
         if (ultimaMensagem.role !== 'assistant' || !ultimaMensagem.content.includes('registrado')) {
           const confirmacaoMessage: ChatMessageProps = {
@@ -343,7 +363,6 @@ export function useVendedorChat() {
       const temPrazo = !!dadosOrcamento.prazo;
       const temPagamento = !!dadosOrcamento.formaPagamento;
       
-      // Verificar se as últimas 3 mensagens contêm palavras de confirmação
       const ultimasMensagens = mensagens.slice(-3).map(msg => msg.content.toLowerCase());
       
       const palavrasConfirmacao = [
@@ -351,7 +370,6 @@ export function useVendedorChat() {
         'só isso', 'apenas isso', 'nada mais'
       ];
       
-      // Verificar se o assistente pediu confirmação e o usuário confirmou
       let assistentePediuConfirmacao = false;
       let indiceConfirmacao = -1;
       
@@ -368,7 +386,6 @@ export function useVendedorChat() {
       
       let clienteConfirmou = false;
       if (assistentePediuConfirmacao && indiceConfirmacao < mensagens.length - 1) {
-        // Verificar se o cliente respondeu com confirmação após a pergunta
         for (let i = indiceConfirmacao + 1; i < mensagens.length; i++) {
           const msg = mensagens[i];
           if (msg.role === 'user') {
@@ -379,7 +396,6 @@ export function useVendedorChat() {
         }
       }
       
-      // Log detalhado para depuração
       console.log("Detalhes da verificação:", {
         temProdutos,
         temLocalEntrega,
@@ -389,14 +405,11 @@ export function useVendedorChat() {
         ultimasMensagens
       });
       
-      // Considera orçamento completo se tiver produtos, local de entrega, 
-      // pelo menos um dos: prazo ou pagamento, e o cliente tiver confirmado
       return temProdutos && 
              temLocalEntrega && 
              (temPrazo || temPagamento) && 
              assistentePediuConfirmacao && 
              clienteConfirmou;
-      
     } catch (error) {
       console.error("Erro ao verificar se orçamento está completo:", error);
       return false;
@@ -408,11 +421,10 @@ export function useVendedorChat() {
     console.log("Enviando mensagem para o assistente:", message);
     
     try {
-      // Aqui está a correção: não usar user_metadata que não existe no nosso objeto user
       const userContext = user ? {
         email: user.email,
-        name: user.email?.split('@')[0], // Usando email em vez de user_metadata
-        isManager: user.isManager // Passando a propriedade isManager que existe no objeto
+        name: user.email?.split('@')[0],
+        isManager: user.isManager
       } : { 
         email: null, 
         name: null,
@@ -425,17 +437,14 @@ export function useVendedorChat() {
         timestamp: new Date()
       }];
       
-      // Atualizar mensagens imediatamente no componente
       setMessages(updatedMessages);
       
-      // Verificar se o usuário está confirmando antes de chamar API
       const isConfirmationMessage = message.toLowerCase().includes('sim') || 
                                    message.toLowerCase().includes('confirmo');
       
       const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
       
       try {
-        // Tentar chamar a função da API com retry
         const { data, error } = await supabase.functions.invoke('vendedor-gemini-assistant', {
           body: { 
             messages: updatedMessages,
@@ -450,22 +459,54 @@ export function useVendedorChat() {
         
         console.log("Resposta do assistente:", data);
         
-        // Verificar se o orçamento foi criado automaticamente pela edge function
         if (data.quoteCreated && data.quoteId) {
           console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
           setQuoteId(data.quoteId);
           setOrcamentoConcluido(true);
+
+          if (data.extractedData) {
+            let client_id: string | null = null;
+            
+            const { data: clienteExistente } = await supabase
+              .from('clients')
+              .select('id')
+              .eq('email', user?.email || '')
+              .maybeSingle();
+              
+            if (clienteExistente) {
+              client_id = clienteExistente.id;
+              
+              const { error: erroAgentResponse } = await supabase
+                .from('agent_responses')
+                .insert({
+                  client_id: client_id,
+                  quote_id: data.quoteId,
+                  response_json: {
+                    extracted_data: data.extractedData,
+                    conversation: updatedMessages.map(m => ({
+                      content: m.content,
+                      role: m.role,
+                      timestamp: m.timestamp
+                    }))
+                  },
+                  processed: true
+                });
+                
+              if (erroAgentResponse) {
+                console.error("Erro ao salvar resposta do agente:", erroAgentResponse);
+              } else {
+                console.log("Resposta do agente salva com sucesso");
+              }
+            }
+          }
           
-          // Adicionar notificação de sucesso
           toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
           
-          // Programar redirecionamento
           setTimeout(() => {
             navigate('/historico-orcamentos');
           }, 3000);
         }
         
-        // Adicionar resposta do assistente
         const assistantResponse = data.response || "Desculpe, não consegui processar sua solicitação.";
         
         const assistantMessage: ChatMessageProps = {
@@ -474,11 +515,9 @@ export function useVendedorChat() {
           timestamp: new Date()
         };
         
-        // Atualizar mensagens com a resposta do assistente
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         
-        // Verificar mais uma vez se o orçamento está completo (se não foi criado automaticamente)
         if (!data.quoteCreated && !shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
           console.log("Orçamento completo detectado após resposta do assistente");
           setTimeout(() => {
@@ -490,11 +529,9 @@ export function useVendedorChat() {
       } catch (apiError) {
         console.error("Erro ao chamar API do assistente:", apiError);
         
-        // Se for um erro da API, mas o usuário está confirmando um pedido completo
         if (isConfirmationMessage) {
           console.log("Erro na API, mas detectada mensagem de confirmação");
           
-          // Verificar se temos dados suficientes para processar mesmo assim
           const dadosOrcamento = extrairDadosOrcamento(updatedMessages);
           const temDadosSuficientes = 
             dadosOrcamento.produtos.length > 0 && 
@@ -504,7 +541,6 @@ export function useVendedorChat() {
           if (temDadosSuficientes) {
             console.log("Erro na API, mas dados suficientes para tentar processar o orçamento");
             
-            // Mensagem de confirmação para o cliente
             const fallbackResponse = "Entendi seu pedido. Estamos processando seu orçamento com os dados fornecidos.";
             
             const assistantMessage: ChatMessageProps = {
@@ -515,7 +551,6 @@ export function useVendedorChat() {
             
             setMessages(prev => [...prev, assistantMessage]);
             
-            // Tentar processar o orçamento mesmo com erro na API
             setTimeout(() => {
               handleEnviarParaVendedor();
             }, 800);
@@ -524,8 +559,7 @@ export function useVendedorChat() {
           }
         }
         
-        // Resposta genérica para outros tipos de erro
-        const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou informe mais detalhes sobre seu pedido para que possamos ajudar.";
+        const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
         
         const errorAssistantMessage: ChatMessageProps = {
           content: fallbackErrorResponse,
@@ -539,7 +573,6 @@ export function useVendedorChat() {
     } catch (error) {
       console.error("Erro no processamento da mensagem:", error);
       
-      // Verificar novamente se a mensagem era de confirmação
       if (message.toLowerCase().includes('sim') || message.toLowerCase().includes('confirmo')) {
         const dadosOrcamento = extrairDadosOrcamento(messages);
         if (dadosOrcamento.produtos.length > 0 && dadosOrcamento.localEntrega) {

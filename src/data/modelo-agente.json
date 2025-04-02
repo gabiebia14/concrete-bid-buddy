@@ -135,6 +135,7 @@
         "sistema_indisponivel": "Estamos enfrentando algumas dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes ou entre em contato pelo telefone (XX) XXXX-XXXX.",
         "produto_nao_encontrado": "Infelizmente, não encontrei o produto com as especificações exatas que você mencionou. Posso mostrar algumas alternativas similares que temos disponíveis?"
       }
-    }
+    },
+    "objetivo_principal": "Seu objetivo é coletar com precisão: produto (com dimensões/tipo/padrão específicos), quantidade, local de entrega exato, prazo em dias e forma de pagamento. Depois que de obter essas informações, você automaticamente vai salvar no banco de dados essas informações do orçamento no formato json."
   }
 }
