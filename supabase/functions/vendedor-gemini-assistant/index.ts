@@ -126,15 +126,15 @@ async function createQuoteInDatabase(
       total_price: 0  // Será preenchido pelo setor de vendas
     }));
 
-    const { data: quote, error } = await supabase
+    const { data, error: erroOrcamento } = await supabase
       .from('quotes')
       .insert({
         client_id: clientId,
         status: 'pending',
         items: items,
-        delivery_location: quoteData.localEntrega,
-        delivery_deadline: quoteData.prazo,
-        payment_method: quoteData.formaPagamento,
+        delivery_location: quoteData.localEntrega || '',
+        delivery_deadline: quoteData.prazo || '',
+        payment_method: quoteData.formaPagamento || '',
         created_from: 'chat_assistant',
         conversation_history: messages.map(m => ({
           content: m.content,
@@ -146,13 +146,16 @@ async function createQuoteInDatabase(
       .select('id')
       .single();
 
-    if (error) {
-      console.error("Erro ao criar orçamento:", error);
+    if (erroOrcamento) {
+      console.error("Erro ao criar orçamento:", erroOrcamento);
       return null;
     }
 
-    console.log("Orçamento criado com sucesso:", quote.id);
-    return quote.id;
+    console.log("Orçamento criado com sucesso:", data);
+    if (data && data.id) {
+      return data.id;
+    }
+    return null;
   } catch (error) {
     console.error("Erro ao processar criação de orçamento:", error);
     return null;
@@ -223,45 +226,15 @@ serve(async (req) => {
     
     console.log("Recebendo mensagens:", JSON.stringify(messages));
     
-    // Preparar o histórico de mensagens para o Gemini
-    const geminiHistory = messages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
+    // Convertendo o histórico de mensagens para um formato de input adequado para o prompt
+    const conversationHistory = messages.map(msg => {
+      const role = msg.role === 'assistant' ? 'model' : 'user';
+      return `${role}: ${msg.content}`;
+    }).join("\n");
     
-    // Adicionar instrução adicional para melhorar a extração de dados
-    const additionalInstruction = `Além das instruções anteriores, lembre-se:
-1. Seja extremamente conciso e direto nas respostas. Evite qualquer repetição.
-2. Quando tiver as informações necessárias (produto, quantidade, local de entrega, prazo e forma de pagamento), confirme rapidamente e PERGUNTE EXPLICITAMENTE se o cliente confirma para finalizar o orçamento. É essencial que você pergunte claramente se o cliente confirma o pedido.
-3. Nunca repita informações já confirmadas.
-4. Limite suas respostas a no máximo 2 parágrafos curtos.
-5. Se o cliente já informou todos os dados necessários, SEMPRE CONFIRME com ele e AGRADEÇA quando ele confirmar.
-6. Seu objetivo é coletar com precisão: produto (com dimensões específicas), quantidade, local de entrega exato, prazo em dias e forma de pagamento.
-7. É muito importante que você entenda as seguintes formas comuns que os clientes usam para descrever os produtos e suas características:
-   - Para Tubos: "10 tubos de 80 por 1,50 PA1" significa 10 unidades de tubos com dimensão 0,80 x 1,50 metros do tipo PA1
-   - Para Postes: "5 postes circulares 11/200 CPFL" significa 5 unidades de postes circulares com altura/capacidade 11/200 do padrão CPFL
-   - Para Blocos: "500 blocos estruturais 14x19x39" significa 500 unidades de blocos estruturais com dimensões 14cm x 19cm x 39cm
-
-8. Antes de encerrar, você DEVE OBRIGATORIAMENTE perguntar claramente ao cliente: "Posso confirmar este pedido e encaminhar para nossa equipe de vendas preparar o orçamento?"
-9. E quando o cliente responder afirmativamente, você DEVE gerar um objeto JSON com os dados extraídos, neste formato:
-\`\`\`json
-{
-  "isQuoteComplete": true,
-  "quoteData": {
-    "produtos": [
-      { "nome": "Nome do Produto Exato", "quantidade": 10, "dimensoes": "0.80x1.50", "tipo": "PA1", "padrao": null },
-      { "nome": "Poste Circular", "quantidade": 5, "dimensoes": "11/200", "tipo": null, "padrao": "CPFL" }
-    ],
-    "localEntrega": "São José do Rio Preto, SP",
-    "prazo": "15 dias",
-    "formaPagamento": "Boleto 30/60/90"
-  }
-}
-\`\`\`
-Após o JSON, adicione: "Ok, pedido confirmado! Seu orçamento foi registrado e será encaminhado para nossa equipe de vendas."
-10. Se você NÃO conseguiu extrair TODOS os dados necessários, NÃO gere o JSON e continue coletando informações.`;
+    // Novo sistema de prompt usando o formato Python exato fornecido
+    const inputText = conversationHistory;
     
-    // System prompt completo
     const systemPrompt = `<identidade>
 Você é um ASSISTENTE
 DE Vendas especialista com 20 anos de experiência em conduzir negociações e
@@ -277,6 +250,8 @@ crucial para personalizar soluções.
 Seu papel
 principal é atender os clientes com excelência, e depois transferir o orçamento
 formulado para os vendedores.
+
+
 
 Você deve questionar o cliente de forma clara e objetiva para identificar, não sendo
 muito extenso e nem muito breve:
@@ -300,6 +275,8 @@ o suporte necessário e transmitir as informações aos vendedores por email de
 forma impecável.
 Ampliar o ticket médio ao oferecer produtos
 complementares.
+
+
 
 Melhorar o atendimento ao cliente.
 Construir confiança ao demonstrar domínio técnico sobre os produtos e suas
@@ -455,38 +432,31 @@ pedido.
 Confirme com o cliente se ele está satisfeito
 com as opções apresentadas antes de encaminhar ao setor de vendas.
 
-${additionalInstruction}`;
+Seu objetivo é coletar com precisão: produto (com dimensões/tipo/padrão específicos), quantidade, local de entrega exato, prazo em dias e forma de pagamento e salvar uma saída json que deve ser EXATAMENTE o seguinte: \`\`\`json { "isQuoteComplete": true, "quoteData": { "produtos": [ { "nome": "Nome do Produto Exato", "quantidade": 10, "dimensoes": "0.80x1.50", "tipo": "PA1", "padrao": null }, { "nome": "Poste Circular", "quantidade": 5, "dimensoes": "11/200", "tipo": null, "padrao": "CPFL" } // ... mais produtos conforme extraído ], "localEntrega": "São José do Rio Preto, SP", "prazo": "15 dias", "formaPagamento": "Boleto 30/60/90" } } \`\`\``;
 
     try {
-      // Configuração para o Gemini
       const requestBody = {
-        contents: geminiHistory,
+        contents: [
+          {
+            parts: [
+              {
+                text: inputText
+              }
+            ]
+          }
+        ],
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 800,
-          responseMimeType: "text/plain",
+          temperature: 0.75,
+          maxOutputTokens: 506,
+          responseMimeType: "application/json",
         },
         systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
+          parts: [
+            {
+              text: systemPrompt
+            }
+          ]
+        }
       };
       
       console.log("Enviando para Gemini...");
