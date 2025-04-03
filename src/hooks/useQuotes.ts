@@ -15,18 +15,25 @@ export const useQuotes = () => {
       try {
         setIsLoading(true);
         if (!user) {
+          console.log("Nenhum usuário logado, não é possível buscar orçamentos");
           setQuotes([]);
           return;
         }
         
         console.log("Buscando orçamentos para o usuário:", user.email);
         const quotesData = await fetchQuotes();
-        console.log("Orçamentos carregados:", quotesData);
+        console.log("Orçamentos carregados:", quotesData?.length || 0);
         
         if (quotesData && quotesData.length > 0) {
+          console.log("Último orçamento:", {
+            id: quotesData[0].id,
+            status: quotesData[0].status,
+            items: quotesData[0].items?.length,
+            created_at: quotesData[0].created_at
+          });
           setQuotes(quotesData);
         } else {
-          console.log("Nenhum orçamento encontrado");
+          console.log("Nenhum orçamento encontrado para o usuário");
           setQuotes([]);
         }
       } catch (error) {
