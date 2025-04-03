@@ -14,6 +14,70 @@ export interface ExtractedQuoteData {
   formaPagamento: string;
 }
 
+// Função isolada para salvar resposta do agente no Supabase
+async function salvarRespostaDoAgente(
+  clientId: string,
+  quoteId: string,
+  extractedData: ExtractedQuoteData | null,
+  messages: ChatMessageProps[]
+): Promise<boolean> {
+  if (!clientId) {
+    console.error("ID do cliente não fornecido para salvar resposta do agente");
+    return false;
+  }
+
+  if (!quoteId) {
+    console.error("ID do orçamento não fornecido para salvar resposta do agente");
+    return false;
+  }
+
+  console.log("Salvando resposta do agente:", {
+    clientId,
+    quoteId,
+    temDadosExtraidos: !!extractedData,
+    produtosCount: extractedData?.produtos?.length ?? 0
+  });
+
+  try {
+    // Preparar dados da conversa com tratamento para valores indefinidos
+    const conversationData = messages.map(m => ({
+      content: m.content || "",
+      role: m.role || "user",
+      timestamp: m.timestamp ?? new Date()
+    }));
+
+    const { error } = await supabase
+      .from('agent_responses')
+      .insert({
+        client_id: clientId,
+        quote_id: quoteId,
+        response_json: {
+          extracted_data: extractedData || {},
+          conversation: conversationData
+        },
+        processed: true
+      });
+
+    if (error) {
+      console.error("Erro ao salvar resposta do agente:", error, {
+        dadosInseridos: {
+          clientId,
+          quoteId,
+          extractedData: extractedData ? true : false,
+          messagesCount: messages.length
+        }
+      });
+      return false;
+    }
+
+    console.log("Resposta do agente salva com sucesso para o orçamento:", quoteId);
+    return true;
+  } catch (error) {
+    console.error("Exceção ao salvar resposta do agente:", error);
+    return false;
+  }
+}
+
 export function useVendedorChat() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -204,7 +268,9 @@ export function useVendedorChat() {
       
       if (clienteExistente) {
         client_id = clienteExistente.id;
+        console.log("Cliente existente encontrado:", client_id);
       } else {
+        console.log("Cliente não encontrado, criando novo...");
         const { data: novoCliente, error: erroCliente } = await supabase
           .from('clients')
           .insert({
@@ -216,12 +282,21 @@ export function useVendedorChat() {
           .single();
         
         if (erroCliente) {
-          console.error("Erro ao criar cliente:", erroCliente);
+          console.error("Erro ao criar cliente:", erroCliente, {
+            email: user.email
+          });
           toast.error("Erro ao criar perfil de cliente");
           return false;
         }
         
+        if (!novoCliente || !novoCliente.id) {
+          console.error("Cliente criado, mas ID não retornado");
+          toast.error("Erro ao identificar cliente");
+          return false;
+        }
+        
         client_id = novoCliente.id;
+        console.log("Novo cliente criado:", client_id);
       }
       
       if (!client_id) {
@@ -234,6 +309,8 @@ export function useVendedorChat() {
         (total: number, produto: any) => total + (produto.total_price || 0), 
         0
       );
+
+      console.log("Criando orçamento para cliente:", client_id);
       
       const { data, error: erroOrcamento } = await supabase
         .from('quotes')
@@ -246,45 +323,43 @@ export function useVendedorChat() {
           payment_method: dadosOrcamento.formaPagamento || '',
           created_from: 'chat_assistant',
           conversation_history: messages.map(m => ({
-            content: m.content,
-            role: m.role,
-            timestamp: m.timestamp
+            content: m.content || '',
+            role: m.role || 'user',
+            timestamp: m.timestamp ?? new Date()
           })),
           total_value: totalAmount
         })
         .select();
       
       if (erroOrcamento) {
-        console.error("Erro ao criar orçamento:", erroOrcamento);
+        console.error("Erro ao criar orçamento:", erroOrcamento, {
+          clientId: client_id,
+          produtos: dadosOrcamento.produtos.length
+        });
         toast.error("Erro ao salvar o orçamento");
         return false;
       }
       
       console.log("Orçamento criado com sucesso:", data);
-      if (data && data[0]) {
-        setQuoteId(data[0].id);
+      if (data && data.length > 0 && data[0].id) {
+        const novoQuoteId = data[0].id;
+        console.log("ID do orçamento criado:", novoQuoteId);
+        setQuoteId(novoQuoteId);
 
-        const { error: erroAgentResponse } = await supabase
-          .from('agent_responses')
-          .insert({
-            client_id: client_id,
-            quote_id: data[0].id,
-            response_json: {
-              extracted_data: dadosOrcamento,
-              conversation: messages.map(m => ({
-                content: m.content,
-                role: m.role,
-                timestamp: m.timestamp
-              }))
-            },
-            processed: true
-          });
+        const resultado = await salvarRespostaDoAgente(
+          client_id,
+          novoQuoteId,
+          dadosOrcamento,
+          messages
+        );
           
-        if (erroAgentResponse) {
-          console.error("Erro ao salvar resposta do agente:", erroAgentResponse);
+        if (!resultado) {
+          console.error("Erro ao salvar resposta do agente, mas orçamento foi criado");
         } else {
           console.log("Resposta do agente salva com sucesso");
         }
+      } else {
+        console.error("Orçamento criado mas ID não retornado");
       }
       
       toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
@@ -301,6 +376,7 @@ export function useVendedorChat() {
   const handleEnviarParaVendedor = async () => {
     try {
       if (quoteId) {
+        console.log("Orçamento já criado, ID:", quoteId);
         setOrcamentoConcluido(true);
         toast.success("Orçamento #" + quoteId.substring(0, 8) + " criado com sucesso!");
         
@@ -451,9 +527,9 @@ export function useVendedorChat() {
         const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
           body: { 
             messages: updatedMessages.map(msg => ({
-              content: msg.content,
-              role: msg.role,
-              timestamp: msg.timestamp
+              content: msg.content || '',
+              role: msg.role || 'user',
+              timestamp: msg.timestamp ?? new Date().toISOString()
             })),
             userContext,
             threadId // Enviar o threadId existente, se houver
@@ -477,40 +553,41 @@ export function useVendedorChat() {
           setQuoteId(data.quoteId);
           setOrcamentoConcluido(true);
 
-          if (data.extractedData) {
+          if (data.extractedData && user) {
             let client_id: string | null = null;
             
             const { data: clienteExistente } = await supabase
               .from('clients')
               .select('id')
-              .eq('email', user?.email || '')
+              .eq('email', user.email || '')
               .maybeSingle();
               
-            if (clienteExistente) {
+            if (clienteExistente && clienteExistente.id) {
               client_id = clienteExistente.id;
+              console.log("ID do cliente encontrado para agent_responses:", client_id);
               
-              const { error: erroAgentResponse } = await supabase
-                .from('agent_responses')
-                .insert({
-                  client_id: client_id,
-                  quote_id: data.quoteId,
-                  response_json: {
-                    extracted_data: data.extractedData,
-                    conversation: updatedMessages.map(m => ({
-                      content: m.content,
-                      role: m.role,
-                      timestamp: m.timestamp
-                    }))
-                  },
-                  processed: true
-                });
+              const resultado = await salvarRespostaDoAgente(
+                client_id,
+                data.quoteId,
+                data.extractedData,
+                updatedMessages
+              );
                 
-              if (erroAgentResponse) {
-                console.error("Erro ao salvar resposta do agente:", erroAgentResponse);
+              if (!resultado) {
+                console.error("Erro ao salvar resposta do agente após criação automática de orçamento");
               } else {
-                console.log("Resposta do agente salva com sucesso");
+                console.log("Resposta do agente salva com sucesso após criação automática de orçamento");
               }
+            } else {
+              console.error("Cliente não encontrado para salvar agent_responses", {
+                email: user?.email
+              });
             }
+          } else {
+            console.error("Dados insuficientes para salvar agent_responses", {
+              extractedData: !!data.extractedData,
+              user: !!user
+            });
           }
           
           toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");

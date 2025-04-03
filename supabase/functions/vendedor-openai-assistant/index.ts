@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -128,9 +129,79 @@ function getSupabaseAdminClient(): SupabaseClient | null {
   });
 }
 
+// Função para salvar resposta do agente de forma isolada e mais robusta
+async function salvarRespostaDoAgente(
+  supabase: SupabaseClient,
+  clientId: string,
+  quoteId: string,
+  extractedData: DadosOrcamento,
+  messages: any[]
+): Promise<boolean> {
+  if (!supabase) {
+    console.error("Cliente Supabase não inicializado");
+    return false;
+  }
+
+  // Validação dos IDs
+  if (!clientId) {
+    console.error("ID do cliente não fornecido para salvar resposta do agente");
+    return false;
+  }
+
+  if (!quoteId) {
+    console.error("ID do orçamento não fornecido para salvar resposta do agente");
+    return false;
+  }
+
+  console.log("Tentando salvar resposta do agente com:", {
+    clientId,
+    quoteId,
+    produtosCount: extractedData?.produtos?.length ?? 0
+  });
+
+  try {
+    // Preparar os dados de conversa com tratamento para valores indefinidos
+    const conversationData = Array.isArray(messages) ? messages.map(m => ({
+      content: m.content || "",
+      role: m.role || "user",
+      timestamp: m.timestamp ?? new Date().toISOString()
+    })) : [];
+
+    const responseData = {
+      client_id: clientId,
+      quote_id: quoteId,
+      response_json: {
+        extracted_data: extractedData || {},
+        conversation: conversationData
+      },
+      processed: true
+    };
+
+    const { error } = await supabase
+      .from('agent_responses')
+      .insert(responseData);
+
+    if (error) {
+      console.error("Erro ao salvar resposta do agente:", error, {
+        dadosInseridos: responseData
+      });
+      return false;
+    }
+
+    console.log("Resposta do agente salva com sucesso para o orçamento:", quoteId);
+    return true;
+  } catch (error) {
+    console.error("Exceção ao salvar resposta do agente:", error);
+    return false;
+  }
+}
+
 // Função para buscar ou criar cliente
 async function getOrCreateClient(supabase: SupabaseClient, userEmail: string | null, userName?: string): Promise<string | null> {
-  if (!userEmail) return null;
+  if (!userEmail) {
+    console.error("Email do usuário não fornecido");
+    return null;
+  }
 
   try {
     // Tentar buscar cliente existente
@@ -183,8 +254,13 @@ async function createQuoteInDatabase(
   quoteData: DadosOrcamento,
   messages: any[]
 ): Promise<string | null> {
-  if (!clientId || !quoteData.produtos || quoteData.produtos.length === 0) {
-    console.error("Dados insuficientes para criar orçamento");
+  if (!clientId) {
+    console.error("ID do cliente não fornecido para criar orçamento");
+    return null;
+  }
+  
+  if (!quoteData.produtos || quoteData.produtos.length === 0) {
+    console.error("Dados insuficientes para criar orçamento: sem produtos");
     return null;
   }
 
@@ -201,59 +277,61 @@ async function createQuoteInDatabase(
       total_price: 0  // Será preenchido pelo setor de vendas
     }));
 
+    const quoteInsertData = {
+      client_id: clientId,
+      status: 'pending',
+      items: items,
+      delivery_location: quoteData.localEntrega || '',
+      delivery_deadline: quoteData.prazo || '',
+      payment_method: quoteData.formaPagamento || '',
+      created_from: 'openai_assistant',
+      conversation_history: Array.isArray(messages) ? messages.map(m => ({
+        content: m.content || '',
+        role: m.role || 'user',
+        timestamp: m.timestamp ?? new Date().toISOString()
+      })) : [],
+      total_value: 0 // Será atualizado pelo setor de vendas
+    };
+
+    console.log("Tentando criar orçamento com dados:", {
+      clientId,
+      itensCount: items.length,
+      localEntrega: quoteData.localEntrega
+    });
+
     const { data: quote, error } = await supabase
       .from('quotes')
-      .insert({
-        client_id: clientId,
-        status: 'pending',
-        items: items,
-        delivery_location: quoteData.localEntrega,
-        delivery_deadline: quoteData.prazo,
-        payment_method: quoteData.formaPagamento,
-        created_from: 'openai_assistant',
-        conversation_history: messages.map(m => ({
-          content: m.content,
-          role: m.role,
-          timestamp: m.timestamp
-        })),
-        total_value: 0 // Será atualizado pelo setor de vendas
-      })
+      .insert(quoteInsertData)
       .select('id')
       .single();
 
     if (error) {
-      console.error("Erro ao criar orçamento:", error);
+      console.error("Erro ao criar orçamento:", error, {
+        dadosInseridos: quoteInsertData
+      });
       return null;
     }
 
-    // Após criar o orçamento com sucesso, salvar resposta completa do agente
-    if (quote && quote.id) {
-      // Salvar resposta do agente
-      const { error: agentResponseError } = await supabase
-        .from('agent_responses')
-        .insert({
-          client_id: clientId,
-          quote_id: quote.id,
-          response_json: {
-            extracted_data: quoteData,
-            conversation: messages.map(m => ({
-              content: m.content,
-              role: m.role,
-              timestamp: m.timestamp
-            }))
-          },
-          processed: true
-        });
-      
-      if (agentResponseError) {
-        console.error("Erro ao salvar resposta do agente:", agentResponseError);
-        // Não bloquear o fluxo principal se falhar o salvamento da resposta do agente
-      } else {
-        console.log("Resposta do agente salva com sucesso");
-      }
+    if (!quote || !quote.id) {
+      console.error("Orçamento criado, mas ID não retornado");
+      return null;
     }
 
-    console.log("Orçamento criado com sucesso:", quote.id);
+    console.log("Orçamento criado com sucesso, ID:", quote.id);
+    
+    // Após criar o orçamento com sucesso, salvar resposta completa do agente
+    const agentResponseSaved = await salvarRespostaDoAgente(
+      supabase,
+      clientId,
+      quote.id,
+      quoteData,
+      messages
+    );
+    
+    if (!agentResponseSaved) {
+      console.error("Falha ao salvar resposta do agente, mas o orçamento foi criado");
+    }
+
     return quote.id;
   } catch (error) {
     console.error("Erro ao processar criação de orçamento:", error);
@@ -660,7 +738,11 @@ serve(async (req) => {
             if (quoteId) {
               console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
               quoteCreated = true;
+            } else {
+              console.error("Falha ao criar orçamento no banco de dados");
             }
+          } else {
+            console.error("Não foi possível obter ou criar ID do cliente");
           }
         } else {
           console.log("Dados insuficientes para criar orçamento automaticamente");
