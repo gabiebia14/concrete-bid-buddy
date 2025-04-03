@@ -1,6 +1,6 @@
 
-import { createTransport } from "@modelcontextprotocol/sdk/transport.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { createTransport } from "@modelcontextprotocol/sdk/transport";
+import { Client } from "@modelcontextprotocol/sdk/client/index";
 
 /**
  * Configura e retorna um cliente Smithery para envio de emails
