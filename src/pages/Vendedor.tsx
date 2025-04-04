@@ -43,8 +43,8 @@ export default function Vendedor() {
   // Função para lidar com o envio do orçamento com dados adicionais
   const handleEnviarOrcamento = async () => {
     try {
-      // Inclui a informação de que este orçamento foi criado pela IA
-      await handleEnviarParaVendedor({ created_from: 'ai' });
+      // Incluir a informação de que este orçamento foi criado pela IA
+      await handleEnviarParaVendedor();
     } catch (error) {
       console.error("Erro ao enviar orçamento com metadados:", error);
       toast.error("Erro ao enviar orçamento. Por favor, tente novamente.");

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, CreditCard, RefreshCw, ArrowRight, Bot, User, FileText } from 'lucide-react';
 import { getStatusBadge, formatDate } from '@/utils/quoteUtils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -25,11 +26,38 @@ export const QuoteCard = ({ quote }: QuoteCardProps) => {
   const getSourceIcon = () => {
     switch (quote.created_from) {
       case 'ai':
-        return <Bot className="h-4 w-4 text-purple-500" title="Criado pela IA" />;
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Bot className="h-4 w-4 text-purple-500" />
+              </TooltipTrigger>
+              <TooltipContent>Criado pela IA</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       case 'manual':
-        return <User className="h-4 w-4 text-blue-500" title="Criado manualmente" />;
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <User className="h-4 w-4 text-blue-500" />
+              </TooltipTrigger>
+              <TooltipContent>Criado manualmente</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       case 'import':
-        return <FileText className="h-4 w-4 text-orange-500" title="Importado" />;
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <FileText className="h-4 w-4 text-orange-500" />
+              </TooltipTrigger>
+              <TooltipContent>Importado</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       default:
         return null;
     }
