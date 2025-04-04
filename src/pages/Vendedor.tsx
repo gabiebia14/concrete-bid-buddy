@@ -33,9 +33,23 @@ export default function Vendedor() {
     
     // Exibir toast quando um orçamento for criado
     if (quoteId && !orcamentoConcluido) {
-      toast.success(`Orçamento #${quoteId.substring(0, 8)} foi criado, mas ainda não foi finalizado`);
+      toast.success(`Orçamento #${quoteId.substring(0, 8)} foi criado, mas ainda não foi finalizado`, {
+        duration: 5000,
+        id: `quote-created-${quoteId}` // Evita toasts duplicados para o mesmo orçamento
+      });
     }
   }, [threadId, quoteId, isLoading, isSavingQuote, orcamentoConcluido, messages.length]);
+
+  // Função para lidar com o envio do orçamento com dados adicionais
+  const handleEnviarOrcamento = async () => {
+    try {
+      // Inclui a informação de que este orçamento foi criado pela IA
+      await handleEnviarParaVendedor({ created_from: 'ai' });
+    } catch (error) {
+      console.error("Erro ao enviar orçamento com metadados:", error);
+      toast.error("Erro ao enviar orçamento. Por favor, tente novamente.");
+    }
+  };
 
   return (
     <Layout>
@@ -49,13 +63,13 @@ export default function Vendedor() {
               description="Nosso assistente especializado OpenAI está pronto para ajudar com suas dúvidas sobre produtos de concreto"
               initialMessages={messages}
               onSendMessage={handleSendMessage}
-              onConfirmOrder={handleEnviarParaVendedor}
+              onConfirmOrder={handleEnviarOrcamento}
             />
             
             <LoadingIndicator isLoading={isLoading} />
             
             <EnviarOrcamentoButton 
-              onClick={handleEnviarParaVendedor}
+              onClick={handleEnviarOrcamento}
               isSaving={isSavingQuote}
               orcamentoConcluido={orcamentoConcluido}
             />

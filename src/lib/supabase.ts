@@ -56,6 +56,9 @@ export async function fetchProductById(id: string) {
 // Orçamentos
 export async function fetchQuotes() {
   try {
+    console.log("Iniciando fetchQuotes...");
+    
+    // Obter usuário atual
     const { data: clientData, error: clientError } = await supabase.auth.getUser();
     
     if (clientError || !clientData.user) {
@@ -64,12 +67,18 @@ export async function fetchQuotes() {
     }
     
     const userId = clientData.user.id;
+    const userEmail = clientData.user.email;
+    
+    console.log("Usuário autenticado:", {
+      id: userId,
+      email: userEmail
+    });
     
     // Primeiro, encontre o client_id do usuário na tabela clients
     const { data: clientRecord, error: clientRecordError } = await supabase
       .from('clients')
       .select('id')
-      .eq('email', clientData.user.email)
+      .eq('email', userEmail)
       .maybeSingle();
     
     if (clientRecordError) {
@@ -77,12 +86,57 @@ export async function fetchQuotes() {
       return null;
     }
     
+    // Se não encontramos o cliente, podemos tentar criá-lo automaticamente
     if (!clientRecord) {
-      console.log("Cliente não encontrado para o usuário:", clientData.user.email);
-      return [];
+      console.log("Cliente não encontrado para o usuário:", userEmail);
+      console.log("Tentando criar o registro de cliente...");
+      
+      try {
+        // Obter mais dados do usuário se disponíveis
+        const displayName = clientData.user.user_metadata?.full_name || userEmail?.split('@')[0] || 'Usuário';
+        const phone = clientData.user.phone || '';
+        
+        // Criar o registro de cliente
+        const { data: newClient, error: createError } = await supabase
+          .from('clients')
+          .insert({
+            name: displayName,
+            email: userEmail || '',
+            phone: phone,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error("Erro ao criar registro de cliente:", createError);
+          return [];
+        }
+        
+        console.log("Registro de cliente criado com sucesso:", newClient);
+        
+        // Continuar a busca com o novo cliente
+        const { data: newQuotes, error: quotesError } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('client_id', newClient.id)
+          .order('created_at', { ascending: false });
+        
+        if (quotesError) {
+          console.error("Erro ao buscar orçamentos para o novo cliente:", quotesError);
+          return [];
+        }
+        
+        console.log(`Encontrados ${newQuotes?.length || 0} orçamentos para o novo cliente ID:`, newClient.id);
+        return newQuotes || [];
+      } catch (error) {
+        console.error("Erro ao tentar criar cliente:", error);
+        return [];
+      }
     }
     
     // Depois, busque todos os orçamentos para esse client_id
+    console.log("Cliente encontrado, ID:", clientRecord.id);
     const { data, error } = await supabase
       .from('quotes')
       .select('*')
@@ -94,10 +148,35 @@ export async function fetchQuotes() {
       throw error;
     }
     
-    console.log(`Encontrados ${data?.length || 0} orçamentos para o cliente ID:`, clientRecord.id);
-    return data;
+    // Verificação de dados
+    if (!data || !Array.isArray(data)) {
+      console.warn("Dados de orçamentos inválidos retornados:", data);
+      return [];
+    }
+    
+    // Verificar e corrigir itens para garantir que são válidos
+    const sanitizedData = data.map(quote => {
+      if (!quote.items || !Array.isArray(quote.items)) {
+        console.warn(`Orçamento ${quote.id} tem itens inválidos, corrigindo para array vazio`);
+        return { ...quote, items: [] };
+      }
+      return quote;
+    });
+    
+    console.log(`Encontrados ${sanitizedData.length} orçamentos para o cliente ID:`, clientRecord.id);
+    
+    if (sanitizedData.length > 0) {
+      console.log("Primeiro orçamento:", {
+        id: sanitizedData[0].id,
+        status: sanitizedData[0].status,
+        itemCount: sanitizedData[0].items?.length || 0,
+        created_at: sanitizedData[0].created_at
+      });
+    }
+    
+    return sanitizedData;
   } catch (error) {
-    console.error("Erro na função fetchQuotes:", error);
+    console.error("Erro crítico na função fetchQuotes:", error);
     throw error;
   }
 }

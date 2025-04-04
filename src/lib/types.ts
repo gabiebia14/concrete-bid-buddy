@@ -33,6 +33,7 @@ export type QuoteData = {
   total_value?: number;
   created_at?: string;
   updated_at?: string;
+  created_from?: 'manual' | 'ai' | 'import'; // Novo campo para identificar origem do orçamento
 };
 
 export type Quote = QuoteData & {
@@ -44,6 +45,7 @@ export type Quote = QuoteData & {
   payment_method?: string;
   notes?: string;
   total_amount?: number;
+  created_from?: 'manual' | 'ai' | 'import'; // Adicionado também aqui para compatibilidade
 };
 
 // Tipos adicionais para dashboards
