@@ -21,6 +21,10 @@ async function salvarRespostaDoAgente(
   extractedData: ExtractedQuoteData | null,
   messages: ChatMessageProps[]
 ): Promise<boolean> {
+  console.log("Iniciando salvarRespostaDoAgente no cliente", { 
+    timestamp: new Date().toISOString() 
+  });
+  
   if (!clientId) {
     console.error("ID do cliente não fornecido para salvar resposta do agente");
     return false;
@@ -31,11 +35,12 @@ async function salvarRespostaDoAgente(
     return false;
   }
 
-  console.log("Salvando resposta do agente:", {
+  console.log("Dados para salvar resposta do agente:", {
     clientId,
     quoteId,
     temDadosExtraidos: !!extractedData,
-    produtosCount: extractedData?.produtos?.length ?? 0
+    produtosCount: extractedData?.produtos?.length ?? 0,
+    mensagensCount: messages?.length ?? 0
   });
 
   try {
@@ -46,6 +51,7 @@ async function salvarRespostaDoAgente(
       timestamp: m.timestamp ?? new Date()
     }));
 
+    // Primeira tentativa
     const { error } = await supabase
       .from('agent_responses')
       .insert({
@@ -55,25 +61,51 @@ async function salvarRespostaDoAgente(
           extracted_data: extractedData || {},
           conversation: conversationData
         },
-        processed: true
+        processed: true,
+        created_at: new Date().toISOString()
       });
 
     if (error) {
-      console.error("Erro ao salvar resposta do agente:", error, {
-        dadosInseridos: {
-          clientId,
-          quoteId,
-          extractedData: extractedData ? true : false,
-          messagesCount: messages.length
-        }
+      console.error("Erro na primeira tentativa de salvar resposta do agente:", error, {
+        clientId,
+        quoteId,
+        timestamp: new Date().toISOString()
       });
-      return false;
+      
+      // Segunda tentativa após delay
+      console.log("Tentando salvar resposta do agente novamente após delay...");
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const { error: retryError } = await supabase
+        .from('agent_responses')
+        .insert({
+          client_id: clientId,
+          quote_id: quoteId,
+          response_json: {
+            extracted_data: extractedData || {},
+            conversation: conversationData
+          },
+          processed: true,
+          created_at: new Date().toISOString()
+        });
+      
+      if (retryError) {
+        console.error("Erro persistente ao salvar resposta do agente após retry:", retryError);
+        return false;
+      }
+      
+      console.log("Resposta do agente salva com sucesso na segunda tentativa");
+      return true;
     }
 
     console.log("Resposta do agente salva com sucesso para o orçamento:", quoteId);
     return true;
   } catch (error) {
-    console.error("Exceção ao salvar resposta do agente:", error);
+    console.error("Exceção ao salvar resposta do agente:", error, {
+      timestamp: new Date().toISOString(),
+      clientId,
+      quoteId
+    });
     return false;
   }
 }
@@ -95,13 +127,24 @@ export function useVendedorChat() {
   ]);
 
   const extrairDadosOrcamento = (mensagens: ChatMessageProps[]): ExtractedQuoteData => {
+    console.log("Iniciando extrairDadosOrcamento no cliente", { 
+      timestamp: new Date().toISOString(),
+      mensagensCount: mensagens?.length ?? 0
+    });
+    
     const todasMensagens = mensagens.map(msg => msg.content.toLowerCase()).join(' ');
+    console.log("Texto completo para extração (primeiros 100 chars):", 
+      todasMensagens.substring(0, 100) + "...");
     
     let produtos: any[] = [];
     
+    // Extração de tubos
     if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
+      console.log("Detectou menção a tubos, iniciando extração");
       const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:metros)?\s*(?:pa\s*(\d+)|pa(\d+))?/gi;
       const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex))];
+      
+      console.log(`Encontrados ${tuboMatches.length} padrões de tubos via regex principal`);
       
       tuboMatches.forEach(match => {
         const quantidade = parseInt(match[1] || '0');
@@ -121,11 +164,46 @@ export function useVendedorChat() {
           });
         }
       });
+      
+      // Extração secundária com regex alternativo
+      if (tuboMatches.length === 0) {
+        console.log("Tentando extração secundária para tubos");
+        const tuboRegexAlt = /tubos?\s*(?:de)?\s*(?:concreto)?\s*(\d+(?:[.,]\d+)?)\s*(?:metros|m)?\s*(?:pa\s*(\d+)|pa(\d+))?/gi;
+        const tuboMatchesAlt = [...todasMensagens.matchAll(new RegExp(tuboRegexAlt))];
+        
+        console.log(`Encontrados ${tuboMatchesAlt.length} padrões de tubos via regex secundário`);
+        
+        if (tuboMatchesAlt.length > 0) {
+          // Procurar por quantidade antes
+          const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+          const qtdMatch = todasMensagens.match(qtdRegex);
+          const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+          
+          tuboMatchesAlt.forEach(match => {
+            const dimensao = match[1] || '';
+            const tipo = match[2] || match[3] || '1';
+            
+            produtos.push({
+              product_id: uuidv4(),
+              product_name: `Tubo de Concreto`,
+              dimensions: `${dimensao}m`,
+              quantity: quantidade,
+              tipo: `PA${tipo}`,
+              unit_price: 0,
+              total_price: 0
+            });
+          });
+        }
+      }
     }
     
+    // Extração de postes
     if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
+      console.log("Detectou menção a postes, iniciando extração");
       const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(circular|duplo t)?.*?(\d+(?:[.,]\d+)?)\s*[\/\\]?\s*(\d+(?:[.,]\d+)?)?.*?(cpfl|elektro|telefônica)?/gi;
       const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex))];
+      
+      console.log(`Encontrados ${posteMatches.length} padrões de postes via regex principal`);
       
       posteMatches.forEach(match => {
         const quantidade = parseInt(match[1] || '0');
@@ -147,11 +225,52 @@ export function useVendedorChat() {
           });
         }
       });
+      
+      // Extração secundária com regex alternativo
+      if (posteMatches.length === 0) {
+        console.log("Tentando extração secundária para postes");
+        const posteRegexAlt = /postes?\s*(circular|duplo t)?.*?(\d+(?:[.,]\d+)?)\s*(?:metros|m)/gi;
+        const posteMatchesAlt = [...todasMensagens.matchAll(new RegExp(posteRegexAlt))];
+        
+        console.log(`Encontrados ${posteMatchesAlt.length} padrões de postes via regex secundário`);
+        
+        if (posteMatchesAlt.length > 0) {
+          // Procurar por quantidade antes
+          const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+          const qtdMatch = todasMensagens.match(qtdRegex);
+          const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+          
+          // Procurar por padrão
+          const padraoRegex = /(cpfl|elektro|telefônica)/i;
+          const padraoMatch = todasMensagens.match(padraoRegex);
+          const padrao = padraoMatch ? padraoMatch[1] : null;
+          
+          posteMatchesAlt.forEach(match => {
+            const tipo = match[1] || '';
+            const altura = match[2] || '';
+            
+            const tipoPoste = tipo?.toLowerCase()?.includes("duplo") ? "Poste Duplo T" : "Poste Circular";
+            produtos.push({
+              product_id: uuidv4(),
+              product_name: tipoPoste,
+              dimensions: `${altura}m`,
+              quantity: quantidade,
+              padrao: padrao ? padrao.toUpperCase() : '',
+              unit_price: 0,
+              total_price: 0
+            });
+          });
+        }
+      }
     }
     
+    // Extração de blocos
     if (todasMensagens.includes('bloco') || todasMensagens.includes('blocos')) {
+      console.log("Detectou menção a blocos, iniciando extração");
       const blocoRegex = /(\d+)\s*(?:unidades de)?\s*blocos?\s*(?:estrutural|vedação|vedacao)?\s*(?:de)?\s*(?:(\d+)x(\d+)x(\d+))?/gi;
       const blocoMatches = [...todasMensagens.matchAll(new RegExp(blocoRegex))];
+      
+      console.log(`Encontrados ${blocoMatches.length} padrões de blocos via regex principal`);
       
       blocoMatches.forEach(match => {
         const quantidade = parseInt(match[1] || '0');
@@ -172,8 +291,43 @@ export function useVendedorChat() {
           });
         }
       });
+      
+      // Extração secundária com regex alternativo
+      if (blocoMatches.length === 0) {
+        console.log("Tentando extração secundária para blocos");
+        const blocoRegexAlt = /blocos?\s*(?:estrutural|vedação|vedacao)?/gi;
+        const blocoMatchesAlt = [...todasMensagens.matchAll(new RegExp(blocoRegexAlt))];
+        
+        console.log(`Encontrados ${blocoMatchesAlt.length} padrões de blocos via regex secundário`);
+        
+        if (blocoMatchesAlt.length > 0) {
+          // Procurar por quantidade antes
+          const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+          const qtdMatch = todasMensagens.match(qtdRegex);
+          const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+          
+          // Procurar por dimensões
+          const dimRegex = /(\d+)\s*(?:x|por)\s*(\d+)\s*(?:x|por)\s*(\d+)/i;
+          const dimMatch = todasMensagens.match(dimRegex);
+          
+          const tipoBloco = todasMensagens.includes('estrutural') ? 'Estrutural' : 
+                          (todasMensagens.includes('vedação') || todasMensagens.includes('vedacao')) ? 'Vedação' : '';
+          
+          produtos.push({
+            product_id: uuidv4(),
+            product_name: `Bloco de Concreto ${tipoBloco}`,
+            dimensions: dimMatch ? `${dimMatch[1]}x${dimMatch[2]}x${dimMatch[3]}` : '',
+            quantity: quantidade,
+            unit_price: 0,
+            total_price: 0
+          });
+        }
+      }
     }
     
+    console.log(`Total de produtos extraídos: ${produtos.length}`);
+    
+    // Extração de local de entrega
     let localEntrega = '';
     const localRegexPatterns = [
       /(?:(?:local|lugar|cidade|entrega|entregar|endereço|endereco)[:\s]+(?:em|para|no|de|na|ao)?\s+)([a-zà-ú\s,]+)/i,
@@ -186,20 +340,24 @@ export function useVendedorChat() {
       if (match && match[1]) {
         localEntrega = match[1].trim().replace(/\s+/g, ' ');
         localEntrega = localEntrega.charAt(0).toUpperCase() + localEntrega.slice(1);
+        console.log(`Local de entrega encontrado via regex principal: ${localEntrega}`);
         break;
       }
     }
     
     if (!localEntrega) {
+      console.log("Local de entrega não encontrado via regex principal, tentando cidades comuns");
       const cidadesComuns = ['potirendaba', 'são paulo', 'sao paulo', 'rio preto', 'são josé do rio preto', 'ribeirao preto', 'campinas', 'araraquara'];
       for (const cidade of cidadesComuns) {
         if (todasMensagens.includes(cidade)) {
           localEntrega = cidade.charAt(0).toUpperCase() + cidade.slice(1);
+          console.log(`Local de entrega encontrado em menções diretas: ${localEntrega}`);
           break;
         }
       }
     }
     
+    // Extração de prazo
     let prazo = '';
     const prazoRegexPatterns = [
       /(?:prazo|entrega)[:\s]+(?:de)?\s*(\d+)\s*(?:dias|dia)/i,
@@ -212,10 +370,12 @@ export function useVendedorChat() {
       if (match && match[1]) {
         const dias = parseInt(match[1]);
         prazo = `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+        console.log(`Prazo encontrado: ${prazo}`);
         break;
       }
     }
     
+    // Extração de forma de pagamento
     let formaPagamento = '';
     if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
       formaPagamento = 'À vista';
@@ -229,23 +389,31 @@ export function useVendedorChat() {
       formaPagamento = 'PIX';
     }
     
-    console.log("Dados extraídos do orçamento:", {
-      produtos,
-      localEntrega,
-      prazo,
-      formaPagamento
-    });
+    console.log(`Forma de pagamento encontrada: ${formaPagamento || "Não especificada"}`);
     
-    return {
+    const dadosExtraidos = {
       produtos,
       localEntrega,
       prazo,
       formaPagamento
     };
+    
+    console.log("Dados extraídos completos:", {
+      produtosCount: dadosExtraidos.produtos.length,
+      localEntrega: dadosExtraidos.localEntrega,
+      prazo: dadosExtraidos.prazo,
+      formaPagamento: dadosExtraidos.formaPagamento
+    });
+    
+    return dadosExtraidos;
   };
 
   const criarOrcamentoSupabase = async (dadosOrcamento: ExtractedQuoteData) => {
     try {
+      console.log("Iniciando criarOrcamentoSupabase", { 
+        timestamp: new Date().toISOString() 
+      });
+      
       setIsSavingQuote(true);
       
       if (!user) {
@@ -260,6 +428,7 @@ export function useVendedorChat() {
       
       let client_id = '';
       
+      // Obter cliente existente ou criar novo
       const { data: clienteExistente } = await supabase
         .from('clients')
         .select('id')
@@ -271,7 +440,9 @@ export function useVendedorChat() {
         console.log("Cliente existente encontrado:", client_id);
       } else {
         console.log("Cliente não encontrado, criando novo...");
-        const { data: novoCliente, error: erroCliente } = await supabase
+        
+        // Primeira tentativa de criar cliente
+        let { data: novoCliente, error: erroCliente } = await supabase
           .from('clients')
           .insert({
             name: user.email.split('@')[0],
@@ -281,12 +452,30 @@ export function useVendedorChat() {
           .select('id')
           .single();
         
+        // Tentar novamente se falhou
         if (erroCliente) {
-          console.error("Erro ao criar cliente:", erroCliente, {
-            email: user.email
-          });
-          toast.error("Erro ao criar perfil de cliente");
-          return false;
+          console.error("Erro na primeira tentativa de criar cliente:", erroCliente);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: clienteRetry, error: erroRetry } = await supabase
+            .from('clients')
+            .insert({
+              name: user.email.split('@')[0],
+              email: user.email,
+              phone: ''
+            })
+            .select('id')
+            .single();
+            
+          if (erroRetry) {
+            console.error("Erro persistente ao criar cliente após retry:", erroRetry, {
+              email: user.email
+            });
+            toast.error("Erro ao criar perfil de cliente");
+            return false;
+          }
+          
+          novoCliente = clienteRetry;
         }
         
         if (!novoCliente || !novoCliente.id) {
@@ -312,6 +501,7 @@ export function useVendedorChat() {
 
       console.log("Criando orçamento para cliente:", client_id);
       
+      // Primeira tentativa de criar orçamento
       const { data, error: erroOrcamento } = await supabase
         .from('quotes')
         .insert({
@@ -331,41 +521,111 @@ export function useVendedorChat() {
         })
         .select();
       
+      // Tentar novamente se falhou
       if (erroOrcamento) {
-        console.error("Erro ao criar orçamento:", erroOrcamento, {
-          clientId: client_id,
-          produtos: dadosOrcamento.produtos.length
-        });
-        toast.error("Erro ao salvar o orçamento");
-        return false;
-      }
-      
-      console.log("Orçamento criado com sucesso:", data);
-      if (data && data.length > 0 && data[0].id) {
-        const novoQuoteId = data[0].id;
-        console.log("ID do orçamento criado:", novoQuoteId);
-        setQuoteId(novoQuoteId);
-
-        const resultado = await salvarRespostaDoAgente(
-          client_id,
-          novoQuoteId,
-          dadosOrcamento,
-          messages
-        );
+        console.error("Erro na primeira tentativa de criar orçamento:", erroOrcamento);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { data: dataRetry, error: erroRetry } = await supabase
+          .from('quotes')
+          .insert({
+            client_id,
+            status: 'pending',
+            items: dadosOrcamento.produtos,
+            delivery_location: dadosOrcamento.localEntrega || '',
+            delivery_deadline: dadosOrcamento.prazo || '',
+            payment_method: dadosOrcamento.formaPagamento || '',
+            created_from: 'chat_assistant',
+            conversation_history: messages.map(m => ({
+              content: m.content || '',
+              role: m.role || 'user',
+              timestamp: m.timestamp ?? new Date()
+            })),
+            total_value: totalAmount
+          })
+          .select();
           
-        if (!resultado) {
-          console.error("Erro ao salvar resposta do agente, mas orçamento foi criado");
-        } else {
-          console.log("Resposta do agente salva com sucesso");
+        if (erroRetry) {
+          console.error("Erro persistente ao criar orçamento após retry:", erroRetry);
+          toast.error("Erro ao salvar o orçamento");
+          return false;
+        }
+        
+        console.log("Orçamento criado com sucesso na segunda tentativa:", dataRetry);
+        
+        if (dataRetry && dataRetry.length > 0 && dataRetry[0].id) {
+          const novoQuoteId = dataRetry[0].id;
+          console.log("ID do orçamento criado na segunda tentativa:", novoQuoteId);
+          setQuoteId(novoQuoteId);
+
+          // Salvar a resposta do agente
+          const resultado = await salvarRespostaDoAgente(
+            client_id,
+            novoQuoteId,
+            dadosOrcamento,
+            messages
+          );
+            
+          if (!resultado) {
+            console.error("Erro ao salvar resposta do agente, mas orçamento foi criado");
+          } else {
+            console.log("Resposta do agente salva com sucesso");
+          }
+          
+          toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+          return true;
         }
       } else {
-        console.error("Orçamento criado mas ID não retornado");
+        console.log("Orçamento criado com sucesso na primeira tentativa:", data);
+        
+        if (data && data.length > 0 && data[0].id) {
+          const novoQuoteId = data[0].id;
+          console.log("ID do orçamento criado na primeira tentativa:", novoQuoteId);
+          setQuoteId(novoQuoteId);
+
+          // Salvar a resposta do agente
+          const resultado = await salvarRespostaDoAgente(
+            client_id,
+            novoQuoteId,
+            dadosOrcamento,
+            messages
+          );
+            
+          if (!resultado) {
+            // Tentar novamente se falhar
+            console.error("Erro ao salvar resposta do agente, tentando novamente");
+            
+            const resultadoRetry = await salvarRespostaDoAgente(
+              client_id,
+              novoQuoteId,
+              dadosOrcamento,
+              messages
+            );
+            
+            if (!resultadoRetry) {
+              console.error("Erro persistente ao salvar resposta do agente, mas orçamento foi criado");
+            } else {
+              console.log("Resposta do agente salva com sucesso na segunda tentativa");
+            }
+          } else {
+            console.log("Resposta do agente salva com sucesso na primeira tentativa");
+          }
+        } else {
+          console.error("Orçamento criado mas ID não retornado");
+        }
+        
+        toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
+        return true;
       }
       
-      toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
-      return true;
+      console.error("Fluxo de criação de orçamento não concluído corretamente");
+      return false;
     } catch (error) {
-      console.error("Erro ao processar orçamento:", error);
+      console.error("Erro ao processar orçamento:", error, {
+        timestamp: new Date().toISOString(),
+        produtosCount: dadosOrcamento?.produtos?.length || 0,
+        email: user?.email || null
+      });
       toast.error("Ocorreu um erro ao processar seu orçamento");
       return false;
     } finally {
@@ -375,6 +635,11 @@ export function useVendedorChat() {
 
   const handleEnviarParaVendedor = async () => {
     try {
+      console.log("Iniciando handleEnviarParaVendedor", {
+        timestamp: new Date().toISOString(),
+        quoteIdExistente: quoteId || 'não existe'
+      });
+      
       if (quoteId) {
         console.log("Orçamento já criado, ID:", quoteId);
         setOrcamentoConcluido(true);
@@ -425,12 +690,14 @@ export function useVendedorChat() {
         }, 3000);
       }
     } catch (error) {
-      console.error("Erro ao enviar para vendedor:", error);
+      console.error("Erro ao enviar para vendedor:", error, {
+        timestamp: new Date().toISOString()
+      });
       toast.error("Ocorreu um erro ao processar o orçamento");
     }
   };
 
-  const verificarOrcamentoCompleto = (mensagens: ChatMessageProps[]) => {
+  const verificarOrcamentoCompleto = (mensagens: ChatMessageProps[]): boolean => {
     try {
       console.log("Verificando se orçamento está completo...");
       
@@ -480,7 +747,7 @@ export function useVendedorChat() {
         temPrazoOuPagamento: temPrazo || temPagamento,
         assistentePediuConfirmacao,
         clienteConfirmou,
-        ultimasMensagens
+        ultimasMensagens: ultimasMensagens.map(m => m.substring(0, 20) + "...").join(" | ")
       });
       
       return temProdutos && 
@@ -496,7 +763,7 @@ export function useVendedorChat() {
 
   const handleSendMessage = async (message: string): Promise<string> => {
     setIsLoading(true);
-    console.log("Enviando mensagem para o assistente:", message);
+    console.log("Enviando mensagem para o assistente:", message.substring(0, 50) + "...");
     
     try {
       const userContext = user ? {
@@ -508,6 +775,11 @@ export function useVendedorChat() {
         name: null,
         isManager: false
       };
+      
+      console.log("Contexto do usuário:", {
+        email: userContext.email || "não logado",
+        isManager: userContext.isManager
+      });
       
       const updatedMessages = [...messages, {
         content: message,
@@ -523,7 +795,13 @@ export function useVendedorChat() {
       const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
       
       try {
-        // Usar a nova edge function OpenAI
+        // Usar a edge function OpenAI
+        console.log("Chamando edge function vendedor-openai-assistant", {
+          threadId: threadId || "nova thread",
+          mensagensCount: updatedMessages.length
+        });
+        
+        // Primeira tentativa de chamar a função
         const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
           body: { 
             messages: updatedMessages.map(msg => ({
@@ -541,7 +819,13 @@ export function useVendedorChat() {
           throw new Error(error.message);
         }
         
-        console.log("Resposta do assistente:", data);
+        console.log("Resposta do assistente recebida", {
+          threadId: data.threadId || "não retornado",
+          quoteCreated: data.quoteCreated || false,
+          quoteId: data.quoteId || "não criado",
+          extractedDataPresente: !!data.extractedData,
+          responseLength: data.response?.length || 0
+        });
         
         // Salvar o threadId retornado para uso futuro
         if (data.threadId) {
@@ -554,6 +838,7 @@ export function useVendedorChat() {
           setOrcamentoConcluido(true);
 
           if (data.extractedData && user) {
+            console.log("Tentando salvar resposta do agente no cliente após criação automática");
             let client_id: string | null = null;
             
             const { data: clienteExistente } = await supabase
@@ -566,6 +851,7 @@ export function useVendedorChat() {
               client_id = clienteExistente.id;
               console.log("ID do cliente encontrado para agent_responses:", client_id);
               
+              // Tentativa de salvar resposta do agente
               const resultado = await salvarRespostaDoAgente(
                 client_id,
                 data.quoteId,
@@ -574,9 +860,23 @@ export function useVendedorChat() {
               );
                 
               if (!resultado) {
-                console.error("Erro ao salvar resposta do agente após criação automática de orçamento");
+                // Segunda tentativa
+                console.error("Falha na primeira tentativa de salvar resposta do agente após criação automática, tentando novamente");
+                
+                const resultadoRetry = await salvarRespostaDoAgente(
+                  client_id,
+                  data.quoteId,
+                  data.extractedData,
+                  updatedMessages
+                );
+                
+                if (!resultadoRetry) {
+                  console.error("Erro persistente ao salvar resposta do agente após criação automática de orçamento");
+                } else {
+                  console.log("Resposta do agente salva com sucesso na segunda tentativa após criação automática");
+                }
               } else {
-                console.log("Resposta do agente salva com sucesso após criação automática de orçamento");
+                console.log("Resposta do agente salva com sucesso após criação automática");
               }
             } else {
               console.error("Cliente não encontrado para salvar agent_responses", {
@@ -641,6 +941,7 @@ export function useVendedorChat() {
             
             setMessages(prev => [...prev, assistantMessage]);
             
+            // Tentar processar o orçamento após delay
             setTimeout(() => {
               handleEnviarParaVendedor();
             }, 800);
@@ -649,19 +950,60 @@ export function useVendedorChat() {
           }
         }
         
-        const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
-        
-        const errorAssistantMessage: ChatMessageProps = {
-          content: fallbackErrorResponse,
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, errorAssistantMessage]);
-        return fallbackErrorResponse;
+        // Tentar chamar a função novamente após erro
+        try {
+          console.log("Tentando chamar a edge function novamente após erro");
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Segunda tentativa de chamar a função
+          const { data: dataRetry, error: errorRetry } = await supabase.functions.invoke('vendedor-openai-assistant', {
+            body: { 
+              messages: updatedMessages.map(msg => ({
+                content: msg.content || '',
+                role: msg.role || 'user',
+                timestamp: msg.timestamp ?? new Date().toISOString()
+              })),
+              userContext,
+              threadId // Enviar o threadId existente, se houver
+            }
+          });
+          
+          if (errorRetry) {
+            throw new Error(errorRetry.message);
+          }
+          
+          console.log("Segunda tentativa de chamada da edge function bem-sucedida");
+          
+          const assistantResponse = dataRetry.response || "Entendi seu pedido, mas estou encontrando algumas dificuldades técnicas.";
+          
+          const assistantMessage: ChatMessageProps = {
+            content: assistantResponse,
+            role: 'assistant',
+            timestamp: new Date()
+          };
+          
+          const finalMessages = [...updatedMessages, assistantMessage];
+          setMessages(finalMessages);
+          
+          return assistantResponse;
+        } catch (retryError) {
+          console.error("Erro persistente na chamada da edge function:", retryError);
+          const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
+          
+          const errorAssistantMessage: ChatMessageProps = {
+            content: fallbackErrorResponse,
+            role: 'assistant',
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, errorAssistantMessage]);
+          return fallbackErrorResponse;
+        }
       }
     } catch (error) {
-      console.error("Erro no processamento da mensagem:", error);
+      console.error("Erro no processamento da mensagem:", error, {
+        timestamp: new Date().toISOString()
+      });
       
       if (message.toLowerCase().includes('sim') || message.toLowerCase().includes('confirmo')) {
         const dadosOrcamento = extrairDadosOrcamento(messages);

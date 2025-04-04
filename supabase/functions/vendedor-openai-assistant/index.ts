@@ -137,12 +137,14 @@ async function salvarRespostaDoAgente(
   extractedData: DadosOrcamento,
   messages: any[]
 ): Promise<boolean> {
+  console.log("Iniciando salvarRespostaDoAgente", { timestamp: new Date().toISOString() });
+
   if (!supabase) {
     console.error("Cliente Supabase não inicializado");
     return false;
   }
 
-  // Validação dos IDs
+  // Validação dos IDs e campos obrigatórios
   if (!clientId) {
     console.error("ID do cliente não fornecido para salvar resposta do agente");
     return false;
@@ -153,10 +155,14 @@ async function salvarRespostaDoAgente(
     return false;
   }
 
-  console.log("Tentando salvar resposta do agente com:", {
+  console.log("Dados para salvar resposta do agente:", {
     clientId,
     quoteId,
-    produtosCount: extractedData?.produtos?.length ?? 0
+    produtosCount: extractedData?.produtos?.length ?? 0,
+    temLocalEntrega: !!extractedData?.localEntrega,
+    temPrazo: !!extractedData?.prazo,
+    temFormaPagamento: !!extractedData?.formaPagamento,
+    mensagensCount: Array.isArray(messages) ? messages.length : 0
   });
 
   try {
@@ -174,24 +180,50 @@ async function salvarRespostaDoAgente(
         extracted_data: extractedData || {},
         conversation: conversationData
       },
-      processed: true
+      processed: true,
+      created_at: new Date().toISOString()
     };
 
+    // Tentativa inicial de salvamento
     const { error } = await supabase
       .from('agent_responses')
       .insert(responseData);
 
     if (error) {
-      console.error("Erro ao salvar resposta do agente:", error, {
-        dadosInseridos: responseData
+      console.error("Erro na primeira tentativa de salvar resposta do agente:", error, {
+        dadosInseridos: {
+          clientId,
+          quoteId,
+          produtosCount: extractedData?.produtos?.length ?? 0,
+          mensagensCount: conversationData.length
+        }
       });
-      return false;
+      
+      // Segunda tentativa após pequeno delay
+      console.log("Tentando segunda vez após delay...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const { error: retryError } = await supabase
+        .from('agent_responses')
+        .insert(responseData);
+        
+      if (retryError) {
+        console.error("Erro persistente ao salvar resposta do agente após retry:", retryError);
+        return false;
+      }
+      
+      console.log("Resposta do agente salva com sucesso na segunda tentativa para o orçamento:", quoteId);
+      return true;
     }
 
     console.log("Resposta do agente salva com sucesso para o orçamento:", quoteId);
     return true;
   } catch (error) {
-    console.error("Exceção ao salvar resposta do agente:", error);
+    console.error("Exceção ao salvar resposta do agente:", error, {
+      timestamp: new Date().toISOString(),
+      clientId,
+      quoteId
+    });
     return false;
   }
 }
@@ -254,6 +286,8 @@ async function createQuoteInDatabase(
   quoteData: DadosOrcamento,
   messages: any[]
 ): Promise<string | null> {
+  console.log("Iniciando createQuoteInDatabase", { timestamp: new Date().toISOString() });
+  
   if (!clientId) {
     console.error("ID do cliente não fornecido para criar orçamento");
     return null;
@@ -296,7 +330,9 @@ async function createQuoteInDatabase(
     console.log("Tentando criar orçamento com dados:", {
       clientId,
       itensCount: items.length,
-      localEntrega: quoteData.localEntrega
+      localEntrega: quoteData.localEntrega,
+      temPrazo: !!quoteData.prazo,
+      temFormaPagamento: !!quoteData.formaPagamento
     });
 
     const { data: quote, error } = await supabase
@@ -307,7 +343,8 @@ async function createQuoteInDatabase(
 
     if (error) {
       console.error("Erro ao criar orçamento:", error, {
-        dadosInseridos: quoteInsertData
+        clientId,
+        produtosCount: items.length
       });
       return null;
     }
@@ -320,7 +357,7 @@ async function createQuoteInDatabase(
     console.log("Orçamento criado com sucesso, ID:", quote.id);
     
     // Após criar o orçamento com sucesso, salvar resposta completa do agente
-    const agentResponseSaved = await salvarRespostaDoAgente(
+    let agentResponseSaved = await salvarRespostaDoAgente(
       supabase,
       clientId,
       quote.id,
@@ -329,12 +366,32 @@ async function createQuoteInDatabase(
     );
     
     if (!agentResponseSaved) {
-      console.error("Falha ao salvar resposta do agente, mas o orçamento foi criado");
+      console.error("Falha na primeira tentativa de salvar resposta do agente, tentando novamente...");
+      
+      // Segunda tentativa com um pequeno delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      agentResponseSaved = await salvarRespostaDoAgente(
+        supabase,
+        clientId,
+        quote.id,
+        quoteData,
+        messages
+      );
+      
+      if (!agentResponseSaved) {
+        console.error("Falha persistente ao salvar resposta do agente, mas o orçamento foi criado");
+      } else {
+        console.log("Resposta do agente salva com sucesso na segunda tentativa");
+      }
     }
 
     return quote.id;
   } catch (error) {
-    console.error("Erro ao processar criação de orçamento:", error);
+    console.error("Erro ao processar criação de orçamento:", error, {
+      timestamp: new Date().toISOString(),
+      clientId
+    });
     return null;
   }
 }
@@ -462,8 +519,13 @@ async function processRunUntilComplete(threadId: string, runId: string): Promise
   throw new Error('Tempo limite excedido ao aguardar conclusão da execução');
 }
 
-// Função para extrair dados de orçamento do texto
+// Função para extrair dados de orçamento do texto com melhorias
 function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
+  console.log("Iniciando extrairDadosOrcamento", {
+    timestamp: new Date().toISOString(),
+    mensagensCount: Array.isArray(mensagens) ? mensagens.length : 0
+  });
+  
   const todasMensagens = Array.isArray(mensagens) 
     ? mensagens.map(msg => {
         if (typeof msg.content === 'string') return msg.content.toLowerCase();
@@ -477,11 +539,17 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
       }).join(' ')
     : '';
   
+  console.log("Texto completo para extração:", todasMensagens.substring(0, 100) + "...");
+  
   let produtos: ProdutoExtraido[] = [];
   
+  // Extração de tubos
   if (todasMensagens.includes('tubo') || todasMensagens.includes('tubos')) {
+    console.log("Detectou menção a tubos, iniciando extração");
     const tuboRegex = /(\d+)\s*(?:unidades de)?\s*tubos?\s*(?:de)?\s*(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)\s*(?:metros)?\s*(?:pa\s*(\d+)|pa(\d+))?/gi;
     const tuboMatches = [...todasMensagens.matchAll(new RegExp(tuboRegex))];
+    
+    console.log(`Encontrados ${tuboMatches.length} padrões de tubos via regex principal`);
     
     tuboMatches.forEach(match => {
       const quantidade = parseInt(match[1] || '0');
@@ -499,11 +567,44 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
         });
       }
     });
+    
+    // Extração secundária com regex alternativo
+    if (tuboMatches.length === 0) {
+      console.log("Tentando extração secundária para tubos");
+      const tuboRegexAlt = /tubos?\s*(?:de)?\s*(?:concreto)?\s*(\d+(?:[.,]\d+)?)\s*(?:metros|m)?\s*(?:pa\s*(\d+)|pa(\d+))?/gi;
+      const tuboMatchesAlt = [...todasMensagens.matchAll(new RegExp(tuboRegexAlt))];
+      
+      console.log(`Encontrados ${tuboMatchesAlt.length} padrões de tubos via regex secundário`);
+      
+      if (tuboMatchesAlt.length > 0) {
+        // Procurar por quantidade antes
+        const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+        const qtdMatch = todasMensagens.match(qtdRegex);
+        const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+        
+        tuboMatchesAlt.forEach(match => {
+          const dimensao = match[1] || '';
+          const tipo = match[2] || match[3] || '1';
+          
+          produtos.push({
+            nome: `Tubo de Concreto`,
+            dimensoes: `${dimensao}m`,
+            quantidade: quantidade,
+            tipo: `PA${tipo}`,
+            padrao: null
+          });
+        });
+      }
+    }
   }
   
+  // Extração de postes
   if (todasMensagens.includes('poste') || todasMensagens.includes('postes')) {
+    console.log("Detectou menção a postes, iniciando extração");
     const posteRegex = /(\d+)\s*(?:unidades de)?\s*postes?\s*(circular|duplo t)?.*?(\d+(?:[.,]\d+)?)\s*[\/\\]?\s*(\d+(?:[.,]\d+)?)?.*?(cpfl|elektro|telefônica)?/gi;
     const posteMatches = [...todasMensagens.matchAll(new RegExp(posteRegex))];
+    
+    console.log(`Encontrados ${posteMatches.length} padrões de postes via regex principal`);
     
     posteMatches.forEach(match => {
       const quantidade = parseInt(match[1] || '0');
@@ -523,11 +624,50 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
         });
       }
     });
+    
+    // Extração secundária com regex alternativo
+    if (posteMatches.length === 0) {
+      console.log("Tentando extração secundária para postes");
+      const posteRegexAlt = /postes?\s*(circular|duplo t)?.*?(\d+(?:[.,]\d+)?)\s*(?:metros|m)/gi;
+      const posteMatchesAlt = [...todasMensagens.matchAll(new RegExp(posteRegexAlt))];
+      
+      console.log(`Encontrados ${posteMatchesAlt.length} padrões de postes via regex secundário`);
+      
+      if (posteMatchesAlt.length > 0) {
+        // Procurar por quantidade antes
+        const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+        const qtdMatch = todasMensagens.match(qtdRegex);
+        const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+        
+        // Procurar por padrão
+        const padraoRegex = /(cpfl|elektro|telefônica)/i;
+        const padraoMatch = todasMensagens.match(padraoRegex);
+        const padrao = padraoMatch ? padraoMatch[1] : null;
+        
+        posteMatchesAlt.forEach(match => {
+          const tipo = match[1] || '';
+          const altura = match[2] || '';
+          
+          const tipoPoste = tipo?.toLowerCase()?.includes("duplo") ? "Poste Duplo T" : "Poste Circular";
+          produtos.push({
+            nome: tipoPoste,
+            dimensoes: `${altura}m`,
+            quantidade: quantidade,
+            tipo: null,
+            padrao: padrao ? padrao.toUpperCase() : null
+          });
+        });
+      }
+    }
   }
   
+  // Extração de blocos
   if (todasMensagens.includes('bloco') || todasMensagens.includes('blocos')) {
+    console.log("Detectou menção a blocos, iniciando extração");
     const blocoRegex = /(\d+)\s*(?:unidades de)?\s*blocos?\s*(?:estrutural|vedação|vedacao)?\s*(?:de)?\s*(?:(\d+)x(\d+)x(\d+))?/gi;
     const blocoMatches = [...todasMensagens.matchAll(new RegExp(blocoRegex))];
+    
+    console.log(`Encontrados ${blocoMatches.length} padrões de blocos via regex principal`);
     
     blocoMatches.forEach(match => {
       const quantidade = parseInt(match[1] || '0');
@@ -547,8 +687,42 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
         });
       }
     });
+    
+    // Extração secundária com regex alternativo
+    if (blocoMatches.length === 0) {
+      console.log("Tentando extração secundária para blocos");
+      const blocoRegexAlt = /blocos?\s*(?:estrutural|vedação|vedacao)?/gi;
+      const blocoMatchesAlt = [...todasMensagens.matchAll(new RegExp(blocoRegexAlt))];
+      
+      console.log(`Encontrados ${blocoMatchesAlt.length} padrões de blocos via regex secundário`);
+      
+      if (blocoMatchesAlt.length > 0) {
+        // Procurar por quantidade antes
+        const qtdRegex = /(\d+)\s*(?:unidades|peças|pçs|unid)/i;
+        const qtdMatch = todasMensagens.match(qtdRegex);
+        const quantidade = qtdMatch ? parseInt(qtdMatch[1]) : 1; // Default para 1 se não encontrar
+        
+        // Procurar por dimensões
+        const dimRegex = /(\d+)\s*(?:x|por)\s*(\d+)\s*(?:x|por)\s*(\d+)/i;
+        const dimMatch = todasMensagens.match(dimRegex);
+        
+        const tipoBloco = todasMensagens.includes('estrutural') ? 'Estrutural' : 
+                         (todasMensagens.includes('vedação') || todasMensagens.includes('vedacao')) ? 'Vedação' : '';
+                         
+        produtos.push({
+          nome: `Bloco de Concreto ${tipoBloco}`,
+          dimensoes: dimMatch ? `${dimMatch[1]}x${dimMatch[2]}x${dimMatch[3]}` : '',
+          quantidade: quantidade,
+          tipo: null,
+          padrao: null
+        });
+      }
+    }
   }
   
+  console.log(`Total de produtos extraídos: ${produtos.length}`);
+  
+  // Extração de local de entrega
   let localEntrega = '';
   const localRegexPatterns = [
     /(?:(?:local|lugar|cidade|entrega|entregar|endereço|endereco)[:\s]+(?:em|para|no|de|na|ao)?\s+)([a-zà-ú\s,]+)/i,
@@ -561,20 +735,24 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
     if (match && match[1]) {
       localEntrega = match[1].trim().replace(/\s+/g, ' ');
       localEntrega = localEntrega.charAt(0).toUpperCase() + localEntrega.slice(1);
+      console.log(`Local de entrega encontrado via regex principal: ${localEntrega}`);
       break;
     }
   }
   
   if (!localEntrega) {
+    console.log("Local de entrega não encontrado via regex principal, tentando cidades comuns");
     const cidadesComuns = ['potirendaba', 'são paulo', 'sao paulo', 'rio preto', 'são josé do rio preto', 'ribeirao preto', 'campinas', 'araraquara'];
     for (const cidade of cidadesComuns) {
       if (todasMensagens.includes(cidade)) {
         localEntrega = cidade.charAt(0).toUpperCase() + cidade.slice(1);
+        console.log(`Local de entrega encontrado em menções diretas: ${localEntrega}`);
         break;
       }
     }
   }
   
+  // Extração de prazo
   let prazo = '';
   const prazoRegexPatterns = [
     /(?:prazo|entrega)[:\s]+(?:de)?\s*(\d+)\s*(?:dias|dia)/i,
@@ -587,10 +765,12 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
     if (match && match[1]) {
       const dias = parseInt(match[1]);
       prazo = `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      console.log(`Prazo encontrado: ${prazo}`);
       break;
     }
   }
   
+  // Extração de forma de pagamento
   let formaPagamento = '';
   if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
     formaPagamento = 'À vista';
@@ -604,16 +784,33 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
     formaPagamento = 'PIX';
   }
   
-  return {
+  console.log(`Forma de pagamento encontrada: ${formaPagamento || "Não especificada"}`);
+  
+  const dadosExtraidos = {
     produtos,
     localEntrega,
     prazo,
     formaPagamento
   };
+  
+  console.log("Dados extraídos completos:", {
+    produtosCount: dadosExtraidos.produtos.length,
+    localEntrega: dadosExtraidos.localEntrega,
+    prazo: dadosExtraidos.prazo,
+    formaPagamento: dadosExtraidos.formaPagamento
+  });
+  
+  return dadosExtraidos;
 }
 
 // Handler principal
 serve(async (req) => {
+  console.log("Nova requisição recebida", { 
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url
+  });
+  
   // Lidar com requisições preflight de CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -636,8 +833,15 @@ serve(async (req) => {
     const userEmail = userContext?.email;
     const userName = userContext?.name;
     
-    console.log("Recebendo mensagens:", JSON.stringify(messages.slice(-1)));
-    console.log("Thread ID existente:", existingThreadId);
+    console.log("Contexto da requisição:", {
+      threadExistente: !!existingThreadId, 
+      userEmail: userEmail || "não fornecido",
+      userName: userName || "não fornecido",
+      mensagensCount: Array.isArray(messages) ? messages.length : 0,
+      ultimaMensagem: Array.isArray(messages) && messages.length > 0 
+        ? messages[messages.length - 1]?.content?.substring(0, 50) + "..." 
+        : "nenhuma"
+    });
     
     // Criar thread se não existir ou usar a existente
     let threadId = existingThreadId;
@@ -705,7 +909,8 @@ serve(async (req) => {
     console.log("Verificação de orçamento completo:", {
       isOrçamentoCompleto,
       assistentePediuConfirmacao,
-      clienteConfirmou
+      clienteConfirmou,
+      ultimasMensagemTexto: ultimasMensagens.join(" | ").substring(0, 100) + "..."
     });
     
     // Tentar extrair dados do orçamento se parecer que está completo
@@ -719,7 +924,12 @@ serve(async (req) => {
         
         // Extrair dados do orçamento
         extractedData = extrairDadosOrcamento(messages);
-        console.log("Dados extraídos:", JSON.stringify(extractedData));
+        console.log("Dados extraídos:", {
+          produtosCount: extractedData?.produtos?.length || 0,
+          localEntrega: extractedData?.localEntrega || "não especificada",
+          prazo: extractedData?.prazo || "não especificado",
+          formaPagamento: extractedData?.formaPagamento || "não especificada"
+        });
         
         // Verificar se temos dados suficientes
         if (extractedData.produtos.length > 0 && extractedData.localEntrega) {
@@ -738,6 +948,21 @@ serve(async (req) => {
             if (quoteId) {
               console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
               quoteCreated = true;
+              
+              // Verificação redundante - garantir que temos a resposta do agente salva
+              const agentResponseVerificacao = await salvarRespostaDoAgente(
+                supabase,
+                clientId,
+                quoteId,
+                extractedData,
+                messages
+              );
+              
+              if (!agentResponseVerificacao) {
+                console.error("Verificação redundante: falha ao salvar resposta do agente");
+              } else {
+                console.log("Verificação redundante: resposta do agente salva com sucesso");
+              }
             } else {
               console.error("Falha ao criar orçamento no banco de dados");
             }
@@ -745,7 +970,11 @@ serve(async (req) => {
             console.error("Não foi possível obter ou criar ID do cliente");
           }
         } else {
-          console.log("Dados insuficientes para criar orçamento automaticamente");
+          console.log("Dados insuficientes para criar orçamento automaticamente", {
+            temProdutos: extractedData.produtos.length > 0,
+            temLocalEntrega: !!extractedData.localEntrega,
+            produtosCount: extractedData.produtos.length
+          });
         }
       } catch (extractionError) {
         console.error("Erro ao extrair dados e criar orçamento:", extractionError);
@@ -764,7 +993,10 @@ serve(async (req) => {
       status: 200
     });
   } catch (error) {
-    console.error("Erro na função Edge:", error);
+    console.error("Erro na função Edge:", error, {
+      timestamp: new Date().toISOString(),
+      mensagem: error.message || "Erro sem mensagem"
+    });
     return new Response(JSON.stringify({ 
       error: error.message,
       response: "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde."

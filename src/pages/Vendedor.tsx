@@ -5,6 +5,8 @@ import { useVendedorChat } from '@/hooks/useVendedorChat';
 import { VendedorHeader } from '@/components/vendedor/VendedorHeader';
 import { LoadingIndicator } from '@/components/vendedor/LoadingIndicator';
 import { EnviarOrcamentoButton } from '@/components/vendedor/EnviarOrcamentoButton';
+import { useEffect } from 'react';
+import { toast } from 'sonner';
 
 export default function Vendedor() {
   const {
@@ -12,9 +14,28 @@ export default function Vendedor() {
     isLoading,
     isSavingQuote,
     orcamentoConcluido,
+    quoteId,
+    threadId,
     handleSendMessage,
     handleEnviarParaVendedor
   } = useVendedorChat();
+
+  // Monitoramento de status em log para depuração
+  useEffect(() => {
+    console.log("Status do chat de vendas:", {
+      threadId: threadId || 'não iniciado',
+      quoteId: quoteId || 'não criado',
+      isLoading,
+      isSavingQuote,
+      orcamentoConcluido,
+      mensagensCount: messages.length
+    });
+    
+    // Exibir toast quando um orçamento for criado
+    if (quoteId && !orcamentoConcluido) {
+      toast.success(`Orçamento #${quoteId.substring(0, 8)} foi criado, mas ainda não foi finalizado`);
+    }
+  }, [threadId, quoteId, isLoading, isSavingQuote, orcamentoConcluido, messages.length]);
 
   return (
     <Layout>
@@ -38,6 +59,12 @@ export default function Vendedor() {
               isSaving={isSavingQuote}
               orcamentoConcluido={orcamentoConcluido}
             />
+            
+            {quoteId && (
+              <div className="mt-4 text-center text-sm text-gray-600">
+                ID do orçamento: {quoteId.substring(0, 8)}...
+              </div>
+            )}
           </div>
         </div>
       </div>
