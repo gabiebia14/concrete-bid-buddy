@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -851,3 +852,195 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
     prazo,
     formaPagamento
   };
+  
+  return dadosExtraidos;
+}
+
+// Implementação da função principal para a Edge Function
+serve(async (req) => {
+  // Configuração de CORS para preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
+  }
+
+  // Inicialização do cliente Supabase
+  const supabase = getSupabaseAdminClient();
+  
+  // Verificar se o Supabase foi inicializado corretamente
+  if (!supabase) {
+    return new Response(JSON.stringify({
+      error: "Erro na inicialização do cliente Supabase"
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  try {
+    const { message, thread_id, user_email, session_id } = await req.json();
+    
+    console.log("Edge Function: Recebendo mensagem do cliente", {
+      mensagem: message.substring(0, 50) + "...",
+      thread_id: thread_id || "novo thread",
+      user_email: user_email || "anônimo",
+      session_id: session_id || "não fornecido",
+      timestamp: new Date().toISOString()
+    });
+
+    // Criar um novo thread se não for fornecido
+    let threadId = thread_id;
+    if (!threadId) {
+      console.log("Edge Function: Criando nova thread");
+      const thread = await createThread();
+      threadId = thread.id;
+      console.log("Edge Function: Nova thread criada:", threadId);
+    } else {
+      console.log("Edge Function: Usando thread existente:", threadId);
+    }
+
+    // Adicionar a mensagem ao thread
+    await addMessageToThread(threadId, message);
+
+    // Executar o thread com o assistente
+    const run = await runThread(threadId);
+    
+    // Aguardar a conclusão da execução
+    await processRunUntilComplete(threadId, run.id);
+    
+    // Obter as mensagens da thread
+    const messagesResponse = await getMessages(threadId);
+    
+    // Formato esperado pela API OpenAI: Array<{role: string, content: Array<{type: string, text: {value: string}}>}>
+    const formattedMessages = messagesResponse.data.map(msg => {
+      // Extrair texto das mensagens
+      const textContent = Array.isArray(msg.content) ? 
+        msg.content
+          .filter(c => c.type === 'text')
+          .map(c => c.text?.value || '')
+          .join('\n') : '';
+          
+      return {
+        role: msg.role,
+        content: textContent,
+        timestamp: new Date(msg.created_at * 1000).toISOString()
+      };
+    });
+
+    // Obter a resposta mais recente do assistente (a última mensagem na thread)
+    const latestAssistantMessage = formattedMessages.filter(m => m.role === 'assistant')[0];
+    
+    // Salvar a mensagem do assistente na tabela conversations
+    if (latestAssistantMessage) {
+      // Tentar obter o ID do usuário a partir do email
+      const { data: userData } = await supabase
+        .from('auth')
+        .select('id')
+        .eq('email', user_email)
+        .maybeSingle();
+        
+      const userId = userData?.id || null;
+    
+      console.log("Edge Function: Salvando mensagem do assistente", {
+        thread_id: threadId,
+        session_id: session_id || "não fornecido",
+        user_id: userId || "não identificado"
+      });
+      
+      await salvarMensagemConversa(
+        supabase,
+        latestAssistantMessage.content,
+        "assistant",
+        session_id || uuidv4(),
+        threadId,
+        user_email,
+        null, // phone não disponível
+        userId,
+        null,  // quote_id não disponível
+        {
+          source: "edge_function",
+          model: "openai_assistant"
+        }
+      );
+    }
+    
+    // Extrair dados de orçamento das mensagens
+    const dadosOrcamento = extrairDadosOrcamento(formattedMessages);
+    
+    // Verificar se temos produtos e local de entrega (mínimo para um orçamento)
+    let quoteId = null;
+    
+    if (dadosOrcamento.produtos.length > 0 && dadosOrcamento.localEntrega) {
+      console.log("Edge Function: Produtos e local de entrega encontrados, verificando se deve criar orçamento");
+      
+      // Verificar se a última mensagem do usuário é uma confirmação
+      const mensagensInvertidas = [...formattedMessages].reverse();
+      const ultimaMensagemUsuario = mensagensInvertidas.find(m => m.role === 'user');
+      const penultimaMensagem = mensagensInvertidas[mensagensInvertidas.indexOf(ultimaMensagemUsuario) + 1];
+      
+      const palavrasConfirmacao = [
+        'sim', 'confirmo', 'confirmado', 'pode confirmar', 'está correto', 'esta correto', 
+        'só isso', 'apenas isso', 'nada mais'
+      ];
+      
+      const usuarioConfirmou = ultimaMensagemUsuario && 
+        palavrasConfirmacao.some(palavra => ultimaMensagemUsuario.content.toLowerCase().includes(palavra));
+      
+      const assistentePediuConfirmacao = penultimaMensagem && 
+        penultimaMensagem.role === 'assistant' && 
+        (penultimaMensagem.content.toLowerCase().includes('confirmar') || 
+         penultimaMensagem.content.toLowerCase().includes('posso confirmar'));
+      
+      if (usuarioConfirmou && assistentePediuConfirmacao) {
+        console.log("Edge Function: Confirmação detectada, criando orçamento");
+        
+        // Obter ou criar cliente
+        if (user_email) {
+          const clientId = await getOrCreateClient(supabase, user_email);
+          
+          if (clientId) {
+            // Criar orçamento
+            quoteId = await createQuoteInDatabase(
+              supabase, 
+              clientId, 
+              dadosOrcamento, 
+              formattedMessages,
+              session_id
+            );
+            
+            if (quoteId) {
+              console.log("Edge Function: Orçamento criado com sucesso, ID:", quoteId);
+            }
+          }
+        }
+      } else {
+        console.log("Edge Function: Sem confirmação específica, não criando orçamento ainda", {
+          usuarioConfirmou,
+          assistentePediuConfirmacao,
+          ultimaMensagemUsuario: ultimaMensagemUsuario?.content.substring(0, 30) + "..."
+        });
+      }
+    }
+
+    // Retornar a resposta
+    return new Response(JSON.stringify({
+      thread_id: threadId,
+      response: latestAssistantMessage?.content || "Desculpe, não consegui processar sua mensagem.",
+      quote_id: quoteId
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error("Edge Function: Erro ao processar mensagem:", error);
+    
+    return new Response(JSON.stringify({
+      error: error.message || "Ocorreu um erro ao processar sua mensagem"
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

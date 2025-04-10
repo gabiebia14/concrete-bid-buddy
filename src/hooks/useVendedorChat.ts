@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -816,4 +817,137 @@ export function useVendedorChat() {
       });
       
       return temProdutos && 
-             temLocalEntre
+             temLocalEntrega && 
+             (temPrazo || temPagamento) &&
+             assistentePediuConfirmacao && 
+             clienteConfirmou;
+    } catch (error) {
+      console.error("Erro ao verificar se orçamento está completo:", error);
+      return false;
+    }
+  };
+
+  // Função para enviar mensagem ao assistente
+  const handleSendMessage = async (messageContent: string): Promise<string> => {
+    console.log("Enviando mensagem para o assistente:", messageContent.substring(0, 50) + "...");
+    
+    try {
+      setIsLoading(true);
+      
+      // Adicionar a mensagem do usuário ao estado
+      const userMessage: ChatMessageProps = {
+        content: messageContent,
+        role: 'user',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      
+      // Salvar mensagem do usuário no banco de dados
+      salvarMensagemConversa(
+        userMessage,
+        sessionId,
+        threadId,
+        user?.email || null,
+        null, // phone não disponível inicialmente
+        user?.id || null,
+        quoteId
+      ).catch(error => console.error("Erro ao salvar mensagem do usuário:", error));
+
+      // Chamar a Edge Function para processar a mensagem
+      const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
+        body: {
+          message: messageContent,
+          thread_id: threadId || null,
+          user_email: user?.email || null
+        }
+      });
+
+      if (error) {
+        console.error("Erro ao invocar Edge Function:", error);
+        throw new Error("Erro ao processar mensagem");
+      }
+      
+      console.log("Resposta da Edge Function:", data);
+      
+      if (data && data.response) {
+        // Se for a primeira interação, armazenar o thread_id
+        if (data.thread_id && !threadId) {
+          console.log("Definindo thread_id:", data.thread_id);
+          setThreadId(data.thread_id);
+        }
+        
+        // Se um orçamento foi criado pela Edge Function
+        if (data.quote_id && !quoteId) {
+          console.log("Orçamento criado pela Edge Function, ID:", data.quote_id);
+          setQuoteId(data.quote_id);
+        }
+        
+        // Criar mensagem do assistente
+        const assistantMessage: ChatMessageProps = {
+          content: data.response,
+          role: 'assistant',
+          timestamp: new Date()
+        };
+        
+        // Salvar mensagem do assistente no banco de dados
+        salvarMensagemConversa(
+          assistantMessage,
+          sessionId,
+          data.thread_id || threadId,
+          user?.email || null,
+          null,
+          user?.id || null,
+          data.quote_id || quoteId
+        ).catch(error => console.error("Erro ao salvar mensagem do assistente:", error));
+        
+        // Verificar se o orçamento está completo após receber resposta do assistente
+        if (!orcamentoConcluido && !quoteId && data.response) {
+          const mensagensAtualizadas = [...messages, userMessage, assistantMessage];
+          const isCompleto = verificarOrcamentoCompleto(mensagensAtualizadas);
+          
+          if (isCompleto) {
+            console.log("Orçamento detectado como completo, criando...");
+            setTimeout(() => {
+              handleEnviarParaVendedor();
+            }, 1000);
+          }
+        }
+        
+        return data.response;
+      }
+      
+      throw new Error("Resposta inválida do servidor");
+    } catch (error) {
+      console.error("Erro ao processar mensagem:", error);
+      
+      // Resposta de fallback em caso de erro
+      const errorMessage = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente em alguns instantes.";
+      
+      // Adicionar mensagem de erro do assistente ao estado (opcional)
+      /* 
+      setMessages(prev => [...prev, {
+        content: errorMessage,
+        role: 'assistant',
+        timestamp: new Date()
+      }]);
+      */
+      
+      return errorMessage;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    messages,
+    isLoading,
+    isSavingQuote,
+    orcamentoConcluido,
+    quoteId,
+    threadId,
+    sessionId,
+    handleSendMessage,
+    handleEnviarParaVendedor
+  };
+}
