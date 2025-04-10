@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -110,6 +109,55 @@ async function salvarRespostaDoAgente(
   }
 }
 
+// Nova função para salvar uma única mensagem na tabela conversations
+async function salvarMensagemConversa(
+  message: ChatMessageProps,
+  sessionId: string,
+  threadId: string | null,
+  userEmail: string | null,
+  userPhone: string | null,
+  userId: string | null,
+  quoteId: string | null
+): Promise<boolean> {
+  try {
+    console.log("Salvando mensagem na tabela conversations:", {
+      role: message.role,
+      conteúdo: message.content.substring(0, 50) + "...",
+      sessionId,
+      threadId
+    });
+    
+    const { error } = await supabase
+      .from('conversations')
+      .insert({
+        user_id: userId,
+        user_email: userEmail,
+        user_phone: userPhone,
+        session_id: sessionId,
+        message_content: message.content,
+        role: message.role,
+        timestamp: message.timestamp?.toISOString() || new Date().toISOString(),
+        metadata: {
+          device: navigator.userAgent,
+          language: navigator.language
+        },
+        thread_id: threadId,
+        related_quote_id: quoteId
+      });
+
+    if (error) {
+      console.error("Erro ao salvar mensagem na tabela conversations:", error);
+      return false;
+    }
+    
+    console.log("Mensagem salva com sucesso na tabela conversations");
+    return true;
+  } catch (error) {
+    console.error("Exceção ao salvar mensagem na tabela conversations:", error);
+    return false;
+  }
+}
+
 export function useVendedorChat() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -118,6 +166,7 @@ export function useVendedorChat() {
   const [orcamentoConcluido, setOrcamentoConcluido] = useState(false);
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [sessionId] = useState<string>(() => uuidv4());  // Gerar um ID de sessão único para esta conversa
   const [messages, setMessages] = useState<ChatMessageProps[]>([
     {
       content: `Olá${user ? ', ' + user.email : ''}! Sou o assistente virtual especializado em vendas da IPT Teixeira, com amplo conhecimento sobre nossa linha de produtos de concreto. Como posso ajudar você hoje?`,
@@ -125,6 +174,22 @@ export function useVendedorChat() {
       timestamp: new Date()
     }
   ]);
+
+  // Salvar a mensagem inicial do assistente quando o componente montar
+  useEffect(() => {
+    if (messages.length > 0 && messages[0].role === "assistant") {
+      salvarMensagemConversa(
+        messages[0],
+        sessionId,
+        threadId,
+        user?.email || null,
+        null, // phone não disponível imediatamente
+        user?.id || null,
+        quoteId
+      ).catch(error => console.error("Erro ao salvar mensagem inicial:", error));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const extrairDadosOrcamento = (mensagens: ChatMessageProps[]): ExtractedQuoteData => {
     console.log("Iniciando extrairDadosOrcamento no cliente", { 
@@ -751,288 +816,4 @@ export function useVendedorChat() {
       });
       
       return temProdutos && 
-             temLocalEntrega && 
-             (temPrazo || temPagamento) && 
-             assistentePediuConfirmacao && 
-             clienteConfirmou;
-    } catch (error) {
-      console.error("Erro ao verificar se orçamento está completo:", error);
-      return false;
-    }
-  };
-
-  const handleSendMessage = async (message: string): Promise<string> => {
-    setIsLoading(true);
-    console.log("Enviando mensagem para o assistente:", message.substring(0, 50) + "...");
-    
-    try {
-      const userContext = user ? {
-        email: user.email,
-        name: user.email?.split('@')[0],
-        isManager: user.isManager
-      } : { 
-        email: null, 
-        name: null,
-        isManager: false
-      };
-      
-      console.log("Contexto do usuário:", {
-        email: userContext.email || "não logado",
-        isManager: userContext.isManager
-      });
-      
-      const updatedMessages = [...messages, {
-        content: message,
-        role: 'user' as 'user' | 'assistant',
-        timestamp: new Date()
-      }];
-      
-      setMessages(updatedMessages);
-      
-      const isConfirmationMessage = message.toLowerCase().includes('sim') || 
-                                   message.toLowerCase().includes('confirmo');
-      
-      const shouldCheckCompletion = isConfirmationMessage && verificarOrcamentoCompleto(updatedMessages);
-      
-      try {
-        // Usar a edge function OpenAI
-        console.log("Chamando edge function vendedor-openai-assistant", {
-          threadId: threadId || "nova thread",
-          mensagensCount: updatedMessages.length
-        });
-        
-        // Primeira tentativa de chamar a função
-        const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
-          body: { 
-            messages: updatedMessages.map(msg => ({
-              content: msg.content || '',
-              role: msg.role || 'user',
-              timestamp: msg.timestamp ?? new Date().toISOString()
-            })),
-            userContext,
-            threadId // Enviar o threadId existente, se houver
-          }
-        });
-        
-        if (error) {
-          console.error("Erro ao chamar o assistente:", error);
-          throw new Error(error.message);
-        }
-        
-        console.log("Resposta do assistente recebida", {
-          threadId: data.threadId || "não retornado",
-          quoteCreated: data.quoteCreated || false,
-          quoteId: data.quoteId || "não criado",
-          extractedDataPresente: !!data.extractedData,
-          responseLength: data.response?.length || 0
-        });
-        
-        // Salvar o threadId retornado para uso futuro
-        if (data.threadId) {
-          setThreadId(data.threadId);
-        }
-        
-        if (data.quoteCreated && data.quoteId) {
-          console.log("Orçamento criado automaticamente pela edge function, ID:", data.quoteId);
-          setQuoteId(data.quoteId);
-          setOrcamentoConcluido(true);
-
-          if (data.extractedData && user) {
-            console.log("Tentando salvar resposta do agente no cliente após criação automática");
-            let client_id: string | null = null;
-            
-            const { data: clienteExistente } = await supabase
-              .from('clients')
-              .select('id')
-              .eq('email', user.email || '')
-              .maybeSingle();
-              
-            if (clienteExistente && clienteExistente.id) {
-              client_id = clienteExistente.id;
-              console.log("ID do cliente encontrado para agent_responses:", client_id);
-              
-              // Tentativa de salvar resposta do agente
-              const resultado = await salvarRespostaDoAgente(
-                client_id,
-                data.quoteId,
-                data.extractedData,
-                updatedMessages
-              );
-                
-              if (!resultado) {
-                // Segunda tentativa
-                console.error("Falha na primeira tentativa de salvar resposta do agente após criação automática, tentando novamente");
-                
-                const resultadoRetry = await salvarRespostaDoAgente(
-                  client_id,
-                  data.quoteId,
-                  data.extractedData,
-                  updatedMessages
-                );
-                
-                if (!resultadoRetry) {
-                  console.error("Erro persistente ao salvar resposta do agente após criação automática de orçamento");
-                } else {
-                  console.log("Resposta do agente salva com sucesso na segunda tentativa após criação automática");
-                }
-              } else {
-                console.log("Resposta do agente salva com sucesso após criação automática");
-              }
-            } else {
-              console.error("Cliente não encontrado para salvar agent_responses", {
-                email: user?.email
-              });
-            }
-          } else {
-            console.error("Dados insuficientes para salvar agent_responses", {
-              extractedData: !!data.extractedData,
-              user: !!user
-            });
-          }
-          
-          toast.success("Orçamento criado com sucesso! Em breve entraremos em contato.");
-          
-          setTimeout(() => {
-            navigate('/historico-orcamentos');
-          }, 3000);
-        }
-        
-        const assistantResponse = data.response || "Desculpe, não consegui processar sua solicitação.";
-        
-        const assistantMessage: ChatMessageProps = {
-          content: assistantResponse,
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        
-        const finalMessages = [...updatedMessages, assistantMessage];
-        setMessages(finalMessages);
-        
-        if (!data.quoteCreated && !shouldCheckCompletion && verificarOrcamentoCompleto(finalMessages)) {
-          console.log("Orçamento completo detectado após resposta do assistente");
-          setTimeout(() => {
-            handleEnviarParaVendedor();
-          }, 1000);
-        }
-        
-        return assistantResponse;
-      } catch (apiError) {
-        console.error("Erro ao chamar API do assistente:", apiError);
-        
-        if (isConfirmationMessage) {
-          console.log("Erro na API, mas detectada mensagem de confirmação");
-          
-          const dadosOrcamento = extrairDadosOrcamento(updatedMessages);
-          const temDadosSuficientes = 
-            dadosOrcamento.produtos.length > 0 && 
-            !!dadosOrcamento.localEntrega &&
-            (!!dadosOrcamento.prazo || !!dadosOrcamento.formaPagamento);
-          
-          if (temDadosSuficientes) {
-            console.log("Erro na API, mas dados suficientes para tentar processar o orçamento");
-            
-            const fallbackResponse = "Entendi seu pedido. Estamos processando seu orçamento com os dados fornecidos.";
-            
-            const assistantMessage: ChatMessageProps = {
-              content: fallbackResponse,
-              role: 'assistant',
-              timestamp: new Date()
-            };
-            
-            setMessages(prev => [...prev, assistantMessage]);
-            
-            // Tentar processar o orçamento após delay
-            setTimeout(() => {
-              handleEnviarParaVendedor();
-            }, 800);
-            
-            return fallbackResponse;
-          }
-        }
-        
-        // Tentar chamar a função novamente após erro
-        try {
-          console.log("Tentando chamar a edge function novamente após erro");
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Segunda tentativa de chamar a função
-          const { data: dataRetry, error: errorRetry } = await supabase.functions.invoke('vendedor-openai-assistant', {
-            body: { 
-              messages: updatedMessages.map(msg => ({
-                content: msg.content || '',
-                role: msg.role || 'user',
-                timestamp: msg.timestamp ?? new Date().toISOString()
-              })),
-              userContext,
-              threadId // Enviar o threadId existente, se houver
-            }
-          });
-          
-          if (errorRetry) {
-            throw new Error(errorRetry.message);
-          }
-          
-          console.log("Segunda tentativa de chamada da edge function bem-sucedida");
-          
-          const assistantResponse = dataRetry.response || "Entendi seu pedido, mas estou encontrando algumas dificuldades técnicas.";
-          
-          const assistantMessage: ChatMessageProps = {
-            content: assistantResponse,
-            role: 'assistant',
-            timestamp: new Date()
-          };
-          
-          const finalMessages = [...updatedMessages, assistantMessage];
-          setMessages(finalMessages);
-          
-          return assistantResponse;
-        } catch (retryError) {
-          console.error("Erro persistente na chamada da edge function:", retryError);
-          const fallbackErrorResponse = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
-          
-          const errorAssistantMessage: ChatMessageProps = {
-            content: fallbackErrorResponse,
-            role: 'assistant',
-            timestamp: new Date()
-          };
-          
-          setMessages(prev => [...prev, errorAssistantMessage]);
-          return fallbackErrorResponse;
-        }
-      }
-    } catch (error) {
-      console.error("Erro no processamento da mensagem:", error, {
-        timestamp: new Date().toISOString()
-      });
-      
-      if (message.toLowerCase().includes('sim') || message.toLowerCase().includes('confirmo')) {
-        const dadosOrcamento = extrairDadosOrcamento(messages);
-        if (dadosOrcamento.produtos.length > 0 && dadosOrcamento.localEntrega) {
-          console.log("Detectada confirmação em meio a erro. Tentando processar orçamento mesmo assim.");
-          setTimeout(() => {
-            handleEnviarParaVendedor();
-          }, 800);
-          
-          return "Pedido registrado. Nossa equipe entrará em contato em breve com o orçamento detalhado. Obrigado pela preferência!";
-        }
-      }
-      
-      return "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente ou solicite contato com um vendedor humano.";
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return {
-    messages,
-    isLoading,
-    isSavingQuote,
-    orcamentoConcluido,
-    setOrcamentoConcluido,
-    handleSendMessage,
-    handleEnviarParaVendedor,
-    verificarOrcamentoCompleto,
-    quoteId,
-    threadId
-  };
-}
+             temLocalEntre

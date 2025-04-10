@@ -16,6 +16,7 @@ export default function Vendedor() {
     orcamentoConcluido,
     quoteId,
     threadId,
+    sessionId,
     handleSendMessage,
     handleEnviarParaVendedor
   } = useVendedorChat();
@@ -23,6 +24,7 @@ export default function Vendedor() {
   // Monitoramento de status em log para depuração
   useEffect(() => {
     console.log("Status do chat de vendas:", {
+      sessionId: sessionId || 'não inicializado',
       threadId: threadId || 'não iniciado',
       quoteId: quoteId || 'não criado',
       isLoading,
@@ -38,7 +40,7 @@ export default function Vendedor() {
         id: `quote-created-${quoteId}` // Evita toasts duplicados para o mesmo orçamento
       });
     }
-  }, [threadId, quoteId, isLoading, isSavingQuote, orcamentoConcluido, messages.length]);
+  }, [threadId, quoteId, isLoading, isSavingQuote, orcamentoConcluido, messages.length, sessionId]);
 
   // Função para lidar com o envio do orçamento com dados adicionais
   const handleEnviarOrcamento = async () => {
@@ -64,6 +66,7 @@ export default function Vendedor() {
               initialMessages={messages}
               onSendMessage={handleSendMessage}
               onConfirmOrder={handleEnviarOrcamento}
+              sessionId={sessionId}
             />
             
             <LoadingIndicator isLoading={isLoading} />

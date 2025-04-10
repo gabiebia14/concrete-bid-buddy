@@ -16,6 +16,7 @@ export interface ChatInterfaceProps {
   showReset?: boolean;
   onSendMessage?: (message: string) => Promise<string>;
   onConfirmOrder?: () => void;
+  sessionId?: string; // Adicionado para identificar a sessão
 }
 
 // Mensagens iniciais do assistente
@@ -33,7 +34,8 @@ export function ChatInterface({
   initialMessages = defaultInitialMessages,
   showReset = true,
   onSendMessage,
-  onConfirmOrder
+  onConfirmOrder,
+  sessionId
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageProps[]>(initialMessages);
   const [input, setInput] = useState('');
@@ -81,7 +83,7 @@ export function ChatInterface({
   const handleSendMessage = async () => {
     if (!input.trim()) return;
     
-    console.log("Enviando mensagem:", input);
+    console.log("Enviando mensagem:", input, sessionId ? `(Sessão: ${sessionId})` : '');
     
     // Adicionar mensagem do usuário
     const userMessage: ChatMessageProps = {
@@ -185,6 +187,11 @@ export function ChatInterface({
         </div>
         {description && (
           <CardDescription>{description}</CardDescription>
+        )}
+        {sessionId && (
+          <div className="text-xs text-gray-500">
+            ID da sessão: {sessionId.substring(0, 8)}
+          </div>
         )}
       </CardHeader>
       <CardContent className="px-4">

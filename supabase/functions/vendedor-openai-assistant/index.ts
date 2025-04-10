@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -127,6 +126,63 @@ function getSupabaseAdminClient(): SupabaseClient | null {
       persistSession: false
     }
   });
+}
+
+// Nova função para salvar uma única mensagem na tabela conversations
+async function salvarMensagemConversa(
+  supabase: SupabaseClient,
+  content: string,
+  role: "user" | "assistant",
+  sessionId: string,
+  threadId: string | null,
+  userEmail: string | null,
+  userPhone: string | null,
+  userId: string | null,
+  quoteId: string | null,
+  metadata: Record<string, any> = {}
+): Promise<boolean> {
+  if (!supabase) {
+    console.error("Cliente Supabase não inicializado");
+    return false;
+  }
+
+  try {
+    console.log("Edge Function: Salvando mensagem na tabela conversations:", {
+      role,
+      conteudoInicio: content.substring(0, 30) + "...",
+      sessionId,
+      threadId: threadId || "não definido"
+    });
+    
+    const { error } = await supabase
+      .from('conversations')
+      .insert({
+        user_id: userId,
+        user_email: userEmail,
+        user_phone: userPhone,
+        session_id: sessionId || uuidv4(), // Se não fornecido, gera um novo
+        message_content: content,
+        role: role,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          ...metadata,
+          source: "edge_function"
+        },
+        thread_id: threadId,
+        related_quote_id: quoteId
+      });
+
+    if (error) {
+      console.error("Edge Function: Erro ao salvar mensagem na tabela conversations:", error);
+      return false;
+    }
+    
+    console.log("Edge Function: Mensagem salva com sucesso na tabela conversations");
+    return true;
+  } catch (error) {
+    console.error("Edge Function: Exceção ao salvar mensagem na tabela conversations:", error);
+    return false;
+  }
 }
 
 // Função para salvar resposta do agente de forma isolada e mais robusta
@@ -284,7 +340,8 @@ async function createQuoteInDatabase(
   supabase: SupabaseClient, 
   clientId: string, 
   quoteData: DadosOrcamento,
-  messages: any[]
+  messages: any[],
+  sessionId: string | null
 ): Promise<string | null> {
   console.log("Iniciando createQuoteInDatabase", { timestamp: new Date().toISOString() });
   
@@ -324,6 +381,7 @@ async function createQuoteInDatabase(
         role: m.role || 'user',
         timestamp: m.timestamp ?? new Date().toISOString()
       })) : [],
+      session_id: sessionId, // Armazena o ID da sessão
       total_value: 0 // Será atualizado pelo setor de vendas
     };
 
@@ -332,7 +390,8 @@ async function createQuoteInDatabase(
       itensCount: items.length,
       localEntrega: quoteData.localEntrega,
       temPrazo: !!quoteData.prazo,
-      temFormaPagamento: !!quoteData.formaPagamento
+      temFormaPagamento: !!quoteData.formaPagamento,
+      sessionId: sessionId || "não fornecido"
     });
 
     const { data: quote, error } = await supabase
@@ -792,217 +851,3 @@ function extrairDadosOrcamento(mensagens: any[]): DadosOrcamento {
     prazo,
     formaPagamento
   };
-  
-  console.log("Dados extraídos completos:", {
-    produtosCount: dadosExtraidos.produtos.length,
-    localEntrega: dadosExtraidos.localEntrega,
-    prazo: dadosExtraidos.prazo,
-    formaPagamento: dadosExtraidos.formaPagamento
-  });
-  
-  return dadosExtraidos;
-}
-
-// Handler principal
-serve(async (req) => {
-  console.log("Nova requisição recebida", { 
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    url: req.url
-  });
-  
-  // Lidar com requisições preflight de CORS
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  // Inicializa cliente Supabase
-  const supabase = getSupabaseAdminClient();
-  if (!supabase) {
-    return new Response(JSON.stringify({ 
-      error: "Configuração do Supabase incompleta no servidor.",
-      response: "Desculpe, ocorreu um erro interno. Por favor, tente novamente mais tarde."
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
-    });
-  }
-
-  try {
-    const { messages, userContext, threadId: existingThreadId } = await req.json();
-    const userEmail = userContext?.email;
-    const userName = userContext?.name;
-    
-    console.log("Contexto da requisição:", {
-      threadExistente: !!existingThreadId, 
-      userEmail: userEmail || "não fornecido",
-      userName: userName || "não fornecido",
-      mensagensCount: Array.isArray(messages) ? messages.length : 0,
-      ultimaMensagem: Array.isArray(messages) && messages.length > 0 
-        ? messages[messages.length - 1]?.content?.substring(0, 50) + "..." 
-        : "nenhuma"
-    });
-    
-    // Criar thread se não existir ou usar a existente
-    let threadId = existingThreadId;
-    if (!threadId) {
-      console.log("Criando nova thread...");
-      const thread = await createThread();
-      threadId = thread.id;
-      console.log("Nova thread criada:", threadId);
-      
-      // Adicionar mensagens iniciais do histórico à thread
-      for (const msg of messages.slice(0, -1)) {
-        await addMessageToThread(threadId, msg.content, msg.role === 'assistant' ? 'assistant' : 'user');
-      }
-    }
-    
-    // Adicionar a última mensagem do usuário à thread
-    const lastMessage = messages[messages.length - 1];
-    await addMessageToThread(threadId, lastMessage.content);
-    
-    // Executar a thread com o assistente
-    const run = await runThread(threadId);
-    
-    // Aguardar conclusão da execução
-    await processRunUntilComplete(threadId, run.id);
-    
-    // Obter as mensagens atualizadas da thread
-    const messagesResponse = await getMessages(threadId);
-    
-    // A resposta mais recente do assistente é a primeira da lista (ordem decrescente)
-    const assistantResponse = messagesResponse.data.find(msg => msg.role === 'assistant');
-    
-    if (!assistantResponse) {
-      throw new Error("Nenhuma resposta do assistente encontrada");
-    }
-    
-    // Extrai o conteúdo da resposta do assistente
-    const responseContent = assistantResponse.content
-      .filter(content => content.type === 'text')
-      .map(content => content.text?.value || '')
-      .join(' ');
-    
-    // Verificar se a resposta indica que o orçamento está completo
-    const isOrçamentoCompleto = 
-      responseContent.toLowerCase().includes("orçamento registrado") || 
-      responseContent.toLowerCase().includes("orçamento foi registrado") ||
-      responseContent.toLowerCase().includes("pedido confirmado") ||
-      (responseContent.toLowerCase().includes("confirmado") && 
-       responseContent.toLowerCase().includes("encaminh"));
-    
-    // Verificar padrões específicos na conversa que indicam conclusão de orçamento
-    const ultimasMensagens = messages.slice(-3).map(msg => msg.content.toLowerCase());
-    const assistentePediuConfirmacao = ultimasMensagens.some(msg => 
-      msg.includes("confirmar") && 
-      msg.includes("orçamento") || 
-      msg.includes("confirma") && 
-      msg.includes("pedido")
-    );
-    
-    const clienteConfirmou = lastMessage.role === 'user' && 
-      (lastMessage.content.toLowerCase().includes("sim") || 
-       lastMessage.content.toLowerCase().includes("confirmo") || 
-       lastMessage.content.toLowerCase().includes("pode") && 
-       lastMessage.content.toLowerCase().includes("confirmar"));
-    
-    console.log("Verificação de orçamento completo:", {
-      isOrçamentoCompleto,
-      assistentePediuConfirmacao,
-      clienteConfirmou,
-      ultimasMensagemTexto: ultimasMensagens.join(" | ").substring(0, 100) + "..."
-    });
-    
-    // Tentar extrair dados do orçamento se parecer que está completo
-    let quoteCreated = false;
-    let quoteId = null;
-    let extractedData = null;
-    
-    if ((isOrçamentoCompleto || (assistentePediuConfirmacao && clienteConfirmou)) && userEmail) {
-      try {
-        console.log("Tentando extrair dados e criar orçamento...");
-        
-        // Extrair dados do orçamento
-        extractedData = extrairDadosOrcamento(messages);
-        console.log("Dados extraídos:", {
-          produtosCount: extractedData?.produtos?.length || 0,
-          localEntrega: extractedData?.localEntrega || "não especificada",
-          prazo: extractedData?.prazo || "não especificado",
-          formaPagamento: extractedData?.formaPagamento || "não especificada"
-        });
-        
-        // Verificar se temos dados suficientes
-        if (extractedData.produtos.length > 0 && extractedData.localEntrega) {
-          // Buscar ou criar cliente
-          const clientId = await getOrCreateClient(supabase, userEmail, userName);
-          
-          if (clientId) {
-            // Criar orçamento no banco de dados
-            quoteId = await createQuoteInDatabase(
-              supabase, 
-              clientId, 
-              extractedData,
-              messages
-            );
-            
-            if (quoteId) {
-              console.log("Orçamento criado com sucesso no banco de dados, ID:", quoteId);
-              quoteCreated = true;
-              
-              // Verificação redundante - garantir que temos a resposta do agente salva
-              const agentResponseVerificacao = await salvarRespostaDoAgente(
-                supabase,
-                clientId,
-                quoteId,
-                extractedData,
-                messages
-              );
-              
-              if (!agentResponseVerificacao) {
-                console.error("Verificação redundante: falha ao salvar resposta do agente");
-              } else {
-                console.log("Verificação redundante: resposta do agente salva com sucesso");
-              }
-            } else {
-              console.error("Falha ao criar orçamento no banco de dados");
-            }
-          } else {
-            console.error("Não foi possível obter ou criar ID do cliente");
-          }
-        } else {
-          console.log("Dados insuficientes para criar orçamento automaticamente", {
-            temProdutos: extractedData.produtos.length > 0,
-            temLocalEntrega: !!extractedData.localEntrega,
-            produtosCount: extractedData.produtos.length
-          });
-        }
-      } catch (extractionError) {
-        console.error("Erro ao extrair dados e criar orçamento:", extractionError);
-      }
-    }
-    
-    // Retorna resposta
-    return new Response(JSON.stringify({ 
-      response: responseContent,
-      threadId,
-      quoteCreated,
-      quoteId,
-      extractedData
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
-  } catch (error) {
-    console.error("Erro na função Edge:", error, {
-      timestamp: new Date().toISOString(),
-      mensagem: error.message || "Erro sem mensagem"
-    });
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      response: "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde."
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
-    });
-  }
-});
