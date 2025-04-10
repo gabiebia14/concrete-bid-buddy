@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -423,8 +422,11 @@ export function useVendedorChat() {
       }
     }
     
-    // Extração de prazo
+    // Extração de prazo e forma de pagamento
     let prazo = '';
+    let formaPagamento = '';
+    
+    // Extração de prazo
     const prazoRegexPatterns = [
       /(?:prazo|entrega)[:\s]+(?:de)?\s*(\d+)\s*(?:dias|dia)/i,
       /(?:em|até)\s+(\d+)\s*(?:dias|dia)/i,
@@ -442,7 +444,6 @@ export function useVendedorChat() {
     }
     
     // Extração de forma de pagamento
-    let formaPagamento = '';
     if (todasMensagens.includes('à vista') || todasMensagens.includes('a vista')) {
       formaPagamento = 'À vista';
     } else if (todasMensagens.includes('30 60 90') || todasMensagens.includes('30/60/90')) {
@@ -859,7 +860,8 @@ export function useVendedorChat() {
         body: {
           message: messageContent,
           thread_id: threadId || null,
-          user_email: user?.email || null
+          user_email: user?.email || null,
+          session_id: sessionId // Enviar o ID da sessão para a edge function
         }
       });
 
@@ -901,6 +903,9 @@ export function useVendedorChat() {
           data.quote_id || quoteId
         ).catch(error => console.error("Erro ao salvar mensagem do assistente:", error));
         
+        // Atualizar estado com a nova mensagem
+        setMessages(prev => [...prev, assistantMessage]);
+        
         // Verificar se o orçamento está completo após receber resposta do assistente
         if (!orcamentoConcluido && !quoteId && data.response) {
           const mensagensAtualizadas = [...messages, userMessage, assistantMessage];
@@ -923,15 +928,6 @@ export function useVendedorChat() {
       
       // Resposta de fallback em caso de erro
       const errorMessage = "Desculpe, encontrei um problema ao processar sua mensagem. Por favor, tente novamente em alguns instantes.";
-      
-      // Adicionar mensagem de erro do assistente ao estado (opcional)
-      /* 
-      setMessages(prev => [...prev, {
-        content: errorMessage,
-        role: 'assistant',
-        timestamp: new Date()
-      }]);
-      */
       
       return errorMessage;
     } finally {
