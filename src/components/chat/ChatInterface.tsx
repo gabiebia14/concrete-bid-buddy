@@ -6,20 +6,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, RefreshCw } from 'lucide-react';
 import { ChatMessage, ChatMessageProps } from '@/components/chat/ChatMessage';
-import { toast } from 'sonner';
 
-// Definições de tipos para os recursos do chat
 export interface ChatInterfaceProps {
   title?: string;
   description?: string;
   initialMessages?: ChatMessageProps[];
   showReset?: boolean;
   onSendMessage?: (message: string) => Promise<string>;
-  onConfirmOrder?: () => void;
-  sessionId?: string; // Adicionado para identificar a sessão
 }
 
-// Mensagens iniciais do assistente
 const defaultInitialMessages: ChatMessageProps[] = [
   {
     content: "Olá! Sou o assistente virtual da IPT Teixeira. Como posso ajudar com seu orçamento de produtos de concreto hoje?",
@@ -33,148 +28,56 @@ export function ChatInterface({
   description = "Converse com nosso assistente para tirar dúvidas sobre produtos",
   initialMessages = defaultInitialMessages,
   showReset = true,
-  onSendMessage,
-  onConfirmOrder,
-  sessionId
+  onSendMessage
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageProps[]>(initialMessages);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [confirmationAttempted, setConfirmationAttempted] = useState(false);
 
-  // Rolar para o final da conversa quando novas mensagens forem adicionadas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focar no input quando o componente montar
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Verificar se a última mensagem do assistente solicita confirmação
-  useEffect(() => {
-    if (messages.length > 1 && onConfirmOrder && !confirmationAttempted) {
-      const ultimaMensagem = messages[messages.length - 1];
-      const penultimaMensagem = messages[messages.length - 2];
-      
-      // Verificar explicitamente a sequência de confirmação
-      if (
-        ultimaMensagem.role === 'user' && 
-        (ultimaMensagem.content.toLowerCase().includes('sim') || 
-         ultimaMensagem.content.toLowerCase().includes('confirmo')) &&
-        penultimaMensagem.role === 'assistant' && 
-        penultimaMensagem.content.toLowerCase().includes('confirmar')
-      ) {
-        console.log("Confirmação detectada, chamando onConfirmOrder");
-        setConfirmationAttempted(true);
-        
-        // Chamar a função de confirmação do orçamento com um pequeno delay
-        setTimeout(() => {
-          onConfirmOrder();
-        }, 500);
-      }
-    }
-  }, [messages, onConfirmOrder, confirmationAttempted]);
-
-  // Manipulador para envio de mensagem
   const handleSendMessage = async () => {
-    if (!input.trim()) return;
-    
-    console.log("Enviando mensagem:", input, sessionId ? `(Sessão: ${sessionId})` : '');
-    
-    // Adicionar mensagem do usuário
+    if (!input.trim() || !onSendMessage) return;
+
     const userMessage: ChatMessageProps = {
       content: input,
       role: 'user',
       timestamp: new Date()
     };
     
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
-    
+
     try {
-      // Verificar se temos uma função para enviar mensagem
-      if (onSendMessage) {
-        const response = await onSendMessage(input);
-        
-        console.log("Resposta recebida:", response);
-        
-        // Adicionar mensagem do assistente após a resposta
-        const assistantMessage: ChatMessageProps = {
-          content: response,
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        
-        setMessages((prev) => [...prev, assistantMessage]);
-      } else {
-        // Resposta padrão se não houver função para enviar mensagem
-        setTimeout(() => {
-          const assistantMessage: ChatMessageProps = {
-            content: "Desculpe, não consigo processar sua solicitação no momento. Por favor, tente mais tarde.",
-            role: 'assistant',
-            timestamp: new Date()
-          };
-          setMessages((prev) => [...prev, assistantMessage]);
-        }, 1000);
-      }
+      const response = await onSendMessage(input);
+      
+      const assistantMessage: ChatMessageProps = {
+        content: response,
+        role: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
-      
-      // Verificar se a mensagem do usuário é uma confirmação de orçamento
-      const isUserConfirming = 
-        input.toLowerCase().includes('sim') || 
-        input.toLowerCase().includes('confirmo');
-      
-      // Verificar se a penúltima mensagem do assistente pedia confirmação
-      const isPendingConfirmation = messages.length >= 2 && 
-        messages[messages.length - 2].role === 'assistant' && 
-        messages[messages.length - 2].content.toLowerCase().includes('confirmar');
-      
-      if (isUserConfirming && isPendingConfirmation && onConfirmOrder && !confirmationAttempted) {
-        console.log("Confirmação detectada após erro, ainda assim processando orçamento");
-        setConfirmationAttempted(true);
-        
-        // Adicionar mensagem de sucesso
-        const confirmationMessage: ChatMessageProps = {
-          content: "Pedido registrado. Nossa equipe entrará em contato em breve com o orçamento detalhado. Obrigado pela preferência!",
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        
-        setMessages((prev) => [...prev, confirmationMessage]);
-        
-        // Chamar a função de confirmação do orçamento
-        setTimeout(() => {
-          onConfirmOrder();
-        }, 500);
-      } else {
-        // Mensagem genérica de erro para outras situações
-        toast.error("Erro ao obter resposta do assistente");
-        
-        const errorMessage: ChatMessageProps = {
-          content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.",
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        
-        setMessages((prev) => [...prev, errorMessage]);
-      }
     } finally {
       setIsTyping(false);
     }
   };
 
-  // Resetar a conversa
   const handleResetChat = () => {
     setMessages(initialMessages);
     setInput('');
     setIsTyping(false);
-    setConfirmationAttempted(false);
     inputRef.current?.focus();
   };
 
@@ -187,11 +90,6 @@ export function ChatInterface({
         </div>
         {description && (
           <CardDescription>{description}</CardDescription>
-        )}
-        {sessionId && (
-          <div className="text-xs text-gray-500">
-            ID da sessão: {sessionId.substring(0, 8)}
-          </div>
         )}
       </CardHeader>
       <CardContent className="px-4">
