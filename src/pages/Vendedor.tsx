@@ -12,7 +12,8 @@ export default function Vendedor() {
     console.log("Enviando mensagem para N8N webhook:", message);
 
     try {
-      const response = await fetch('http://159.65.216.239:5678/webhook/994ef6b3-4f4b-4e35-a55e-5e65ebc03aed', {
+      // Usando o proxy configurado no vite.config.ts em vez do URL direto
+      const response = await fetch('/api/n8n', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -24,7 +25,7 @@ export default function Vendedor() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro na resposta do webhook');
+        throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
       const data = await response.json();
@@ -49,6 +50,7 @@ export default function Vendedor() {
             description="Nosso assistente especializado está pronto para ajudar com seu orçamento"
             onSendMessage={handleSendMessage}
             showReset={true}
+            isLoading={isLoading}
           />
         </div>
       </div>
