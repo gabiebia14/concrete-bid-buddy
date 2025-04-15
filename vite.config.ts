@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
       '/api/n8n': {
         target: 'https://gbservin8n.sevirenostrinta.com.br',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/n8n/, '/webhook-test'),
+        rewrite: (path) => path.replace(/^\/api\/n8n/, '/webhook/9b4cfbf8-2f4b-4097-af4c-8c20d8054930'),
       }
     }
   }
