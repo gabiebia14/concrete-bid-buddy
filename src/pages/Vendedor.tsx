@@ -12,7 +12,7 @@ export default function Vendedor() {
     console.log("Enviando mensagem para N8N webhook:", message);
 
     try {
-      // Usando o proxy configurado no vite.config.ts em vez do URL direto
+      // Usando o proxy configurado no vite.config.ts
       const response = await fetch('/api/n8n', {
         method: 'POST',
         headers: {
@@ -24,11 +24,14 @@ export default function Vendedor() {
         }),
       });
 
+      console.log("Status da resposta:", response.status);
+      
       if (!response.ok) {
         throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Dados recebidos do webhook:", data);
       return data.response || "Desculpe, não consegui processar sua mensagem.";
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
