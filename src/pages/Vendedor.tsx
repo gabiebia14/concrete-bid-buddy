@@ -1,4 +1,3 @@
-
 import { Layout } from '@/components/layout/Layout';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { useState } from 'react';
@@ -12,12 +11,10 @@ export default function Vendedor() {
     console.log("Enviando mensagem para webhook:", message);
 
     try {
-      // Chamada direta para o webhook sem usar proxy
       const response = await fetch('https://gbservin8n.sevirenostrinta.com.br/webhook/9b4cfbf8-2f4b-4097-af4c-8c20d8054930', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           message,
@@ -31,19 +28,9 @@ export default function Vendedor() {
         throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
-      // Verificar o tipo de conteúdo antes de tentar analisar como JSON
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        console.log("Dados recebidos do webhook:", data);
-        return data.response || "Desculpe, não consegui processar sua mensagem.";
-      } else {
-        // Se não for JSON, tratar como texto
-        const textResponse = await response.text();
-        console.log("Resposta não-JSON do webhook:", textResponse);
-        toast.error("O webhook retornou um formato inesperado.");
-        return "O servidor retornou uma resposta em formato inválido. Por favor, contate o suporte.";
-      }
+      const data = await response.json();
+      console.log("Dados recebidos do webhook:", data);
+      return data.response || "Desculpe, não consegui processar sua mensagem.";
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       toast.error("Erro ao processar mensagem. Tente novamente.");
