@@ -12,7 +12,8 @@ export default function Vendedor() {
     console.log("Enviando mensagem para N8N webhook:", message);
 
     try {
-      const response = await fetch('http://159.65.216.239:5678/webhook/994ef6b3-4f4b-4e35-a55e-5e65ebc03aed', {
+      // Usando o proxy configurado em vite.config.ts em vez do URL direto
+      const response = await fetch('/api/n8n', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
