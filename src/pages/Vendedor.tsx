@@ -23,11 +23,14 @@ export default function Vendedor() {
         }),
       });
 
+      console.log("Status da resposta:", response.status);
+      
       if (!response.ok) {
-        throw new Error('Erro na resposta do webhook');
+        throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Dados recebidos do webhook:", data);
       return data.response || "Desculpe, não consegui processar sua mensagem.";
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -49,6 +52,7 @@ export default function Vendedor() {
             description="Nosso assistente especializado está pronto para ajudar com seu orçamento"
             onSendMessage={handleSendMessage}
             showReset={true}
+            isLoading={isLoading}
           />
         </div>
       </div>

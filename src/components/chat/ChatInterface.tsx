@@ -13,6 +13,7 @@ export interface ChatInterfaceProps {
   initialMessages?: ChatMessageProps[];
   showReset?: boolean;
   onSendMessage?: (message: string) => Promise<string>;
+  isLoading?: boolean;
 }
 
 const defaultInitialMessages: ChatMessageProps[] = [
@@ -28,11 +29,11 @@ export function ChatInterface({
   description = "Converse com nosso assistente para tirar dúvidas sobre produtos",
   initialMessages = defaultInitialMessages,
   showReset = true,
-  onSendMessage
+  onSendMessage,
+  isLoading = false
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageProps[]>(initialMessages);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,7 +46,7 @@ export function ChatInterface({
   }, []);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !onSendMessage) return;
+    if (!input.trim() || !onSendMessage || isLoading) return;
 
     const userMessage: ChatMessageProps = {
       content: input,
@@ -55,7 +56,6 @@ export function ChatInterface({
     
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsTyping(true);
 
     try {
       const response = await onSendMessage(input);
@@ -69,15 +69,12 @@ export function ChatInterface({
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
-    } finally {
-      setIsTyping(false);
     }
   };
 
   const handleResetChat = () => {
     setMessages(initialMessages);
     setInput('');
-    setIsTyping(false);
     inputRef.current?.focus();
   };
 
@@ -102,7 +99,7 @@ export function ChatInterface({
               timestamp={message.timestamp}
             />
           ))}
-          {isTyping && (
+          {isLoading && (
             <div className="flex justify-start mb-4">
               <div className="bg-gray-100 rounded-lg px-4 py-2">
                 <div className="flex space-x-1">
@@ -125,10 +122,12 @@ export function ChatInterface({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             className="rounded-r-none"
+            disabled={isLoading}
           />
           <Button 
             onClick={handleSendMessage} 
             className="rounded-l-none bg-lime-600 hover:bg-lime-700"
+            disabled={isLoading}
           >
             <Send className="h-4 w-4" />
           </Button>
@@ -138,6 +137,7 @@ export function ChatInterface({
             variant="outline" 
             onClick={handleResetChat}
             className="sm:w-auto w-full flex gap-1"
+            disabled={isLoading}
           >
             <RefreshCw className="h-4 w-4" />
             Reiniciar
