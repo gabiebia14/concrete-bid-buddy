@@ -1,34 +1,34 @@
-
 import { Layout } from '@/components/layout/Layout';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 
 export default function Vendedor() {
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
 
   const handleSendMessage = async (message: string): Promise<string> => {
     setIsLoading(true);
     console.log("Enviando mensagem para webhook:", message);
 
     try {
-      const { data, error } = await supabase.functions.invoke('vendedor-openai-assistant', {
-        body: {
+      const response = await fetch('https://gbservin8n.sevirenostrinta.com.br/webhook/9b4cfbf8-2f4b-4097-af4c-8c20d8054930', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           message,
-          user_email: user?.email || null,
-          user_name: user?.full_name || null
-        }
+          timestamp: new Date().toISOString()
+        }),
       });
 
-      if (error) {
-        console.error("Erro na Edge Function:", error);
-        toast.error("Erro ao processar mensagem. Tente novamente.");
-        return "Desculpe, ocorreu um erro ao processar sua mensagem.";
+      console.log("Status da resposta:", response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
+      const data = await response.json();
       console.log("Dados recebidos do webhook:", data);
       return data.response || "Desculpe, não consegui processar sua mensagem.";
     } catch (error) {
