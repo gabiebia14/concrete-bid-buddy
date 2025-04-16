@@ -32,10 +32,18 @@ export function ChatInterface({
   onSendMessage,
   isLoading = false
 }: ChatInterfaceProps) {
+  // Use o initialMessages fornecido ou o padrão
   const [messages, setMessages] = useState<ChatMessageProps[]>(initialMessages);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Atualizar mensagens quando initialMessages mudar
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,33 +55,20 @@ export function ChatInterface({
 
   const handleSendMessage = async () => {
     if (!input.trim() || !onSendMessage || isLoading) return;
-
-    const userMessage: ChatMessageProps = {
-      content: input,
-      role: 'user',
-      timestamp: new Date()
-    };
     
-    setMessages(prev => [...prev, userMessage]);
+    const userInput = input;
     setInput('');
-
+    
     try {
-      const response = await onSendMessage(input);
-      
-      const assistantMessage: ChatMessageProps = {
-        content: response,
-        role: 'assistant',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
+      await onSendMessage(userInput);
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
     }
   };
 
   const handleResetChat = () => {
-    setMessages(initialMessages);
+    // Reset para a mensagem inicial
+    setMessages(initialMessages && initialMessages.length > 0 ? initialMessages : defaultInitialMessages);
     setInput('');
     inputRef.current?.focus();
   };

@@ -18,6 +18,15 @@ export function useVendedorChat() {
   const handleSendMessage = async (messageContent: string): Promise<string> => {
     setIsLoading(true);
     
+    // Adiciona a mensagem do usuário ao estado
+    const userMessage: ChatMessageProps = {
+      content: messageContent,
+      role: 'user',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
@@ -35,10 +44,31 @@ export function useVendedorChat() {
       }
 
       const data = await response.json();
-      return data.response || "Desculpe, não consegui processar sua mensagem.";
+      const assistantResponse = data.response || "Desculpe, não consegui processar sua mensagem.";
+      
+      // Adiciona a resposta do assistente ao estado
+      const assistantMessage: ChatMessageProps = {
+        content: assistantResponse,
+        role: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      return assistantResponse;
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       toast.error("Erro ao processar mensagem. Tente novamente.");
+      
+      // Adiciona uma mensagem de erro do assistente
+      const errorMessage: ChatMessageProps = {
+        content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente mais tarde.",
+        role: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
       return "Desculpe, ocorreu um erro ao processar sua mensagem.";
     } finally {
       setIsLoading(false);
@@ -51,4 +81,3 @@ export function useVendedorChat() {
     handleSendMessage
   };
 }
-
