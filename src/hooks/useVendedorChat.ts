@@ -16,6 +16,8 @@ export function useVendedorChat() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendMessage = async (messageContent: string): Promise<string> => {
+    if (!messageContent.trim()) return '';
+    
     setIsLoading(true);
     
     // Adiciona a mensagem do usuário ao estado
@@ -28,23 +30,34 @@ export function useVendedorChat() {
     setMessages(prev => [...prev, userMessage]);
     
     try {
+      // Simplificando o body para corresponder ao que está funcionando no n8n
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
-          message: messageContent,
-          timestamp: new Date().toISOString()
+          message: messageContent
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Erro na resposta do webhook: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Detalhes do erro:', errorText);
+        throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      const assistantResponse = data.response || "Desculpe, não consegui processar sua mensagem.";
+      console.log('Dados recebidos:', data);
+      
+      // O n8n retorna a resposta no campo output
+      if (!data || !data.output) {
+        console.error('Resposta inválida:', data);
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      const assistantResponse = data.output;
       
       // Adiciona a resposta do assistente ao estado
       const assistantMessage: ChatMessageProps = {
@@ -58,18 +71,21 @@ export function useVendedorChat() {
       return assistantResponse;
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
-      toast.error("Erro ao processar mensagem. Tente novamente.");
       
-      // Adiciona uma mensagem de erro do assistente
-      const errorMessage: ChatMessageProps = {
-        content: "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente mais tarde.",
+      // Mensagem de erro mais amigável
+      const errorMessage = "Desculpe, tive um problema ao processar sua mensagem. Por favor, tente novamente em alguns instantes.";
+      toast.error(errorMessage);
+      
+      // Adiciona a mensagem de erro ao chat
+      const errorChatMessage: ChatMessageProps = {
+        content: errorMessage,
         role: 'assistant',
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorChatMessage]);
       
-      return "Desculpe, ocorreu um erro ao processar sua mensagem.";
+      return errorMessage;
     } finally {
       setIsLoading(false);
     }
