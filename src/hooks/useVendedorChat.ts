@@ -16,9 +16,8 @@ export function useVendedorChat() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendMessage = async (messageContent: string): Promise<string> => {
-    console.log("Enviando mensagem para webhook:", messageContent);
     setIsLoading(true);
-
+    
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
@@ -31,14 +30,11 @@ export function useVendedorChat() {
         })
       });
 
-      console.log("Status da resposta:", response.status);
-      
       if (!response.ok) {
         throw new Error(`Erro na resposta do webhook: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Dados recebidos do webhook:", data);
       return data.response || "Desculpe, não consegui processar sua mensagem.";
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -55,3 +51,4 @@ export function useVendedorChat() {
     handleSendMessage
   };
 }
+
