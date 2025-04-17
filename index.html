@@ -1,19 +1,31 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>concrete-bid-buddy</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-    <meta property="og:image" content="/og-image.png" />
+    <link rel="icon" type="image/svg+xml" href="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#4d7c0f" />
+    <meta name="description" content="IPT Teixeira - Artefatos de Concreto" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" />
+    <title>IPT Teixeira</title>
   </head>
-
   <body>
     <div id="root"></div>
-    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('Service Worker registrado com sucesso:', registration);
+            })
+            .catch(error => {
+              console.log('Falha ao registrar o Service Worker:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
