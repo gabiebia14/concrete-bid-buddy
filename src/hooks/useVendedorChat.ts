@@ -48,17 +48,40 @@ export function useVendedorChat() {
         throw new Error(`Erro na resposta do webhook: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log('Dados recebidos:', data);
+      // Primeiro obtemos o texto da resposta
+      const responseText = await response.text();
+      console.log('Resposta bruta:', responseText);
       
-      // O n8n retorna a resposta no campo output
-      if (!data || !data.output) {
-        console.error('Resposta inválida:', data);
-        throw new Error('Resposta inválida do servidor');
+      let assistantResponse;
+      
+      // Tentamos analisar como JSON
+      try {
+        const data = JSON.parse(responseText);
+        console.log('Dados recebidos (formato JSON):', data);
+        
+        // Checamos se é um objeto com campo output ou se o próprio objeto pode ser usado
+        if (data && data.output) {
+          assistantResponse = data.output;
+        } else if (data && data.response) {
+          assistantResponse = data.response;
+        } else if (typeof data === 'string') {
+          // Se o JSON for apenas uma string
+          assistantResponse = data;
+        } else {
+          // Fallback para o objeto JSON como string
+          assistantResponse = JSON.stringify(data);
+        }
+      } catch (jsonError) {
+        // Se não for um JSON válido, usamos o texto da resposta diretamente
+        console.log('A resposta não é um JSON válido, usando o texto bruto');
+        assistantResponse = responseText;
+      }
+      
+      if (!assistantResponse) {
+        console.error('Resposta inválida ou vazia');
+        throw new Error('Resposta inválida ou vazia do servidor');
       }
 
-      const assistantResponse = data.output;
-      
       // Adiciona a resposta do assistente ao estado
       const assistantMessage: ChatMessageProps = {
         content: assistantResponse,
