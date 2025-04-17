@@ -1,6 +1,6 @@
 
 import { Card, CardContent } from "@/components/ui/card";
-import { LampStanding, PillarOff, Cylinder, Package } from "lucide-react";
+import { Lamp, Cylinder, Package } from "lucide-react";
 
 type CategoryProps = {
   onSelectCategory: (category: string) => void;
@@ -10,11 +10,11 @@ type CategoryProps = {
 const getCategoryIcon = (category: string) => {
   switch (category.toLowerCase()) {
     case 'postes':
-      return <LampStanding className="w-12 h-12" />;
+      return <Lamp className="w-12 h-12" />;
     case 'tubos':
       return <Cylinder className="w-12 h-12" />;
     case 'outros':
-      return <PillarOff className="w-12 h-12" />;
+      return <Cylinder className="w-12 h-12" />;
     default:
       return <Package className="w-12 h-12" />;
   }
