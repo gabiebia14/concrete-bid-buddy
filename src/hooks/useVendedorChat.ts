@@ -19,7 +19,14 @@ export function useVendedorChat() {
 
   // Gerar um ID de sessão único quando o componente for montado pela primeira vez
   useEffect(() => {
-    const newSessionId = `session_${Math.random().toString(36).substring(2, 15)}`;
+    // Usar um ID de sessão existente do localStorage ou gerar um novo
+    const existingSessionId = localStorage.getItem('chat_session_id');
+    const newSessionId = existingSessionId || `session_${Math.random().toString(36).substring(2, 15)}`;
+    
+    if (!existingSessionId) {
+      localStorage.setItem('chat_session_id', newSessionId);
+    }
+    
     setSessionId(newSessionId);
     
     // Restaurar mensagens do localStorage se existirem
@@ -62,18 +69,25 @@ export function useVendedorChat() {
     
     try {
       // Preparar a conversação completa para envio ao webhook
-      const conversationHistory: ChatMessage[] = messages.map(msg => ({
+      // Converte para formato simples para serialização JSON
+      const conversationHistory = messages.map(msg => ({
         content: msg.content,
-        role: msg.role as 'user' | 'assistant',
-        timestamp: msg.timestamp
+        role: msg.role,
+        timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString()
       }));
       
-      // Adicionar a mensagem atual à conversação
+      // Adicionar a mensagem atual à conversação no formato simples
       conversationHistory.push({
         content: messageContent,
         role: 'user',
-        timestamp: new Date()
+        timestamp: new Date().toISOString()
       });
+      
+      console.log('Enviando conversa para webhook:', JSON.stringify({
+        message: messageContent,
+        sessionId: sessionId,
+        conversation: conversationHistory
+      }, null, 2));
       
       // Enviar a conversação completa para o webhook
       const response = await fetch(N8N_WEBHOOK_URL, {
@@ -164,6 +178,18 @@ export function useVendedorChat() {
   return {
     messages,
     isLoading,
-    handleSendMessage
+    handleSendMessage,
+    clearSession: () => {
+      if (sessionId) {
+        localStorage.removeItem(`chat_history_${sessionId}`);
+        localStorage.removeItem('chat_session_id');
+        setSessionId(`session_${Math.random().toString(36).substring(2, 15)}`);
+        setMessages([{
+          content: "Olá! Sou o assistente virtual da IPT Teixeira. Como posso ajudar com seu orçamento de produtos de concreto hoje?",
+          role: "assistant",
+          timestamp: new Date()
+        }]);
+      }
+    }
   };
 }
