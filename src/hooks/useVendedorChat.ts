@@ -1,7 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChatMessageProps } from '@/components/chat/ChatMessage';
 import { toast } from 'sonner';
+import { ChatMessage } from '@/lib/vendedorTypes';
 
 const N8N_WEBHOOK_URL = 'https://gbservin8n.sevirenostrinta.com.br/webhook/9b4cfbf8-2f4b-4097-af4c-8c20d8054930';
 
@@ -14,6 +15,36 @@ export function useVendedorChat() {
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
+
+  // Gerar um ID de sessão único quando o componente for montado pela primeira vez
+  useEffect(() => {
+    const newSessionId = `session_${Math.random().toString(36).substring(2, 15)}`;
+    setSessionId(newSessionId);
+    
+    // Restaurar mensagens do localStorage se existirem
+    const savedMessages = localStorage.getItem(`chat_history_${newSessionId}`);
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        // Converter as datas de string para Date
+        const messagesWithDates = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+        }));
+        setMessages(messagesWithDates);
+      } catch (e) {
+        console.error('Erro ao restaurar histórico do chat:', e);
+      }
+    }
+  }, []);
+
+  // Salvar mensagens no localStorage sempre que elas mudarem
+  useEffect(() => {
+    if (sessionId && messages.length > 0) {
+      localStorage.setItem(`chat_history_${sessionId}`, JSON.stringify(messages));
+    }
+  }, [messages, sessionId]);
 
   const handleSendMessage = async (messageContent: string): Promise<string> => {
     if (!messageContent.trim()) return '';
@@ -30,7 +61,21 @@ export function useVendedorChat() {
     setMessages(prev => [...prev, userMessage]);
     
     try {
-      // Simplificando o body para corresponder ao que está funcionando no n8n
+      // Preparar a conversação completa para envio ao webhook
+      const conversationHistory: ChatMessage[] = messages.map(msg => ({
+        content: msg.content,
+        role: msg.role as 'user' | 'assistant',
+        timestamp: msg.timestamp
+      }));
+      
+      // Adicionar a mensagem atual à conversação
+      conversationHistory.push({
+        content: messageContent,
+        role: 'user',
+        timestamp: new Date()
+      });
+      
+      // Enviar a conversação completa para o webhook
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
@@ -38,7 +83,9 @@ export function useVendedorChat() {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          message: messageContent
+          message: messageContent,
+          sessionId: sessionId,
+          conversation: conversationHistory
         })
       });
 

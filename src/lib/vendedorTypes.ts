@@ -6,6 +6,12 @@ export interface ChatMessage {
   timestamp?: Date;
 }
 
+// Tipos para a sessão de chat
+export interface ChatSession {
+  sessionId: string;
+  messages: ChatMessage[];
+}
+
 // Tipos para orçamentos
 export interface ManualQuoteFormData {
   name: string;
