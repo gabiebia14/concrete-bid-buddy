@@ -1,32 +1,28 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { FileText, ArrowRight, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, Award, Shield, User, Check, Truck, PieChart, ArrowDown } from "lucide-react";
+import { Search, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { FileText, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, Award, Shield, User, Check, Truck, PieChart, ArrowDown } from "lucide-react";
 
 const LandingPage = () => {
-  const [activeTab, setActiveTab] = useState("empresa");
+  const [searchTerm, setSearchTerm] = useState("");
   
   const bannerSlides = [
     {
+      title: "GRANDES PROJETOS",
+      subtitle: "FUTURO BRILHANTE",
+      description: "Construindo qualidade e solidez em cada peça de concreto",
       image: "/lovable-uploads/cdce80b2-38fa-4d29-b1ea-c253d79cb9c2.png",
-      title: "Soluções em concreto para sua obra",
-      description: "Qualidade e resistência em produtos que fazem a diferença",
-      gradient: "from-gray-900/80 to-transparent"
+      gradient: "from-gray-900/95 to-gray-900/80"
     },
     {
+      title: "INOVAÇÃO",
+      subtitle: "TECNOLOGIA",
+      description: "Produtos certificados com os mais altos padrões de qualidade",
       image: "/lovable-uploads/1d414f0e-f876-49aa-a541-4d4879b1ba06.png",
-      title: "Produtos certificados",
-      description: "Tecnologia e controle de qualidade em cada peça",
-      gradient: "from-gray-900/80 to-transparent"
-    },
-    {
-      image: "/lovable-uploads/9ebb2850-3258-48aa-82a6-a586c7e2fa30.png",
-      title: "Concreto para infraestrutura",
-      description: "Tubos, postes e blocos de alta resistência",
-      gradient: "from-gray-900/80 to-transparent"
+      gradient: "from-gray-900/95 to-gray-900/80"
     }
   ];
   
@@ -70,109 +66,87 @@ const LandingPage = () => {
       description: "Investimento constante em tecnologia e processos de fabricação"
     }
   ];
-  
+
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="bg-lime-600 text-white py-1">
-        <div className="container mx-auto px-4 flex justify-between items-center text-xs">
-          <div className="md:flex items-center space-x-4 hidden">
-            <div className="flex items-center">
-              <Phone size={14} className="mr-1" />
-              <span>(17) 3827-9100</span>
-            </div>
-            <div className="flex items-center">
-              <Mail size={14} className="mr-1" />
-              <span>contato@iptteixeira.com.br</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="flex items-center">
-              <Award size={14} className="mr-1" />
-              <span className="hidden sm:inline">ISO</span> 13001
-            </div>
-            <div className="flex items-center">
-              <Shield size={14} className="mr-1" />
-              <span className="hidden sm:inline">ISO</span> 9001
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <header className="bg-white py-4 shadow-sm sticky top-0 z-30">
+      {/* Header com navegação */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/90 backdrop-blur-md">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-12">
               <img 
                 src="/lovable-uploads/c085fb11-fefa-4a52-a477-58422183e2bc.png" 
-                alt="IPT Teixeira Logo" 
-                className="h-12 sm:h-16 mr-2 sm:mr-3" 
+                alt="IPT Teixeira" 
+                className="h-12"
               />
-              <div className="hidden sm:block">
-                <h1 className="font-bold text-lime-600 text-xl">IPT TEIXEIRA</h1>
-                <p className="text-sm text-gray-500">Produtos de Concreto</p>
-              </div>
+              <nav className="hidden md:flex items-center gap-8">
+                <Link to="/" className="text-white hover:text-yellow-400 transition-colors">Início</Link>
+                <Link to="/catalogo" className="text-white hover:text-yellow-400 transition-colors">Produtos</Link>
+                <Link to="/sobre" className="text-white hover:text-yellow-400 transition-colors">Sobre</Link>
+                <Link to="/contato" className="text-white hover:text-yellow-400 transition-colors">Contato</Link>
+              </nav>
             </div>
-            
-            <nav className="hidden md:flex space-x-6 text-gray-700">
-              <a href="#inicio" className="hover:text-lime-600 transition-colors">Início</a>
-              <a href="#produtos" className="hover:text-lime-600 transition-colors">Produtos</a>
-              <a href="#sobre" className="hover:text-lime-600 transition-colors">Empresa</a>
-              <a href="#contato" className="hover:text-lime-600 transition-colors">Contato</a>
-            </nav>
-            
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
-                <a href="tel:1738279100" className="flex items-center gap-2">
-                  <Phone size={16} />
-                  <span className="hidden sm:inline">(17) 3827-9100</span>
-                </a>
-              </Button>
+
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex relative">
+                <input
+                  type="text"
+                  placeholder="Buscar produtos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-gray-800/50 text-white placeholder:text-gray-400 rounded-full pl-4 pr-10 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              </div>
               
-              <Button asChild size="sm" className="bg-lime-600 hover:bg-lime-700">
-                <Link to="/login" className="flex items-center gap-2">
-                  <User size={16} />
-                  <span className="hidden sm:inline">Área do Cliente</span>
-                </Link>
+              <Button asChild variant="outline" className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900">
+                <Link to="/login">Entrar</Link>
+              </Button>
+              <Button asChild className="bg-yellow-400 text-gray-900 hover:bg-yellow-500">
+                <Link to="/login">Registrar</Link>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <section className="relative">
-        <Carousel className="w-full" autoPlay={true} loop={true}>
+      {/* Hero Section com Carousel */}
+      <section className="pt-20">
+        <Carousel className="w-full" autoPlay loop>
           <CarouselContent>
             {bannerSlides.map((slide, index) => (
               <CarouselItem key={index}>
-                <div className="relative h-[75vh] w-full overflow-hidden group">
-                  <img 
-                    src={slide.image} 
-                    alt={slide.title} 
-                    className="h-full w-full object-cover scale-100 group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} flex items-center`}>
-                    <div className="container mx-auto px-4">
-                      <div className="max-w-2xl p-6 sm:p-8 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10 transform transition-all duration-500 hover:scale-[1.02]">
-                        <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 sm:mb-6 animate-fade-in">
-                          {slide.title}
-                        </h1>
-                        <p className="text-xl sm:text-2xl text-white/90 mb-6 sm:mb-8 animate-slide-in">
-                          {slide.description}
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 text-lg py-6">
-                            <Link to="/login">
-                              Solicitar Orçamento
-                              <ArrowRight className="ml-2" size={20} />
-                            </Link>
-                          </Button>
-                          <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20 text-lg py-6">
-                            <a href="#produtos">
-                              Conheça Nossos Produtos
-                              <ArrowDown className="ml-2" size={20} />
-                            </a>
-                          </Button>
-                        </div>
+                <div className="relative h-[85vh] overflow-hidden">
+                  <div className="absolute inset-0">
+                    <img 
+                      src={slide.image} 
+                      alt={slide.title} 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient}`} />
+                  </div>
+                  
+                  <div className="relative h-full container mx-auto px-4">
+                    <div className="flex flex-col justify-center h-full max-w-3xl">
+                      <h1 className="text-6xl md:text-7xl font-bold text-white mb-4 tracking-tight">
+                        {slide.title}
+                        <span className="block text-yellow-400">{slide.subtitle}</span>
+                      </h1>
+                      <p className="text-xl text-gray-300 mb-8 max-w-2xl">
+                        {slide.description}
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button asChild size="lg" className="bg-yellow-400 text-gray-900 hover:bg-yellow-500 text-lg">
+                          <Link to="/login" className="flex items-center">
+                            Solicitar Orçamento
+                            <ArrowRight className="ml-2" />
+                          </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
+                          <Link to="/catalogo" className="text-lg">
+                            Ver Catálogo
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -180,13 +154,26 @@ const LandingPage = () => {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-            <CarouselPrevious className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
-            <CarouselNext className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
+          <div className="absolute bottom-8 right-8 flex gap-2 z-10">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full border-2 border-white/20 bg-black/20 backdrop-blur-sm hover:bg-black/40 text-white"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full border-2 border-white/20 bg-black/20 backdrop-blur-sm hover:bg-black/40 text-white"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
           </div>
         </Carousel>
       </section>
 
+      {/* Restante do conteúdo */}
       <section className="py-20 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
