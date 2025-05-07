@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { FileText, ArrowRight, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, Award, Shield, User, Check, Truck, PieChart, ArrowDown } from "lucide-react";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Logos3Demo } from "@/components/ui/demo";
 
 const LandingPage = () => {
@@ -140,52 +139,41 @@ const LandingPage = () => {
         </div>
       </header>
 
+      {/* Banner Estático */}
       <section className="relative">
-        <Carousel className="w-full" autoPlay={true} loop={true}>
-          <CarouselContent>
-            {bannerSlides.map((slide, index) => (
-              <CarouselItem key={index}>
-                <div className="relative h-[75vh] w-full overflow-hidden group">
-                  <img 
-                    src={slide.image} 
-                    alt={slide.title} 
-                    className="h-full w-full object-cover scale-100 group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} flex items-center`}>
-                    <div className="container mx-auto px-4">
-                      <div className="max-w-2xl p-6 sm:p-8 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10 transform transition-all duration-500 hover:scale-[1.02]">
-                        <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 sm:mb-6 animate-fade-in">
-                          {slide.title}
-                        </h1>
-                        <p className="text-xl sm:text-2xl text-white/90 mb-6 sm:mb-8 animate-slide-in">
-                          {slide.description}
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 text-lg py-6">
-                            <Link to="/login">
-                              Solicitar Orçamento
-                              <ArrowRight className="ml-2" size={20} />
-                            </Link>
-                          </Button>
-                          <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20 text-lg py-6">
-                            <a href="#produtos">
-                              Conheça Nossos Produtos
-                              <ArrowDown className="ml-2" size={20} />
-                            </a>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        <div className="relative h-[75vh] w-full overflow-hidden">
+          <img 
+            src="/lovable-uploads/cdce80b2-38fa-4d29-b1ea-c253d79cb9c2.png" 
+            alt="Soluções em concreto para sua obra" 
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/80 to-transparent flex items-center">
+            <div className="container mx-auto px-4">
+              <div className="max-w-2xl p-6 sm:p-8 backdrop-blur-sm bg-black/20 rounded-lg border border-white/10">
+                <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 sm:mb-6">
+                  Soluções em concreto para sua obra
+                </h1>
+                <p className="text-xl sm:text-2xl text-white/90 mb-6 sm:mb-8">
+                  Qualidade e resistência em produtos que fazem a diferença
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button asChild size="lg" className="bg-lime-600 hover:bg-lime-700 text-lg py-6">
+                    <Link to="/login">
+                      Solicitar Orçamento
+                      <ArrowRight className="ml-2" size={20} />
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/20 text-lg py-6">
+                    <a href="#produtos">
+                      Conheça Nossos Produtos
+                      <ArrowDown className="ml-2" size={20} />
+                    </a>
+                  </Button>
                 </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-            <CarouselPrevious className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
-            <CarouselNext className="bg-white/30 hover:bg-white/50 border-none backdrop-blur-sm" />
+              </div>
+            </div>
           </div>
-        </Carousel>
+        </div>
       </section>
 
       <section className="py-20 bg-gradient-to-b from-white to-gray-50">
