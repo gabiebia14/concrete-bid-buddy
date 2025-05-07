@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { FileText, ArrowRight, MessageSquare, Calculator, Clock, Phone, Mail, MapPin, Award, Shield, User, Check, Truck, PieChart, ArrowDown } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { Logos3Demo } from "@/components/ui/demo";
 
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("empresa");
@@ -286,6 +287,8 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      <Logos3Demo />
 
       <footer className="bg-gray-900 text-white py-16">
         <div className="container mx-auto px-4">
